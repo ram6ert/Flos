@@ -1,0 +1,63 @@
+{
+  "name": "smart-course-platform",
+  "version": "1.0.0",
+  "description": "An Electron app for convenient access to course information, homework, and documents",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "concurrently \"yarn dev:vite\" \"yarn dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "sleep 3 && NODE_ENV=development electron .",
+    "build": "yarn build:vite && yarn build:electron",
+    "build:vite": "vite build",
+    "build:electron": "tsc -p tsconfig.main.json",
+    "build:dist": "yarn build && electron-builder",
+    "preview": "vite preview"
+  },
+  "keywords": ["electron", "react", "typescript", "vite", "course", "education"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@types/react": "^18.2.20",
+    "@types/react-dom": "^18.2.7",
+    "@types/crypto-js": "^4.1.1",
+    "@typescript-eslint/eslint-plugin": "^6.4.0",
+    "@typescript-eslint/parser": "^6.4.0",
+    "@vitejs/plugin-react": "^4.0.4",
+    "concurrently": "^8.2.0",
+    "electron": "^25.6.0",
+    "electron-builder": "^24.6.3",
+    "eslint": "^8.47.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.3",
+    "typescript": "^5.1.6",
+    "vite": "^4.4.8",
+    "wait-on": "^7.0.1"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "crypto-js": "^4.1.1",
+    "axios": "^1.5.0"
+  },
+  "build": {
+    "appId": "com.smartcourse.platform",
+    "productName": "Smart Course Platform",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.education"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
