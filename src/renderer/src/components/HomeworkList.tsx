@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { HomeworkDetails, HomeworkDetailsResponse, HomeworkAttachment } from '../shared-types';
 
 interface Homework {
   id: number;
@@ -27,6 +28,10 @@ const HomeworkList: React.FC = () => {
   const [filter, setFilter] = useState<"all" | "pending" | "submitted" | "graded" | "overdue">("all");
   const [cacheInfo, setCacheInfo] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [expandedHomework, setExpandedHomework] = useState<Set<number>>(new Set());
+  const [homeworkDetails, setHomeworkDetails] = useState<Map<number, HomeworkDetails>>(new Map());
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHomework();
@@ -165,6 +170,94 @@ const HomeworkList: React.FC = () => {
       case '暂未公布': return 'Not published yet';
       default: return chineseScore;
     }
+  };
+
+  const fetchHomeworkDetails = async (homeworkId: number, courseId: number, teacherId?: string) => {
+    setDetailsLoading(true);
+    try {
+      // We need to extract teacher ID from homework data or make an assumption
+      // For now, we'll use a default or extract from existing data
+      const hw = homework.find(h => h.id === homeworkId);
+      const response = await window.electronAPI.getHomeworkDetails(
+        homeworkId.toString(),
+        courseId.toString(),
+        teacherId || '0' // Default teacher ID if not available
+      );
+      const newDetails = new Map(homeworkDetails);
+      newDetails.set(homeworkId, response.data.homeWork);
+      setHomeworkDetails(newDetails);
+    } catch (error) {
+      console.error('Failed to fetch homework details:', error);
+      setError('Failed to load homework details. Please try again.');
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleToggleDetails = async (hw: Homework) => {
+    if (expandedHomework.has(hw.id)) {
+      // Collapse
+      const newExpanded = new Set(expandedHomework);
+      newExpanded.delete(hw.id);
+      setExpandedHomework(newExpanded);
+      const newDetails = new Map(homeworkDetails);
+      newDetails.delete(hw.id);
+      setHomeworkDetails(newDetails);
+    } else {
+      // Expand
+      const newExpanded = new Set(expandedHomework);
+      newExpanded.add(hw.id);
+      setExpandedHomework(newExpanded);
+      await fetchHomeworkDetails(hw.id, hw.course_id);
+    }
+  };
+
+  const handleDownloadAttachment = async (attachment: HomeworkAttachment) => {
+    setDownloadingAttachment(attachment.url);
+    try {
+      const result = await window.electronAPI.downloadHomeworkAttachment(
+        attachment.url,
+        `${attachment.file_name}.${getFileExtension(attachment.url)}`
+      );
+
+      if (result.success) {
+        if (result.savedToFile) {
+          // Large file saved directly to disk
+          alert(`File downloaded successfully to: ${result.filePath}`);
+        } else if (result.data) {
+          // Small file - create download link
+          const blob = new Blob([Uint8Array.from(atob(result.data), c => c.charCodeAt(0))], {
+            type: result.contentType
+          });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${attachment.file_name}.${getFileExtension(attachment.url)}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }
+      } else {
+        alert(`Download failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download failed. Please try again.');
+    } finally {
+      setDownloadingAttachment(null);
+    }
+  };
+
+  const getFileExtension = (url: string) => {
+    const match = url.match(/\.([^.]+)$/);
+    return match ? match[1] : 'unknown';
+  };
+
+  const formatFileSize = (size: number) => {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const sanitizeContent = (content: string) => {
@@ -465,6 +558,130 @@ const HomeworkList: React.FC = () => {
                 <p style={{ margin: "8px 0 0 0", fontSize: "12px", color: "#666" }}>
                   <strong>Submitted at:</strong> {formatDeadline(hw.subTime)}
                 </p>
+              )}
+
+              {/* View Details Button */}
+              <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #eee" }}>
+                <button
+                  onClick={() => handleToggleDetails(hw)}
+                  disabled={detailsLoading && expandedHomework.has(hw.id)}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: expandedHomework.has(hw.id) ? "#dc3545" : "#007bff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "14px"
+                  }}
+                >
+                  {detailsLoading && expandedHomework.has(hw.id)
+                    ? "Loading..."
+                    : expandedHomework.has(hw.id)
+                    ? "Hide Details"
+                    : "View Details"
+                  }
+                </button>
+              </div>
+
+              {/* Expanded Details View */}
+              {expandedHomework.has(hw.id) && homeworkDetails.get(hw.id) && (
+                <div style={{
+                  marginTop: "16px",
+                  padding: "16px",
+                  backgroundColor: "#f8f9fa",
+                  borderRadius: "8px",
+                  border: "1px solid #dee2e6"
+                }}>
+                  <h4 style={{ margin: "0 0 12px 0", color: "#495057" }}>Homework Details</h4>
+
+                  {(() => {
+                    const details = homeworkDetails.get(hw.id)!;
+                    return (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "14px", marginBottom: "16px" }}>
+                          <p style={{ margin: "0" }}>
+                            <strong>Created:</strong> {new Date(details.create_date).toLocaleString()}
+                          </p>
+                          <p style={{ margin: "0" }}>
+                            <strong>Open Date:</strong> {new Date(details.open_date).toLocaleString()}
+                          </p>
+                          {details.is_publish_answer === "1" && (
+                            <p style={{ margin: "0" }}>
+                              <strong>Answer:</strong> {details.ref_answer}
+                            </p>
+                          )}
+                          <p style={{ margin: "0" }}>
+                            <strong>Repeat Allowed:</strong> {details.is_repeat ? "Yes" : "No"}
+                          </p>
+                        </div>
+
+                        {/* Detailed Content */}
+                        {details.content && sanitizeContent(details.content) && (
+                          <div style={{ marginBottom: "16px" }}>
+                            <h5 style={{ margin: "0 0 8px 0", color: "#495057" }}>Full Description:</h5>
+                            <div style={{
+                              padding: "12px",
+                              backgroundColor: "#ffffff",
+                              borderRadius: "4px",
+                              border: "1px solid #dee2e6",
+                              fontSize: "14px",
+                              lineHeight: "1.5"
+                            }}>
+                              {renderContentWithBold(sanitizeContent(details.content))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Attachments */}
+                        {details.url && (
+                          <div style={{ marginBottom: "16px" }}>
+                            <h5 style={{ margin: "0 0 12px 0", color: "#495057" }}>Attachments:</h5>
+                            <div style={{
+                              padding: "12px",
+                              backgroundColor: "#ffffff",
+                              borderRadius: "4px",
+                              border: "1px solid #dee2e6",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between"
+                            }}>
+                              <div>
+                                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                                  📎 {details.file_name}
+                                </div>
+                                <div style={{ fontSize: "12px", color: "#6c757d" }}>
+                                  Size: {formatFileSize(details.pic_size)}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleDownloadAttachment({
+                                  id: details.id,
+                                  url: details.url,
+                                  file_name: details.file_name,
+                                  convert_url: details.convert_url,
+                                  pic_size: details.pic_size
+                                })}
+                                disabled={downloadingAttachment === details.url}
+                                style={{
+                                  padding: "6px 12px",
+                                  backgroundColor: downloadingAttachment === details.url ? "#ccc" : "#28a745",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  cursor: downloadingAttachment === details.url ? "not-allowed" : "pointer",
+                                  fontSize: "12px"
+                                }}
+                              >
+                                {downloadingAttachment === details.url ? "Downloading..." : "Download"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               )}
             </div>
             );

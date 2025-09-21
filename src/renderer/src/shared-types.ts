@@ -40,6 +40,54 @@ export interface Homework {
   allCount: number;
 }
 
+export interface HomeworkDetails {
+  id: number;
+  create_date: string;
+  course_id: number;
+  course_sched_id: number;
+  content: string;
+  title: string;
+  end_time: string;
+  open_date: string;
+  is_fz: number;
+  score: string;
+  moudel_id: number;
+  isOpen: number;
+  is_publish_answer: string;
+  status: string;
+  ref_answer: string;
+  review_method: string;
+  url: string;
+  file_name: string;
+  convert_url: string;
+  pic_size: number;
+  makeup_time: string;
+  is_repeat: number;
+  makeup_flag: string;
+  xzIds: string | null;
+  is_group_stu: string;
+  teacher_weight: number;
+  stu_weight: number;
+  stu_completion: number;
+  evaluation_num: number;
+}
+
+export interface HomeworkAttachment {
+  id: number;
+  url: string;
+  file_name: string;
+  convert_url: string;
+  pic_size: number;
+}
+
+export interface HomeworkDetailsResponse {
+  homeWork: HomeworkDetails;
+  picList: HomeworkAttachment[];
+  answerPicList: HomeworkAttachment[];
+  STATUS: string;
+  message: string;
+}
+
 export interface HomeworkListResponse {
   courseNoteList: Homework[];
   page: number;
