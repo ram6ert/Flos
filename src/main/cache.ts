@@ -9,6 +9,7 @@ let cacheTimestamps: { [key: string]: number } = {};
 // Cache durations
 export const CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day for homework
 export const COURSE_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days for courses
+export const SCHEDULE_CACHE_DURATION = COURSE_CACHE_DURATION; // Same as courses
 
 // Get cache file path (user-specific)
 export const getCachePath = (username?: string) => {

@@ -5,8 +5,9 @@ import HomeworkList from './components/HomeworkList';
 import DocumentList from './components/DocumentList';
 import Sidebar from './components/Sidebar';
 import Login from './components/Login';
+import ScheduleTable from './components/ScheduleTable';
 
-type ActiveView = 'courses' | 'homework' | 'documents' | 'announcements';
+type ActiveView = 'courses' | 'homework' | 'documents' | 'schedule';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ActiveView>('courses');
@@ -109,8 +110,8 @@ const App: React.FC = () => {
             onCourseSelect={handleCourseSelect}
           />
         );
-      case 'announcements':
-        return <div>Announcements coming soon...</div>;
+      case 'schedule':
+        return <ScheduleTable />;
       default:
         return <CourseList courses={courses} onCourseSelect={handleCourseSelect} onRefresh={handleRefreshCourses} />;
     }

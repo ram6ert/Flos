@@ -152,3 +152,27 @@ export interface LoginResponse {
   message?: string;
   requestId?: string;
 }
+
+export interface ScheduleEntry {
+  courseId: string;
+  courseName: string;
+  teacherName: string;
+  className: string;
+  studentCount: number;
+  classroom: string;
+  timeSlot: string;
+  dayOfWeek: number; // 0 = Monday, 6 = Sunday
+}
+
+export interface WeekSchedule {
+  weekNumber: number;
+  beginDate: string;
+  endDate: string;
+  entries: ScheduleEntry[];
+}
+
+export interface ScheduleResponse {
+  schedule: WeekSchedule;
+  STATUS: string;
+  message?: string;
+}

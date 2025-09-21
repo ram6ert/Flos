@@ -1,6 +1,6 @@
 import React from 'react';
 
-type ActiveView = 'courses' | 'homework' | 'documents' | 'announcements';
+type ActiveView = 'courses' | 'homework' | 'documents' | 'schedule';
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -12,7 +12,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
     { id: 'courses', label: 'Courses', icon: '📚' },
     { id: 'homework', label: 'Homework', icon: '📝' },
     { id: 'documents', label: 'Documents', icon: '📄' },
-    { id: 'announcements', label: 'Announcements', icon: '📢' },
+    { id: 'schedule', label: 'Schedule', icon: '📅' },
   ];
 
   return (
