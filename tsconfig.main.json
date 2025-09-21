@@ -11,7 +11,10 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "inlineSourceMap": false,
+    "inlineSources": false
   },
   "include": ["src/main/**/*"],
   "exclude": ["node_modules", "dist", "src/renderer", "src/shared"]

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Course, Homework, Document, UserSession } from './shared-types';
+import { Course, Document, UserSession } from './shared-types';
 import CourseList from './components/CourseList';
 import HomeworkList from './components/HomeworkList';
 import DocumentList from './components/DocumentList';
@@ -12,7 +12,6 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ActiveView>('courses');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [homework, setHomework] = useState<Homework[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
@@ -26,6 +25,21 @@ const App: React.FC = () => {
       loadCourses();
     }
   }, [userSession]);
+
+  useEffect(() => {
+    // Listen for cache updates
+    const handleCacheUpdate = (event: any, payload: { key: string; data: any }) => {
+      if (payload.key === 'courses') {
+        setCourses(payload.data || []);
+      }
+    };
+
+    window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
+
+    return () => {
+      window.electronAPI.removeAllListeners?.('cache-updated');
+    };
+  }, []);
 
   const checkLoginStatus = async () => {
     try {
@@ -42,10 +56,12 @@ const App: React.FC = () => {
     }
   };
 
-  const loadCourses = async () => {
+  const loadCourses = async (forceRefresh = false) => {
     try {
-      const coursesData = await window.electronAPI.getCourses();
-      setCourses(coursesData);
+      const coursesResponse = forceRefresh
+        ? await window.electronAPI.refreshCourses()
+        : await window.electronAPI.getCourses();
+      setCourses(coursesResponse.data || []);
     } catch (error) {
       console.error('Failed to load courses:', error);
       // Mock data for development
@@ -81,44 +97,13 @@ const App: React.FC = () => {
     }
   };
 
-  const loadHomework = async (courseId: string) => {
-    try {
-      const homeworkData = await window.electronAPI.getHomework(courseId);
-      setHomework(homeworkData);
-    } catch (error) {
-      console.error('Failed to load homework:', error);
-      // Mock data for development
-      setHomework([
-        {
-          id: '1',
-          courseId: courseId,
-          title: 'Assignment 1: Basic Programming',
-          description: 'Complete the programming exercises in Chapter 1',
-          dueDate: new Date('2024-10-15'),
-          submissionType: 'file',
-          maxPoints: 100,
-          isCompleted: false
-        },
-        {
-          id: '2',
-          courseId: courseId,
-          title: 'Quiz 1: Variables and Data Types',
-          description: 'Online quiz covering basic programming concepts',
-          dueDate: new Date('2024-10-08'),
-          submissionType: 'online',
-          maxPoints: 50,
-          isCompleted: true,
-          submittedAt: new Date('2024-10-07')
-        }
-      ]);
-    }
-  };
 
   const handleCourseSelect = (course: Course) => {
     setSelectedCourse(course);
-    if (activeView === 'homework') {
-      loadHomework(course.id);
-    }
+  };
+
+  const handleRefreshCourses = async () => {
+    await loadCourses(true);
   };
 
   const handleLoginSuccess = (session: UserSession) => {
@@ -130,7 +115,6 @@ const App: React.FC = () => {
       await window.electronAPI.logout();
       setUserSession(null);
       setCourses([]);
-      setHomework([]);
       setDocuments([]);
       setSelectedCourse(null);
       setActiveView('courses');
@@ -142,16 +126,9 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeView) {
       case 'courses':
-        return <CourseList courses={courses} onCourseSelect={handleCourseSelect} />;
+        return <CourseList courses={courses} onCourseSelect={handleCourseSelect} onRefresh={handleRefreshCourses} />;
       case 'homework':
-        return (
-          <HomeworkList
-            homework={homework}
-            selectedCourse={selectedCourse}
-            onCourseSelect={handleCourseSelect}
-            courses={courses}
-          />
-        );
+        return <HomeworkList />;
       case 'documents':
         return (
           <DocumentList
@@ -164,7 +141,7 @@ const App: React.FC = () => {
       case 'announcements':
         return <div>Announcements coming soon...</div>;
       default:
-        return <CourseList courses={courses} onCourseSelect={handleCourseSelect} />;
+        return <CourseList courses={courses} onCourseSelect={handleCourseSelect} onRefresh={handleRefreshCourses} />;
     }
   };
 

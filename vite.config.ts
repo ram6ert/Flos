@@ -9,6 +9,7 @@ export default defineConfig({
   build: {
     outDir: path.join(__dirname, 'dist/renderer'),
     emptyOutDir: true,
+    sourcemap: true,
     rollupOptions: {
       input: path.join(__dirname, 'src/renderer/index.html'),
     },

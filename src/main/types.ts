@@ -7,5 +7,5 @@ export interface LoginCredentials {
 export interface LoginResponse {
   success: boolean;
   message?: string;
-  sessionId?: string;
+  requestId?: string;
 }

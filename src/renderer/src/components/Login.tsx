@@ -8,7 +8,7 @@ interface LoginCredentials {
 
 interface UserSession {
   username: string;
-  sessionId: string;
+  requestId: string;
   isLoggedIn: boolean;
   loginTime: Date;
 }
@@ -77,7 +77,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       if (response.success) {
         const session: UserSession = {
           username: username.trim(),
-          sessionId: response.sessionId || "",
+          requestId: response.requestId || "",
           isLoggedIn: true,
           loginTime: new Date(),
         };

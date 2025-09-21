@@ -47,7 +47,7 @@ export interface LoginCredentials {
 
 export interface UserSession {
   username: string;
-  sessionId: string;
+  requestId: string;
   isLoggedIn: boolean;
   loginTime: Date;
 }
@@ -55,5 +55,5 @@ export interface UserSession {
 export interface LoginResponse {
   success: boolean;
   message?: string;
-  sessionId?: string;
+  requestId?: string;
 }
