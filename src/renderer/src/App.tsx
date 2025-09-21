@@ -64,36 +64,7 @@ const App: React.FC = () => {
       setCourses(coursesResponse.data || []);
     } catch (error) {
       console.error('Failed to load courses:', error);
-      // Mock data for development
-      setCourses([
-        {
-          id: '1',
-          name: 'Computer Science Fundamentals',
-          code: 'CS-101',
-          instructor: 'Dr. Smith',
-          description: 'Introduction to computer science concepts and programming',
-          semester: 'Fall',
-          year: 2024
-        },
-        {
-          id: '2',
-          name: 'Data Structures and Algorithms',
-          code: 'CS-201',
-          instructor: 'Prof. Johnson',
-          description: 'Advanced programming concepts and algorithm design',
-          semester: 'Fall',
-          year: 2024
-        },
-        {
-          id: '3',
-          name: 'Web Development',
-          code: 'CS-301',
-          instructor: 'Dr. Williams',
-          description: 'Modern web development technologies and frameworks',
-          semester: 'Fall',
-          year: 2024
-        }
-      ]);
+      setCourses([]);
     }
   };
 
