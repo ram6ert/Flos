@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { app } from "electron";
 import axios from "axios";
+import * as iconv from "iconv-lite";
 import { API_CONFIG } from "./constants";
 import { LoginCredentials, LoginResponse } from "./types";
 
@@ -110,14 +111,18 @@ export const handleLogin = async (
         },
         maxRedirects: 0,
         validateStatus: () => true,
+        responseType: 'arraybuffer', // Get raw bytes to decode as GBK
       }
     );
 
     updateSessionCookies(response, "login");
 
+    // Decode GBK response to handle Chinese error messages properly
+    const responseText = iconv.decode(Buffer.from(response.data), 'gbk');
+
     // Check for login failure indicators
-    if (response.data.includes("alert(")) {
-      const alertMatch = response.data.match(/alert\(['"]([^'"]+)['"]\)/);
+    if (responseText.includes("alert(")) {
+      const alertMatch = responseText.match(/alert\(['"]([^'"]+)['"]\)/);
       const message = alertMatch ? alertMatch[1] : "Login failed";
       return { success: false, message };
     }
@@ -158,7 +163,7 @@ export const handleLogin = async (
       sessionId
     };
 
-    const requestIdMatch = response.data.match(/var requestId = '([^']+)'/);
+    const requestIdMatch = responseText.match(/var requestId = '([^']+)'/);
     const requestId = requestIdMatch ? requestIdMatch[1] : "";
 
     return { success: true, requestId };
@@ -174,11 +179,10 @@ export const handleStoreCredentials = async (credentials: {
 }): Promise<boolean> => {
   try {
     const credentialsPath = getCredentialsPath();
-    const passwordHashMD5 = hashPasswordMD5(credentials.password);
-
+    // Password is already MD5 hashed by the renderer
     const data = {
       username: credentials.username,
-      passwordHash: passwordHashMD5,
+      passwordHash: credentials.password, // Already hashed
       savedAt: new Date().toISOString(),
     };
 

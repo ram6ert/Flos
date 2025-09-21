@@ -85,9 +85,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         };
 
         if (rememberCredentials) {
+          // Always store the password that will be sent to the server (hashed)
+          const passwordToStore = isPasswordHashed ? password : hashPassword(password);
           await window.electronAPI.storeCredentials({
             username: username.trim(),
-            password: isPasswordHashed ? password : hashPassword(password), // Store hashed password
+            password: passwordToStore,
           });
         }
 
