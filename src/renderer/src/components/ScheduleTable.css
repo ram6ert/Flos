@@ -1,0 +1,266 @@
+/* Schedule Table Styles */
+.schedule-container {
+  padding: 1.5rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin: 1rem;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.schedule-header h2 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.schedule-week-info {
+  margin: 0.5rem 0 0 0;
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
+.refresh-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.refresh-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.loading-container, .error-container, .empty-container {
+  text-align: center;
+  padding: 3rem;
+  color: #7f8c8d;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.retry-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.schedule-table-wrapper {
+  overflow-x: auto;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px #e1e8ed;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-size: 0.85rem;
+}
+
+.time-header, .day-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  border: none;
+}
+
+.time-header {
+  min-width: 100px;
+  width: 120px;
+}
+
+.day-header {
+  min-width: 140px;
+  width: calc((100% - 120px) / 7);
+}
+
+.day-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.day-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.day-date {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.schedule-row:nth-child(even) {
+  background-color: #fafbfc;
+}
+
+.time-cell {
+  background: #f8f9fa;
+  border-right: 2px solid #e1e8ed;
+  padding: 0;
+  text-align: center;
+  font-weight: 500;
+  color: #495057;
+  min-height: 80px;
+  vertical-align: middle;
+}
+
+.time-content {
+  padding: 1rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.schedule-cell {
+  border: 1px solid #e1e8ed;
+  padding: 0;
+  vertical-align: top;
+  min-height: 80px;
+  position: relative;
+}
+
+.schedule-cell.has-course {
+  background: linear-gradient(135deg, #e8f4fd 0%, #f0f8ff 100%);
+}
+
+.course-entry {
+  padding: 0.75rem 0.5rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.course-entry:hover {
+  background: linear-gradient(135deg, #d4ebf7 0%, #e6f3ff 100%);
+  transform: scale(1.02);
+}
+
+.course-name {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  margin-bottom: 0.25rem;
+}
+
+.course-teacher {
+  color: #27ae60;
+  font-size: 0.7rem;
+  line-height: 1.1;
+}
+
+.course-room {
+  color: #e67e22;
+  font-size: 0.7rem;
+  line-height: 1.1;
+}
+
+.course-details {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.25rem;
+}
+
+.course-class, .course-students {
+  font-size: 0.65rem;
+  color: #7f8c8d;
+  line-height: 1.1;
+}
+
+.empty-cell {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-text {
+  color: #bdc3c7;
+  font-size: 1.2rem;
+}
+
+@media (max-width: 1200px) {
+  .schedule-table {
+    font-size: 0.75rem;
+  }
+
+  .day-header {
+    min-width: 120px;
+  }
+
+  .course-name {
+    font-size: 0.75rem;
+  }
+
+  .course-teacher, .course-room {
+    font-size: 0.65rem;
+  }
+
+  .course-class, .course-students {
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .schedule-container {
+    margin: 0.5rem;
+    padding: 1rem;
+  }
+
+  .schedule-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .schedule-table {
+    font-size: 0.7rem;
+  }
+
+  .day-header {
+    min-width: 100px;
+  }
+
+  .time-cell {
+    min-width: 80px;
+  }
+}

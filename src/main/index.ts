@@ -30,6 +30,7 @@ import {
   fetchCourseList,
   fetchHomeworkData,
   fetchHomeworkDetails,
+  fetchScheduleData,
 } from "./api";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -687,3 +688,64 @@ ipcMain.handle(
     }
   }
 );
+
+// Schedule handlers
+ipcMain.handle(
+  "get-schedule",
+  async (event, options?: { skipCache?: boolean }) => {
+    if (!currentSession) {
+      throw new Error("Not logged in");
+    }
+
+    const cacheKey = "schedule";
+
+    // If skipCache is requested, fetch fresh data immediately
+    if (options?.skipCache) {
+      return requestQueue.add(async () => {
+        const scheduleData = await fetchScheduleData("2021112401", true);
+        // Update cache with fresh data
+        setCachedData(cacheKey, scheduleData);
+        saveCacheToFile(currentSession?.username);
+        return scheduleData;
+      });
+    }
+
+    // Always return cached data immediately if available
+    const cachedData = getCachedData(cacheKey, COURSE_CACHE_DURATION);
+
+    // Start background refresh if cache is stale or doesn't exist
+    if (!cachedData) {
+      refreshCacheInBackground(cacheKey, async () => {
+        return requestQueue.add(async () => {
+          return await fetchScheduleData("2021112401", false);
+        });
+      });
+    }
+
+    // Return cached data if available, otherwise wait for fresh data
+    if (cachedData) {
+      return cachedData;
+    } else {
+      // No cache, wait for fresh data
+      return requestQueue.add(async () => {
+        const scheduleData = await fetchScheduleData("2021112401", false);
+        setCachedData(cacheKey, scheduleData);
+        saveCacheToFile(currentSession?.username);
+        return scheduleData;
+      });
+    }
+  }
+);
+
+ipcMain.handle("refresh-schedule", async () => {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  return requestQueue.add(async () => {
+    const scheduleData = await fetchScheduleData("2021112401", true);
+    setCachedData("schedule", scheduleData);
+    saveCacheToFile(currentSession?.username);
+    return scheduleData;
+  });
+});

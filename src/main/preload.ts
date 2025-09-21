@@ -8,6 +8,8 @@ export interface ElectronAPI {
   getCourseDocuments: (courseId: string, options?: { skipCache?: boolean }) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   refreshCourses: () => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   refreshHomework: (courseId?: string) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  getSchedule: (options?: { skipCache?: boolean }) => Promise<any>;
+  refreshSchedule: () => Promise<any>;
   downloadDocument: (documentUrl: string) => Promise<{ success: boolean }>;
   downloadCourseDocument: (documentUrl: string, fileName: string) => Promise<{ success: boolean; data?: string; contentType?: string; fileName?: string; fileSize?: number; savedToFile?: boolean; filePath?: string; error?: string }>;
   downloadHomeworkAttachment: (attachmentUrl: string, fileName: string) => Promise<{ success: boolean; data?: string; contentType?: string; fileName?: string; fileSize?: number; savedToFile?: boolean; filePath?: string; error?: string }>;
@@ -30,6 +32,8 @@ const electronAPI: ElectronAPI = {
   getCourseDocuments: (courseId: string, options?: { skipCache?: boolean }) => ipcRenderer.invoke('get-course-documents', courseId, options),
   refreshCourses: () => ipcRenderer.invoke('get-courses', { skipCache: true }),
   refreshHomework: (courseId?: string) => ipcRenderer.invoke('get-homework', courseId, { skipCache: true }),
+  getSchedule: (options?: { skipCache?: boolean }) => ipcRenderer.invoke('get-schedule', options),
+  refreshSchedule: () => ipcRenderer.invoke('refresh-schedule'),
   downloadDocument: (documentUrl: string) => ipcRenderer.invoke('download-document', documentUrl),
   downloadCourseDocument: (documentUrl: string, fileName: string) => ipcRenderer.invoke('download-course-document', documentUrl, fileName),
   downloadHomeworkAttachment: (attachmentUrl: string, fileName: string) => ipcRenderer.invoke('download-homework-attachment', attachmentUrl, fileName),

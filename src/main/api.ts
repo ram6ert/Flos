@@ -6,7 +6,10 @@ import {
   setCachedData,
   CACHE_DURATION,
   COURSE_CACHE_DURATION,
+  SCHEDULE_CACHE_DURATION,
 } from "./cache";
+import { JSDOM } from "jsdom";
+import * as iconv from "iconv-lite";
 
 // Helper function to fetch homework details
 export async function fetchHomeworkDetails(
@@ -280,4 +283,165 @@ export async function fetchHomeworkData(courseId?: string) {
 
     return allHomework;
   }
+}
+
+// Helper function to fetch and parse schedule data
+export async function fetchScheduleData(sessionId: string = "2021112401", forceRefresh: boolean = false) {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  const cacheKey = `schedule_${sessionId}`;
+
+  // Check cache first unless force refresh is requested
+  if (!forceRefresh) {
+    const cachedData = getCachedData(cacheKey, SCHEDULE_CACHE_DURATION);
+    if (cachedData) {
+      console.log("Using cached schedule data");
+      return cachedData;
+    }
+  }
+
+  const url = `${API_CONFIG.BASE_URL}/back/rp/common/myTimeTableDetail.shtml?method=skipIndex&sessionId=${sessionId}`;
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        Cookie: captchaSession ? captchaSession.cookies.join("; ") : "",
+        Referer: `${API_CONFIG.BASE_URL}/ve/`,
+        "User-Agent": API_CONFIG.USER_AGENT,
+      },
+      responseType: "arraybuffer", // Get raw bytes for GBK decoding
+      validateStatus: () => true,
+    });
+
+    if (response.status >= 200 && response.status < 400) {
+      updateSessionCookies(response, "schedule-request");
+
+      // Decode GBK content to UTF-8
+      const decodedHtml = iconv.decode(Buffer.from(response.data), 'gbk');
+      const scheduleData = parseScheduleHTML(decodedHtml);
+
+      // Cache the result
+      setCachedData(cacheKey, scheduleData);
+
+      return scheduleData;
+    }
+
+    throw new Error(`Request failed with status: ${response.status}`);
+  } catch (error) {
+    console.error("Failed to fetch schedule:", error);
+    throw error;
+  }
+}
+
+// Helper function to parse schedule HTML
+function parseScheduleHTML(html: string): any {
+  const dom = new JSDOM(html);
+  const document = dom.window.document;
+
+  // Extract week info
+  const weekSelect = document.getElementById("jxzId");
+  const beginTimeInput = document.getElementById("begin_time");
+
+  let weekNumber = 2; // Default to week 2 as seen in the HTML
+  let beginDate = "";
+  let endDate = "";
+
+  if (beginTimeInput) {
+    beginDate = beginTimeInput.getAttribute("value") || "";
+  }
+
+  // Parse schedule entries
+  const entries: any[] = [];
+
+  // Helper function to sanitize time slots (remove extra spaces)
+  const sanitizeTimeSlot = (timeSlot: string): string => {
+    return timeSlot.replace(/\s+/g, ' ').replace(/- /g, '-').trim();
+  };
+
+  // Get all schedule rows
+  const scheduleRows = document.querySelectorAll(".timetable-tabletlist");
+
+  scheduleRows.forEach((row, timeSlotIndex) => {
+    const timeSlotSpan = row.querySelector(".table-listsp1");
+    let currentTimeSlot = "Unknown";
+
+    if (timeSlotSpan) {
+      // Get the time slot from HTML and sanitize it
+      const rawTimeSlot = timeSlotSpan.textContent?.trim() || "";
+      currentTimeSlot = sanitizeTimeSlot(rawTimeSlot);
+    }
+
+    // Get course cells for each day
+    const courseCells = row.querySelectorAll(".table-list2");
+
+    courseCells.forEach((cell, dayIndex) => {
+      const courseTitle = cell.querySelector(".table-t");
+      if (courseTitle) {
+        const courseName = courseTitle.textContent?.replace("课程：", "").trim() || "";
+
+        const teacherSpan = cell.querySelector(".table-b");
+        const teacherName = teacherSpan?.textContent?.replace("教师：", "").trim() || "";
+
+        const classSpans = cell.querySelectorAll(".table-b");
+        let className = "";
+        if (classSpans.length > 1) {
+          className = classSpans[1].textContent?.replace("班级：", "").trim() || "";
+        }
+
+        const studentSpan = cell.querySelector(".table-m");
+        const studentText = studentSpan?.textContent?.replace("学生：", "").replace("人", "").trim() || "0";
+        const studentCount = parseInt(studentText) || 0;
+
+        const classroomSpan = cell.querySelector(".table-j");
+        const classroom = classroomSpan?.textContent?.replace("教室：", "").trim() || "";
+
+        // Extract course ID from onclick attribute
+        let courseId = "";
+        const onclickAttr = courseTitle.getAttribute("onclick");
+        if (onclickAttr) {
+          const match = onclickAttr.match(/'([^']+)'/);
+          if (match) {
+            courseId = match[1];
+          }
+        }
+
+        if (courseName) {
+          const entry = {
+            courseId,
+            courseName: courseName.trim(),
+            teacherName: teacherName.trim(),
+            className: className.trim(),
+            studentCount,
+            classroom: classroom.trim(),
+            timeSlot: currentTimeSlot,
+            dayOfWeek: dayIndex
+          };
+          entries.push(entry);
+        }
+      }
+    });
+  });
+
+  // Calculate end date (assuming 7 days from begin date)
+  if (beginDate) {
+    const beginDateObj = new Date(beginDate);
+    const endDateObj = new Date(beginDateObj);
+    endDateObj.setDate(beginDateObj.getDate() + 6);
+    endDate = endDateObj.toISOString().split('T')[0];
+  }
+
+  return {
+    schedule: {
+      weekNumber,
+      beginDate,
+      endDate,
+      entries
+    },
+    STATUS: "0",
+    message: "Schedule fetched successfully"
+  };
 }
