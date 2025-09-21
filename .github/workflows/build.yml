@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   build:
     strategy:
@@ -84,14 +88,14 @@ jobs:
       with:
         path: artifacts
 
+    - name: List artifacts for debugging
+      run: find artifacts -type f -name "*" | head -20
+
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.version.outputs.version }}
-        release_name: Smart Course Platform v${{ steps.version.outputs.version }}
+        name: Smart Course Platform v${{ steps.version.outputs.version }}
         body: |
           ## Smart Course Platform v${{ steps.version.outputs.version }}
 
@@ -113,21 +117,12 @@ jobs:
 
           ---
           🤖 Built automatically with GitHub Actions
-        draft: false
-        prerelease: false
-
-    - name: List artifacts for debugging
-      run: find artifacts -type f -name "*" | head -20
-
-    - name: Upload Release Assets
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ steps.version.outputs.version }}
-        name: Smart Course Platform v${{ steps.version.outputs.version }}
         files: |
           artifacts/smart-course-platform-windows/*
           artifacts/smart-course-platform-macos/*
           artifacts/smart-course-platform-linux/*
         generate_release_notes: true
+        draft: false
+        prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
