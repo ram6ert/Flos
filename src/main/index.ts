@@ -3,14 +3,19 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import axios from 'axios';
-import { LoginCredentials, LoginResponse } from '../shared/types';
-import { API_CONFIG } from '../shared/constants';
+import { LoginCredentials, LoginResponse } from './types';
+import { API_CONFIG } from './constants';
 
 const isDev = process.env.NODE_ENV === 'development';
 
-// Session management
+// Session management - store credentials for re-authentication
 let currentSession: {
   username: string;
+  passwordHash: string;
+} | null = null;
+
+// Captcha session management
+let captchaSession: {
   sessionId: string;
   cookies: string[];
 } | null = null;
@@ -138,7 +143,55 @@ const parseCookies = (setCookieHeaders: string[]): string[] => {
   return setCookieHeaders.map(cookie => cookie.split(';')[0]);
 };
 
-// IPC handlers for authentication
+// IPC handlers for captcha and authentication
+ipcMain.handle('fetch-captcha', async (): Promise<{ success: boolean; sessionId?: string; imageData?: string }> => {
+  try {
+    const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CAPTCHA}`, {
+      headers: {
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh-TW;q=0.9,zh;q=0.8,en;q=0.7,en-GB;q=0.6,en-US;q=0.5',
+        'Cache-Control': 'max-age=0',
+        'Connection': 'keep-alive',
+        'Referer': `${API_CONFIG.BASE_URL}/ve/`,
+        'User-Agent': API_CONFIG.USER_AGENT
+      },
+      responseType: 'arraybuffer',
+      validateStatus: () => true
+    });
+
+    // Extract session info from cookies
+    const setCookieHeaders = response.headers['set-cookie'] || [];
+
+    if (setCookieHeaders.length > 0) {
+      const cookies = parseCookies(setCookieHeaders);
+      const sessionId = extractSessionIdFromCookies(cookies);
+
+      if (sessionId) {
+        captchaSession = {
+          sessionId,
+          cookies
+        };
+
+        // Convert image data to base64
+        const imageBuffer = Buffer.from(response.data);
+        const base64Image = imageBuffer.toString('base64');
+        const imageData = `data:image/jpeg;base64,${base64Image}`;
+
+        return {
+          success: true,
+          sessionId,
+          imageData
+        };
+      }
+    }
+
+    return { success: false };
+  } catch (error) {
+    console.error('Captcha fetch error:', error);
+    return { success: false };
+  }
+});
+
 ipcMain.handle('login', async (event, credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
     const formData = new URLSearchParams();
@@ -149,6 +202,9 @@ ipcMain.handle('login', async (event, credentials: LoginCredentials): Promise<Lo
     formData.append('password', credentials.password);
     formData.append('passcode', credentials.passcode);
 
+    // Use captcha session cookies if available
+    const cookieHeader = captchaSession ? captchaSession.cookies.join('; ') : '';
+
     const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, formData, {
       headers: {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -156,6 +212,7 @@ ipcMain.handle('login', async (event, credentials: LoginCredentials): Promise<Lo
         'Cache-Control': 'max-age=0',
         'Connection': 'keep-alive',
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': cookieHeader,
         'Origin': API_CONFIG.BASE_URL,
         'Referer': `${API_CONFIG.BASE_URL}/ve/`,
         'Upgrade-Insecure-Requests': '1',
@@ -172,29 +229,16 @@ ipcMain.handle('login', async (event, credentials: LoginCredentials): Promise<Lo
       };
     }
 
-    // Extract session info from cookies
-    const setCookieHeaders = response.headers['set-cookie'] || [];
-    const cookies = parseCookies(setCookieHeaders);
-    const sessionId = extractSessionIdFromCookies(cookies);
+    // If no alert, login was successful - store credentials for future authentication
+    currentSession = {
+      username: credentials.username,
+      passwordHash: credentials.password
+    };
 
-    if (sessionId) {
-      currentSession = {
-        username: credentials.username,
-        sessionId,
-        cookies
-      };
-
-      return {
-        success: true,
-        sessionId,
-        message: 'Login successful'
-      };
-    } else {
-      return {
-        success: false,
-        message: 'Login failed. No session established.'
-      };
-    }
+    return {
+      success: true,
+      message: 'Login successful'
+    };
   } catch (error) {
     console.error('Login error:', error);
     return {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Course, Document } from '@shared/types';
+import { Course, Document } from '../shared-types';
 
 interface DocumentListProps {
   documents: Document[];

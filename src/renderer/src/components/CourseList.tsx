@@ -1,5 +1,5 @@
 import React from 'react';
-import { Course } from '@shared/types';
+import { Course } from '../shared-types';
 
 interface CourseListProps {
   courses: Course[];

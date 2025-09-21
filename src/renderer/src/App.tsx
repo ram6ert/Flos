@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Course, Homework, Document, UserSession } from '@shared/types';
+import { Course, Homework, Document, UserSession } from './shared-types';
 import CourseList from './components/CourseList';
 import HomeworkList from './components/HomeworkList';
 import DocumentList from './components/DocumentList';

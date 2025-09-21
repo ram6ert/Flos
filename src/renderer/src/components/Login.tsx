@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from "react";
 import CryptoJS from "crypto-js";
-import { LoginCredentials, UserSession } from "@shared/types";
+interface LoginCredentials {
+  username: string;
+  password: string;
+  passcode: string;
+}
+
+interface UserSession {
+  username: string;
+  sessionId: string;
+  isLoggedIn: boolean;
+  loginTime: Date;
+}
 import { API_CONFIG } from "../constants";
 
 interface LoginProps {
@@ -21,8 +32,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     loadSavedCredentials();
   }, []);
 
-  const loadCaptcha = () => {
-    setCaptchaUrl(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CAPTCHA}`);
+  const loadCaptcha = async () => {
+    try {
+      const result = await window.electronAPI.fetchCaptcha();
+      if (result.success && result.imageData) {
+        setCaptchaUrl(result.imageData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch captcha:', error);
+    }
   };
 
   const loadSavedCredentials = async () => {

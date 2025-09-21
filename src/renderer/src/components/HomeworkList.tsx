@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Course, Homework } from '@shared/types';
+import { Course, Homework } from '../shared-types';
 
 interface HomeworkListProps {
   homework: Homework[];
