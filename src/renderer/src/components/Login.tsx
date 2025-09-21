@@ -26,6 +26,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [rememberCredentials, setRememberCredentials] = useState(false);
+  const [isPasswordHashed, setIsPasswordHashed] = useState(false); // Track if password is already hashed
 
   useEffect(() => {
     loadCaptcha();
@@ -48,7 +49,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       const saved = await window.electronAPI.getStoredCredentials();
       if (saved) {
         setUsername(saved.username || "");
-        setPassword(saved.password || "");
+        setPassword(saved.password || ""); // This is already MD5 hashed
+        setIsPasswordHashed(true); // Mark that this password is already hashed
         setRememberCredentials(true);
       }
     } catch (error) {
@@ -68,7 +70,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     try {
       const credentials: LoginCredentials = {
         username: username.trim(),
-        password: hashPassword(password),
+        password: isPasswordHashed ? password : hashPassword(password),
         passcode: passcode.trim(),
       };
 
@@ -85,7 +87,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         if (rememberCredentials) {
           await window.electronAPI.storeCredentials({
             username: username.trim(),
-            password: password, // Store plain password for convenience
+            password: isPasswordHashed ? password : hashPassword(password), // Store hashed password
           });
         }
 
@@ -190,7 +192,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setIsPasswordHashed(false); // Reset hashed flag when user types new password
+              }}
               required
               placeholder="Enter your password"
               style={{

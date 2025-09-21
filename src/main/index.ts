@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as crypto from 'crypto';
 import axios from 'axios';
 import { LoginCredentials, LoginResponse } from './types';
 import { API_CONFIG } from './constants';
@@ -29,6 +30,11 @@ axios.defaults.timeout = API_CONFIG.TIMEOUT;
 const getCredentialsPath = () => {
   const userDataPath = app.getPath('userData');
   return path.join(userDataPath, 'credentials.json');
+};
+
+// Password security helpers - using MD5 to match server expectations
+const hashPasswordMD5 = (password: string): string => {
+  return crypto.createHash('md5').update(password).digest('hex');
 };
 
 function createWindow(): void {
@@ -221,12 +227,13 @@ ipcMain.handle('fetch-captcha', async (): Promise<{ success: boolean; requestId?
 
 ipcMain.handle('login', async (event, credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
+    // Password is already MD5 hashed by the renderer, use it directly
     const formData = new URLSearchParams();
     formData.append('login', 'main_2');
     formData.append('qxkt_type', '');
     formData.append('qxkt_url', '');
     formData.append('username', credentials.username);
-    formData.append('password', credentials.password);
+    formData.append('password', credentials.password); // Already MD5 hashed by renderer
     formData.append('passcode', credentials.passcode);
 
     // Use captcha session cookies if available
@@ -259,7 +266,7 @@ ipcMain.handle('login', async (event, credentials: LoginCredentials): Promise<Lo
     // If no alert, login was successful - store credentials for future authentication
     currentSession = {
       username: credentials.username,
-      passwordHash: credentials.password
+      passwordHash: credentials.password // Already MD5 hashed by renderer
     };
 
     // Load user-specific cache
@@ -301,9 +308,11 @@ ipcMain.handle('is-logged-in', async () => {
 ipcMain.handle('store-credentials', async (event, credentials: { username: string; password: string }) => {
   try {
     const credentialsPath = getCredentialsPath();
+    const passwordHashMD5 = hashPasswordMD5(credentials.password);
+
     const data = {
       username: credentials.username,
-      password: credentials.password, // In a real app, this should be encrypted
+      passwordHash: passwordHashMD5, // Store MD5 hash for security and direct server use
       savedAt: new Date().toISOString()
     };
 
@@ -318,9 +327,11 @@ ipcMain.handle('get-stored-credentials', async () => {
     const credentialsPath = getCredentialsPath();
     const data = await fs.promises.readFile(credentialsPath, 'utf8');
     const credentials = JSON.parse(data);
+
+    // Return stored MD5 hash (can be used directly for login)
     return {
       username: credentials.username,
-      password: credentials.password
+      password: credentials.passwordHash // This is already MD5 hashed
     };
   } catch (error) {
     return null;
