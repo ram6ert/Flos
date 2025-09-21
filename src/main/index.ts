@@ -140,14 +140,17 @@ loadCacheFromFile();
 // IPC handlers for captcha and authentication
 ipcMain.handle("fetch-captcha", handleFetchCaptcha);
 
-ipcMain.handle("login", async (event, credentials: LoginCredentials): Promise<LoginResponse> => {
-  const result = await handleLogin(credentials);
-  if (result.success && currentSession) {
-    // Load user-specific cache after successful login
-    loadCacheFromFile(currentSession.username);
+ipcMain.handle(
+  "login",
+  async (event, credentials: LoginCredentials): Promise<LoginResponse> => {
+    const result = await handleLogin(credentials);
+    if (result.success && currentSession) {
+      // Load user-specific cache after successful login
+      loadCacheFromFile(currentSession.username);
+    }
+    return result;
   }
-  return result;
-});
+);
 
 ipcMain.handle("logout", async () => {
   // Save current user's cache before logout
@@ -332,7 +335,11 @@ ipcMain.handle(
 
     return requestQueue.add(async () => {
       try {
-        const data = await fetchHomeworkDetails(homeworkId, courseId, teacherId);
+        const data = await fetchHomeworkDetails(
+          homeworkId,
+          courseId,
+          teacherId
+        );
         return { data, success: true };
       } catch (error) {
         console.error("Failed to fetch homework details:", error);
@@ -547,11 +554,15 @@ ipcMain.handle(
 
         const data = await authenticatedRequest(url, true); // Use session ID
 
-        if (data && data.resList) {
-          // Update cache
-          setCachedData(cacheKey, data.resList);
-          saveCacheToFile(currentSession?.username);
-          return { data: data.resList, fromCache: false, age: 0 };
+        if (data) {
+          if (Array.isArray(data.resList)) {
+            // Update cache
+            setCachedData(cacheKey, data.resList);
+            saveCacheToFile(currentSession?.username);
+            return { data: data.resList, fromCache: false, age: 0 };
+          } else {
+            return { data: [], fromCache: false, age: 0 }; // No documents
+          }
         }
 
         throw new Error(
