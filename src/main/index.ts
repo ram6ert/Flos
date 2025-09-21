@@ -262,6 +262,9 @@ ipcMain.handle('login', async (event, credentials: LoginCredentials): Promise<Lo
       passwordHash: credentials.password
     };
 
+    // Load user-specific cache
+    loadCacheFromFile(credentials.username);
+
     // Update session cookies from login response
     updateSessionCookies(response, 'login');
 
@@ -279,7 +282,15 @@ ipcMain.handle('login', async (event, credentials: LoginCredentials): Promise<Lo
 });
 
 ipcMain.handle('logout', async () => {
+  // Save current user's cache before logout
+  if (currentSession) {
+    saveCacheToFile(currentSession.username);
+  }
+
+  // Clear current session and in-memory cache
   currentSession = null;
+  homeworkCache = {};
+  cacheTimestamps = {};
 });
 
 ipcMain.handle('is-logged-in', async () => {
@@ -328,19 +339,24 @@ ipcMain.handle('clear-stored-credentials', async () => {
 // Rate limiting and caching
 let homeworkCache: { [key: string]: any } = {};
 let cacheTimestamps: { [key: string]: number } = {};
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes for homework
-const COURSE_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours for courses
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day for homework
+const COURSE_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days for courses
 
-// File-based persistent cache
-const getCachePath = () => {
+// File-based persistent cache with user separation
+const getCachePath = (username?: string) => {
   const userDataPath = app.getPath('userData');
+  if (username) {
+    // Create user-specific cache file
+    return path.join(userDataPath, `cache-${username}.json`);
+  }
+  // Fallback to generic cache file
   return path.join(userDataPath, 'homework-cache.json');
 };
 
-// Load cache from file
-const loadCacheFromFile = () => {
+// Load cache from file for specific user
+const loadCacheFromFile = (username?: string) => {
   try {
-    const cachePath = getCachePath();
+    const cachePath = getCachePath(username);
     const data = fs.readFileSync(cachePath, 'utf8');
     const parsed = JSON.parse(data);
     homeworkCache = parsed.cache || {};
@@ -352,10 +368,10 @@ const loadCacheFromFile = () => {
   }
 };
 
-// Save cache to file
-const saveCacheToFile = () => {
+// Save cache to file for specific user
+const saveCacheToFile = (username?: string) => {
   try {
-    const cachePath = getCachePath();
+    const cachePath = getCachePath(username);
     const data = {
       cache: homeworkCache,
       timestamps: cacheTimestamps
@@ -536,7 +552,7 @@ async function refreshCacheInBackground(cacheKey: string, refreshFunction: () =>
     const freshData = await refreshFunction();
     homeworkCache[cacheKey] = freshData;
     cacheTimestamps[cacheKey] = Date.now();
-    saveCacheToFile();
+    saveCacheToFile(currentSession?.username);
 
     // Notify renderer of updated data
     const allWindows = BrowserWindow.getAllWindows();
@@ -564,7 +580,7 @@ ipcMain.handle('get-courses', async (event, options?: { skipCache?: boolean }) =
       // Update cache with fresh data
       homeworkCache[cacheKey] = courseList;
       cacheTimestamps[cacheKey] = now;
-      saveCacheToFile();
+      saveCacheToFile(currentSession?.username);
       return { data: courseList, fromCache: false, age: 0 };
     });
   }
@@ -590,7 +606,7 @@ ipcMain.handle('get-courses', async (event, options?: { skipCache?: boolean }) =
       const courseList = await fetchCourseList();
       homeworkCache[cacheKey] = courseList;
       cacheTimestamps[cacheKey] = Date.now();
-      saveCacheToFile();
+      saveCacheToFile(currentSession?.username);
       return { data: courseList, fromCache: false, age: 0 };
     });
   }
@@ -611,7 +627,7 @@ ipcMain.handle('get-homework', async (event, courseId?: string, options?: { skip
       // Update cache with fresh data
       homeworkCache[cacheKey] = data;
       cacheTimestamps[cacheKey] = now;
-      saveCacheToFile();
+      saveCacheToFile(currentSession?.username);
       return { data, fromCache: false, age: 0 };
     });
   }
@@ -637,7 +653,7 @@ ipcMain.handle('get-homework', async (event, courseId?: string, options?: { skip
     const data = await fetchHomeworkData(courseId);
     homeworkCache[cacheKey] = data;
     cacheTimestamps[cacheKey] = now;
-    saveCacheToFile();
+    saveCacheToFile(currentSession?.username);
     return { data, fromCache: false, age: 0 };
   });
 });
@@ -706,7 +722,7 @@ async function fetchHomeworkData(courseId?: string) {
       // Update course cache
       homeworkCache['courses'] = courseList;
       cacheTimestamps['courses'] = Date.now();
-      saveCacheToFile();
+      saveCacheToFile(currentSession?.username);
     } else {
       console.log(`Using cached course list (${Math.floor(courseCacheAge / (1000 * 60))} minutes old)`);
     }
@@ -754,4 +770,40 @@ ipcMain.handle('download-document', async (event, documentUrl: string) => {
   }
   // This will be implemented to handle document downloads
   return { success: true };
+});
+
+// Fetch course image as base64 data URL
+ipcMain.handle('fetch-course-image', async (event, imagePath: string): Promise<string | null> => {
+  if (!currentSession) {
+    throw new Error('Not logged in');
+  }
+
+  if (!imagePath) {
+    return null;
+  }
+
+  try {
+    // If imagePath starts with /, it's a relative path from the server
+    const imageUrl = imagePath.startsWith('/')
+      ? `${API_CONFIG.BASE_URL}${imagePath}`
+      : imagePath;
+
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      headers: {
+        'Cookie': captchaSession?.cookies.join('; ') || '',
+        'User-Agent': API_CONFIG.USER_AGENT
+      },
+      timeout: 10000 // 10 second timeout for images
+    });
+
+    // Convert to base64 data URL
+    const buffer = Buffer.from(response.data);
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    const base64 = buffer.toString('base64');
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error('Failed to fetch course image:', error);
+    return null;
+  }
 });

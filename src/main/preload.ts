@@ -7,6 +7,7 @@ export interface ElectronAPI {
   refreshCourses: () => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   refreshHomework: (courseId?: string) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   downloadDocument: (documentUrl: string) => Promise<{ success: boolean }>;
+  fetchCourseImage: (imagePath: string) => Promise<string | null>;
   fetchCaptcha: () => Promise<{ success: boolean; requestId?: string; imageData?: string }>;
   login: (credentials: LoginCredentials) => Promise<LoginResponse>;
   logout: () => Promise<void>;
@@ -24,6 +25,7 @@ const electronAPI: ElectronAPI = {
   refreshCourses: () => ipcRenderer.invoke('get-courses', { skipCache: true }),
   refreshHomework: (courseId?: string) => ipcRenderer.invoke('get-homework', courseId, { skipCache: true }),
   downloadDocument: (documentUrl: string) => ipcRenderer.invoke('download-document', documentUrl),
+  fetchCourseImage: (imagePath: string) => ipcRenderer.invoke('fetch-course-image', imagePath),
   fetchCaptcha: () => ipcRenderer.invoke('fetch-captcha'),
   login: (credentials: LoginCredentials) => ipcRenderer.invoke('login', credentials),
   logout: () => ipcRenderer.invoke('logout'),

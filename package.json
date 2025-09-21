@@ -11,6 +11,10 @@
     "build:vite": "vite build",
     "build:electron": "tsc -p tsconfig.main.json",
     "build:dist": "yarn build && electron-builder",
+    "build:win": "yarn build && electron-builder --win",
+    "build:mac": "yarn build && electron-builder --mac",
+    "build:linux": "yarn build && electron-builder --linux",
+    "build:all": "yarn build && electron-builder --mac --win --linux",
     "preview": "vite preview"
   },
   "keywords": ["electron", "react", "typescript", "vite", "course", "education"],
@@ -54,7 +58,17 @@
       "category": "public.app-category.education"
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
     },
     "linux": {
       "target": "AppImage"

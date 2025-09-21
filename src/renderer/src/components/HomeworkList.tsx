@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
 
 interface Homework {
-  id: string;
+  id: number;
+  course_id: number;
+  course_name: string;
   title: string;
+  content: string;
   end_time: string;
+  score: string;
   subStatus: string;
-  courseName?: string;
-  homeworkType?: string;
-  stu_score?: string | number;
+  stu_score: string;
+  subTime: string | null;
+  submitCount: number;
+  allCount: number;
 }
 
 interface HomeworkResponse {
@@ -19,7 +24,7 @@ interface HomeworkResponse {
 const HomeworkList: React.FC = () => {
   const [homework, setHomework] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pending" | "submitted" | "graded">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "submitted" | "graded" | "overdue">("all");
   const [cacheInfo, setCacheInfo] = useState<string>("");
   const [error, setError] = useState<string>("");
 
@@ -86,7 +91,7 @@ const HomeworkList: React.FC = () => {
   };
 
   const getStatusText = (hw: Homework) => {
-    const isGraded = hw.stu_score !== null && hw.stu_score !== undefined && hw.stu_score !== '未公布成绩';
+    const isGraded = hw.stu_score !== '未公布成绩' && hw.stu_score !== '';
     const isSubmitted = hw.subStatus === '已提交';
 
     if (isGraded) return "Graded";
@@ -96,7 +101,7 @@ const HomeworkList: React.FC = () => {
 
   const formatDeadline = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString();
+    return date.toLocaleString('zh-CN');
   };
 
   const isOverdue = (hw: Homework) => {
@@ -105,36 +110,163 @@ const HomeworkList: React.FC = () => {
     return deadline < now && hw.subStatus !== '已提交';
   };
 
-  const filteredHomework = homework.filter(hw => {
-    const isGraded = hw.stu_score !== null && hw.stu_score !== undefined && hw.stu_score !== '未公布成绩';
+  const getRemainingTime = (hw: Homework) => {
+    const deadline = new Date(hw.end_time);
+    const now = new Date();
+    const timeDiff = deadline.getTime() - now.getTime();
+
+    if (hw.subStatus === '已提交') {
+      return { text: 'Submitted', color: '#28a745', isOverdue: false };
+    }
+
+    if (timeDiff < 0) {
+      const overdueDays = Math.floor(Math.abs(timeDiff) / (1000 * 60 * 60 * 24));
+      const overdueHours = Math.floor((Math.abs(timeDiff) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      if (overdueDays > 0) {
+        return {
+          text: `Overdue ${overdueDays}d ${overdueHours}h`,
+          color: '#dc3545',
+          isOverdue: true
+        };
+      } else {
+        return {
+          text: `Overdue ${overdueHours}h`,
+          color: '#dc3545',
+          isOverdue: true
+        };
+      }
+    }
+
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (days > 0) {
+      return { text: `${days}d ${hours}h left`, color: '#007bff', isOverdue: false };
+    } else if (hours > 0) {
+      return { text: `${hours}h ${minutes}m left`, color: '#ffc107', isOverdue: false };
+    } else {
+      return { text: `${minutes}m left`, color: '#dc3545', isOverdue: false };
+    }
+  };
+
+  const translateStatus = (chineseStatus: string) => {
+    switch (chineseStatus) {
+      case '已提交': return 'Submitted';
+      case '未提交': return 'Not Submitted';
+      case '已批改': return 'Graded';
+      default: return chineseStatus;
+    }
+  };
+
+  const translateScore = (chineseScore: string) => {
+    switch (chineseScore) {
+      case '未公布成绩': return 'Grade not published';
+      case '暂未公布': return 'Not published yet';
+      default: return chineseScore;
+    }
+  };
+
+  const sanitizeContent = (content: string) => {
+    if (!content) return '';
+
+    // Check if content contains images and replace them with bolded text
+    let hasImages = false;
+    let sanitized = content;
+
+    // Replace img tags with placeholder text
+    sanitized = sanitized.replace(/<img[^>]*>/gi, () => {
+      hasImages = true;
+      return '**[Image removed for security]**';
+    });
+
+    // Basic HTML sanitization - remove script tags and other HTML
+    sanitized = sanitized
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
+
+    return sanitized;
+  };
+
+  const renderContentWithBold = (content: string) => {
+    // Split by **text** patterns and render bold text
+    const parts = content.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        const boldText = part.slice(2, -2);
+        return <strong key={index} style={{ color: '#dc3545' }}>{boldText}</strong>;
+      }
+      return part;
+    });
+  };
+
+  const [sortBy, setSortBy] = useState<"due_date" | "course" | "status" | "remaining_time">("remaining_time");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const filteredAndSortedHomework = homework.filter(hw => {
+    const isGraded = hw.stu_score !== '未公布成绩' && hw.stu_score !== '';
     const isSubmitted = hw.subStatus === '已提交';
+    const hwIsOverdue = isOverdue(hw);
 
     switch (filter) {
       case "pending":
-        return !isSubmitted && !isGraded;
+        return !isSubmitted && !isGraded && !hwIsOverdue;
       case "submitted":
         return isSubmitted && !isGraded;
       case "graded":
         return isGraded;
+      case "overdue":
+        return hwIsOverdue && !isSubmitted;
       default:
         return true;
     }
   }).sort((a, b) => {
-    // Sort by due date (earliest first)
-    const dateA = new Date(a.end_time);
-    const dateB = new Date(b.end_time);
+    let comparison = 0;
 
-    // Put overdue items at the top, then sort by due date
-    const nowTime = new Date().getTime();
-    const isOverdueA = dateA.getTime() < nowTime && a.subStatus !== '已提交';
-    const isOverdueB = dateB.getTime() < nowTime && b.subStatus !== '已提交';
+    switch (sortBy) {
+      case "due_date":
+        comparison = new Date(a.end_time).getTime() - new Date(b.end_time).getTime();
+        break;
+      case "course":
+        comparison = a.course_name.localeCompare(b.course_name);
+        break;
+      case "status":
+        comparison = a.subStatus.localeCompare(b.subStatus);
+        break;
+      case "remaining_time":
+        // Sort by remaining time (overdue first, then by time remaining)
+        const nowTime = new Date().getTime();
+        const timeA = new Date(a.end_time).getTime() - nowTime;
+        const timeB = new Date(b.end_time).getTime() - nowTime;
 
-    // If one is overdue and the other isn't, overdue comes first
-    if (isOverdueA && !isOverdueB) return -1;
-    if (!isOverdueA && isOverdueB) return 1;
+        const isOverdueA = timeA < 0 && a.subStatus !== '已提交';
+        const isOverdueB = timeB < 0 && b.subStatus !== '已提交';
+        const isSubmittedA = a.subStatus === '已提交';
+        const isSubmittedB = b.subStatus === '已提交';
 
-    // Otherwise sort by due date (earliest first)
-    return dateA.getTime() - dateB.getTime();
+        // Submitted items go to bottom
+        if (isSubmittedA && !isSubmittedB) return 1;
+        if (!isSubmittedA && isSubmittedB) return -1;
+
+        // Overdue items come first among non-submitted
+        if (isOverdueA && !isOverdueB) return -1;
+        if (!isOverdueA && isOverdueB) return 1;
+
+        // Both overdue or both not overdue, sort by actual time
+        comparison = Math.abs(timeA) - Math.abs(timeB);
+        break;
+      default:
+        comparison = 0;
+    }
+
+    return sortOrder === "asc" ? comparison : -comparison;
   });
 
   if (loading) {
@@ -175,7 +307,7 @@ const HomeworkList: React.FC = () => {
   return (
     <div style={{ padding: "20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-        <h2>Homework ({filteredHomework.length})</h2>
+        <h2>Homework ({filteredAndSortedHomework.length})</h2>
         <button
           onClick={() => fetchHomework(true)}
           disabled={loading}
@@ -207,63 +339,136 @@ const HomeworkList: React.FC = () => {
       )}
 
       <div style={{ marginBottom: "20px" }}>
-        {["all", "pending", "submitted", "graded"].map(filterType => (
-          <button
-            key={filterType}
-            onClick={() => setFilter(filterType as any)}
+        <div style={{ marginBottom: "12px" }}>
+          <strong>Filter: </strong>
+          {["all", "pending", "submitted", "graded", "overdue"].map(filterType => (
+            <button
+              key={filterType}
+              onClick={() => setFilter(filterType as any)}
+              style={{
+                padding: "6px 12px",
+                marginRight: "8px",
+                backgroundColor: filter === filterType ? "#007bff" : "#f8f9fa",
+                color: filter === filterType ? "white" : "#495057",
+                border: "1px solid #dee2e6",
+                borderRadius: "4px",
+                cursor: "pointer"
+              }}
+            >
+              {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <strong>Sort by: </strong>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
             style={{
-              padding: "6px 12px",
-              marginRight: "8px",
-              backgroundColor: filter === filterType ? "#007bff" : "#f8f9fa",
-              color: filter === filterType ? "white" : "#495057",
+              padding: "4px 8px",
+              borderRadius: "4px",
+              border: "1px solid #dee2e6"
+            }}
+          >
+            <option value="remaining_time">Remaining Time</option>
+            <option value="due_date">Due Date</option>
+            <option value="course">Course</option>
+            <option value="status">Status</option>
+          </select>
+
+          <button
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            style={{
+              padding: "4px 8px",
+              backgroundColor: "#f8f9fa",
               border: "1px solid #dee2e6",
               borderRadius: "4px",
               cursor: "pointer"
             }}
           >
-            {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+            {sortOrder === "asc" ? "↑" : "↓"}
           </button>
-        ))}
+        </div>
       </div>
 
-      {filteredHomework.length === 0 ? (
+      {filteredAndSortedHomework.length === 0 ? (
         <p>No homework found for the selected filter.</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {filteredHomework.map((hw) => (
+          {filteredAndSortedHomework.map((hw) => {
+            const remainingTime = getRemainingTime(hw);
+            return (
             <div
               key={hw.id}
               style={{
                 border: "1px solid #ddd",
                 padding: "15px",
                 borderRadius: "5px",
-                backgroundColor: isOverdue(hw) ? "#f8d7da" : "#ffffff",
+                backgroundColor: remainingTime.isOverdue ? "#f8d7da" : "#ffffff",
                 borderLeftWidth: "4px",
                 borderLeftColor: getStatusColor(hw),
               }}
             >
-              <h3 style={{ margin: "0 0 8px 0" }}>{hw.title}</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                <h3 style={{ margin: "0", flex: 1 }}>{hw.title}</h3>
+                <div style={{
+                  fontWeight: "bold",
+                  color: remainingTime.color,
+                  fontSize: "14px",
+                  textAlign: "right",
+                  minWidth: "120px"
+                }}>
+                  {remainingTime.text}
+                </div>
+              </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "14px" }}>
-                <p><strong>Course:</strong> {hw.courseName || "Unknown"}</p>
-                <p><strong>Type:</strong> {hw.homeworkType || "Assignment"}</p>
-                <p><strong>Due:</strong> {formatDeadline(hw.end_time)}</p>
-                <p>
+              {sanitizeContent(hw.content) && (
+                <p style={{
+                  margin: "0 0 12px 0",
+                  color: "#555",
+                  fontSize: "14px",
+                  lineHeight: "1.4"
+                }}>
+                  {renderContentWithBold(sanitizeContent(hw.content))}
+                </p>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }}>
+                <p style={{ margin: "0" }}>
+                  <strong>Course:</strong> {hw.course_name}
+                </p>
+                <p style={{ margin: "0" }}>
+                  <strong>Max Score:</strong> {hw.score}
+                </p>
+                <p style={{ margin: "0" }}>
+                  <strong>Due:</strong> {formatDeadline(hw.end_time)}
+                </p>
+                <p style={{ margin: "0" }}>
                   <strong>Status:</strong>{" "}
                   <span style={{ color: getStatusColor(hw) }}>
-                    {getStatusText(hw)}
-                    {isOverdue(hw) && " (Overdue)"}
+                    {translateStatus(hw.subStatus)}
                   </span>
                 </p>
               </div>
 
-              {hw.stu_score !== null && hw.stu_score !== undefined && hw.stu_score !== '未公布成绩' && (
-                <p style={{ marginTop: "8px", fontSize: "14px" }}>
-                  <strong>Score:</strong> {hw.stu_score}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px", marginTop: "8px" }}>
+                <p style={{ margin: "0" }}>
+                  <strong>Submitted:</strong> {hw.submitCount}/{hw.allCount} students
+                </p>
+                <p style={{ margin: "0" }}>
+                  <strong>Grade:</strong> {translateScore(hw.stu_score)}
+                </p>
+              </div>
+
+              {hw.subTime && (
+                <p style={{ margin: "8px 0 0 0", fontSize: "12px", color: "#666" }}>
+                  <strong>Submitted at:</strong> {formatDeadline(hw.subTime)}
                 </p>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
