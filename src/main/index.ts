@@ -483,6 +483,8 @@ async function authenticatedRequest(url: string): Promise<any> {
     headers['Sessionid'] = API_CONFIG.SESSION_IDS.GET_COURSE_LIST;
   } else if (url.includes('homeWork.shtml')) {
     headers['Sessionid'] = API_CONFIG.SESSION_IDS.GET_HOMEWORK_LIST;
+  } else if (url.includes('courseResource.shtml')) {
+    headers['Sessionid'] = API_CONFIG.SESSION_IDS.GET_COURSE_DOCUMENTS;
   }
 
   const response = await axios.get(url, {
@@ -805,5 +807,189 @@ ipcMain.handle('fetch-course-image', async (event, imagePath: string): Promise<s
   } catch (error) {
     console.error('Failed to fetch course image:', error);
     return null;
+  }
+});
+
+// Fetch course documents
+ipcMain.handle('get-course-documents', async (event, courseCode: string, options?: { skipCache?: boolean }) => {
+  if (!currentSession) {
+    throw new Error('Not logged in');
+  }
+
+  const cacheKey = `documents_${courseCode}`;
+  const now = Date.now();
+  const cachedData = homeworkCache[cacheKey];
+  const cacheAge = cachedData ? now - cacheTimestamps[cacheKey] : Infinity;
+
+  // Use cached data if available and not expired (unless skipCache is true)
+  if (!options?.skipCache && cachedData && cacheAge < CACHE_DURATION) {
+    return { data: cachedData, fromCache: true, age: cacheAge };
+  }
+
+  return requestQueue.add(async () => {
+    try {
+      // Get semester info first to get xqCode
+      const semesterUrl = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+      const semesterData = await authenticatedRequest(semesterUrl);
+
+      if (!semesterData.result || semesterData.result.length === 0) {
+        throw new Error('Failed to get semester info');
+      }
+
+      const xqCode = semesterData.result[0].xqCode;
+
+      // Get course list to find the full course details
+      const courseList = await fetchCourseList();
+      const course = courseList.find((c: any) => c.course_num === courseCode);
+
+      if (!course) {
+        throw new Error(`Course not found: ${courseCode}`);
+      }
+
+      // Construct xkhId using course information
+      // Based on the example: "2025-2026-1-2M302007B02", it seems like xqCode + course info
+      const xkhId = course.fz_id || `${xqCode}-${courseCode}`;
+
+      // Construct the course documents URL
+      const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=1&up_id=0&searchName=`;
+
+      console.log('Fetching documents from URL:', url);
+      console.log('Course details:', JSON.stringify(course, null, 2));
+      const data = await authenticatedRequest(url);
+      console.log('Documents response:', JSON.stringify(data, null, 2));
+
+      if (data && data.resList) {
+        // Update cache
+        homeworkCache[cacheKey] = data.resList;
+        cacheTimestamps[cacheKey] = now;
+        saveCacheToFile(currentSession?.username);
+        return { data: data.resList, fromCache: false, age: 0 };
+      }
+
+      // Log more detailed error information
+      console.error('Invalid response format. Response keys:', Object.keys(data || {}));
+      console.error('Full response:', data);
+      throw new Error(`Invalid response format. Expected 'resList' property but got: ${Object.keys(data || {}).join(', ')}`);
+    } catch (error) {
+      console.error('Failed to fetch course documents:', error);
+      throw error;
+    }
+  });
+});
+
+// Download course document with size limit and streaming
+ipcMain.handle('download-course-document', async (event, documentUrl: string, fileName: string) => {
+  if (!currentSession) {
+    throw new Error('Not logged in');
+  }
+
+  try {
+    const fullUrl = documentUrl.startsWith('/')
+      ? `${API_CONFIG.DOCS_BASE_URL}${documentUrl}`
+      : documentUrl;
+
+    console.log('Downloading document from URL:', fullUrl);
+    console.log('Available cookies:', captchaSession?.cookies);
+
+    // First, check the file size with a HEAD request
+    const headResponse = await axios.head(fullUrl, {
+      headers: {
+        'Cookie': captchaSession?.cookies.join('; ') || '',
+        'User-Agent': API_CONFIG.USER_AGENT
+      },
+      timeout: 10000
+    });
+
+    const contentLength = parseInt(headResponse.headers['content-length'] || '0');
+    const maxFileSize = 50 * 1024 * 1024; // 50MB limit
+
+    if (contentLength > maxFileSize) {
+      return {
+        success: false,
+        error: `File too large: ${(contentLength / (1024 * 1024)).toFixed(1)}MB. Maximum allowed: ${maxFileSize / (1024 * 1024)}MB`
+      };
+    }
+
+    // For small files (<= 10MB), download directly
+    if (contentLength <= 10 * 1024 * 1024) {
+      const response = await axios.get(fullUrl, {
+        responseType: 'arraybuffer',
+        headers: {
+          'Cookie': captchaSession?.cookies.join('; ') || '',
+          'User-Agent': API_CONFIG.USER_AGENT
+        },
+        timeout: 60000
+      });
+
+      // Convert to base64 for transfer to renderer
+      const buffer = Buffer.from(response.data);
+      const base64 = buffer.toString('base64');
+      const contentType = response.headers['content-type'] || 'application/octet-stream';
+
+      return {
+        success: true,
+        data: base64,
+        contentType,
+        fileName,
+        fileSize: contentLength
+      };
+    } else {
+      // For larger files, use the Electron dialog to save directly to disk
+      const { dialog } = await import('electron');
+      const path = await import('path');
+
+      const result = await dialog.showSaveDialog({
+        defaultPath: fileName,
+        filters: [
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+
+      if (result.canceled || !result.filePath) {
+        return {
+          success: false,
+          error: 'Download canceled by user'
+        };
+      }
+
+      // Stream download directly to file
+      const fs = await import('fs');
+      const response = await axios.get(fullUrl, {
+        responseType: 'stream',
+        headers: {
+          'Cookie': captchaSession?.cookies.join('; ') || '',
+          'User-Agent': API_CONFIG.USER_AGENT
+        },
+        timeout: 120000 // 2 minute timeout for large files
+      });
+
+      const writer = fs.createWriteStream(result.filePath);
+      response.data.pipe(writer);
+
+      return new Promise((resolve) => {
+        writer.on('finish', () => {
+          resolve({
+            success: true,
+            savedToFile: true,
+            filePath: result.filePath,
+            fileName,
+            fileSize: contentLength
+          });
+        });
+
+        writer.on('error', (error) => {
+          resolve({
+            success: false,
+            error: `Failed to save file: ${error.message}`
+          });
+        });
+      });
+    }
+  } catch (error) {
+    console.error('Failed to download document:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Download failed'
+    };
   }
 });

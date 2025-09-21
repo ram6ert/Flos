@@ -1,5 +1,6 @@
 export const API_CONFIG = {
   BASE_URL: "http://123.121.147.7:88/ve",
+  DOCS_BASE_URL: "http://123.121.147.7:88", // Documents don't use /ve
   USER_AGENT:
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
   TIMEOUT: 30000,
@@ -10,6 +11,7 @@ export const API_CONFIG = {
   SESSION_IDS: {
     GET_COURSE_LIST: "06E588F49BBB5D7CCF299C45D4C0468A", // Required for getCourseList endpoint
     GET_HOMEWORK_LIST: "06E588F49BBB5D7CCF299C45D4C0468A", // Required for getHomeWorkList endpoint
+    GET_COURSE_DOCUMENTS: "06E588F49BBB5D7CCF299C45D4C0468A", // Required for courseResource endpoint
   },
   ENDPOINTS: {
     // Authentication endpoints
@@ -20,6 +22,7 @@ export const API_CONFIG = {
     SEMESTER_INFO: "/back/rp/common/teachCalendar.shtml?method=queryCurrentXq",
     COURSE_LIST: "/back/coursePlatform/course.shtml?method=getCourseList",
     HOMEWORK_LIST: "/back/coursePlatform/homeWork.shtml?method=getHomeWorkList",
+    COURSE_DOCUMENTS: "/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList",
   },
 
   // Helper methods for building URLs with parameters

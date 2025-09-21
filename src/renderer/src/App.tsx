@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Course, Document, UserSession } from './shared-types';
+import { Course, CourseDocument, UserSession } from './shared-types';
 import CourseList from './components/CourseList';
 import HomeworkList from './components/HomeworkList';
 import DocumentList from './components/DocumentList';
@@ -12,7 +12,7 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ActiveView>('courses');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<CourseDocument[]>([]);
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
 
