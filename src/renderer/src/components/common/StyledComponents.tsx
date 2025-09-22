@@ -135,6 +135,7 @@ export const Card: React.FC<CardProps> = ({
   shadow = "md",
   onClick,
   className = "",
+  style = {},
 }) => {
   const baseClasses = "bg-white border border-gray-200 rounded-md";
 
@@ -164,6 +165,7 @@ export const Card: React.FC<CardProps> = ({
         className
       )}
       onClick={onClick}
+      style={style}
     >
       {children}
     </div>
