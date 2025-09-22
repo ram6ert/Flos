@@ -64,6 +64,8 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    title: "BAKA Course Platform",
+    icon: path.join(__dirname, "..", "assets", "icon.png"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -127,7 +129,7 @@ function createWindow(): void {
   if (process.platform === "darwin") {
     const template = [
       {
-        label: app.getName(),
+        label: "BAKA Course Platform",
         submenu: [
           { role: "about" },
           { type: "separator" },

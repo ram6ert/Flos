@@ -98,9 +98,9 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.version.outputs.version }}
-        name: Smart Course Platform v${{ steps.version.outputs.version }}
+        name: BAKA Course Platform v${{ steps.version.outputs.version }}
         body: |
-          ## Smart Course Platform v${{ steps.version.outputs.version }}
+          ## BAKA Course Platform v${{ steps.version.outputs.version }}
 
           ### Features
           - 📚 Course management and viewing
@@ -116,7 +116,7 @@ jobs:
           ### Installation
           1. Download the appropriate file for your operating system
           2. Run the installer or extract the archive
-          3. Launch Smart Course Platform
+          3. Launch BAKA Course Platform
 
           ---
           🤖 Built automatically with GitHub Actions
