@@ -1,4 +1,4 @@
-import { JSDOM } from "jsdom";
+import * as cheerio from "cheerio";
 import { Logger } from "./logger";
 import {
   ScheduleData,
@@ -350,28 +350,27 @@ export class ScheduleParser {
 
   // Original HTML parsing logic (refactored from api.ts)
   private static parseScheduleHTML(html: string): RawScheduleResponse {
-    const dom = new JSDOM(html);
-    const document = dom.window.document;
+    const $ = cheerio.load(html);
 
     // Debug: Log some basic info about the HTML structure
     Logger.debug(`HTML length: ${html.length} characters`);
-    Logger.debug(`Document title: ${document.title}`);
+    Logger.debug(`Document title: ${$("title").text()}`);
 
     // Check for alternative selectors
-    const allTables = document.querySelectorAll("table");
-    const allDivs = document.querySelectorAll("div");
+    const allTables = $("table");
+    const allDivs = $("div");
     Logger.debug(
       `Found ${allTables.length} tables and ${allDivs.length} divs in HTML`
     );
 
     // Extract week info
-    const beginTimeInput = document.getElementById("begin_time");
+    const beginTimeInput = $("#begin_time");
     let weekNumber = 2; // Default
     let beginDate = "";
     let endDate = "";
 
-    if (beginTimeInput) {
-      beginDate = beginTimeInput.getAttribute("value") || "";
+    if (beginTimeInput.length > 0) {
+      beginDate = beginTimeInput.attr("value") || "";
     }
 
     // Parse schedule entries
@@ -383,65 +382,64 @@ export class ScheduleParser {
     };
 
     // Get all time slot containers
-    const timeSlotContainers = document.querySelectorAll(
-      "ul.timetable-tabletlist"
-    );
+    const timeSlotContainers = $("ul.timetable-tabletlist");
 
     Logger.event(
       `Found ${timeSlotContainers.length} time slot containers in HTML`
     );
 
-    timeSlotContainers.forEach((container, containerIndex) => {
+    timeSlotContainers.each((containerIndex, container) => {
+      const $container = $(container);
+
       // Get the time slot from the first li element
-      const timeSlotElement = container.querySelector(
-        "li.table-list span.table-listsp1"
-      );
+      const timeSlotElement = $container.find("li.table-list span.table-listsp1");
       let currentTimeSlot = "Unknown";
 
-      if (timeSlotElement) {
-        const rawTimeSlot = timeSlotElement.textContent?.trim() || "";
+      if (timeSlotElement.length > 0) {
+        const rawTimeSlot = timeSlotElement.text().trim() || "";
         currentTimeSlot = sanitizeTimeSlot(rawTimeSlot);
       }
 
       // Get all day cells (should be 7 for Monday-Sunday)
-      const dayCells = container.querySelectorAll("li.table-list2");
+      const dayCells = $container.find("li.table-list2");
 
       Logger.event(
         `Time slot ${containerIndex + 1}: "${currentTimeSlot}" with ${dayCells.length} day cells`
       );
 
-      dayCells.forEach((cell, dayIndex) => {
-        const courseTitle = cell.querySelector(".table-t");
-        if (courseTitle) {
+      dayCells.each((dayIndex, cell) => {
+        const $cell = $(cell);
+        const courseTitle = $cell.find(".table-t");
+        if (courseTitle.length > 0) {
           const courseName =
-            courseTitle.textContent?.replace("课程：", "").trim() || "";
+            courseTitle.text().replace("课程：", "").trim() || "";
 
           // Get teacher info (first .table-b element)
-          const teacherSpans = cell.querySelectorAll(".table-b");
+          const teacherSpans = $cell.find(".table-b");
           const teacherName =
-            teacherSpans[0]?.textContent?.replace("教师：", "").trim() || "";
+            teacherSpans.eq(0).text().replace("教师：", "").trim() || "";
 
           // Get class info (second .table-b element)
           const className =
-            teacherSpans[1]?.textContent?.replace("班级：", "").trim() || "";
+            teacherSpans.eq(1).text().replace("班级：", "").trim() || "";
 
           // Get student count
-          const studentSpan = cell.querySelector(".table-m");
+          const studentSpan = $cell.find(".table-m");
           const studentText =
-            studentSpan?.textContent
-              ?.replace("学生：", "")
+            studentSpan.text()
+              .replace("学生：", "")
               .replace("人", "")
               .trim() || "0";
           const studentCount = parseInt(studentText) || 0;
 
           // Get classroom
-          const classroomSpan = cell.querySelector(".table-j");
+          const classroomSpan = $cell.find(".table-j");
           const classroom =
-            classroomSpan?.textContent?.replace("教室：", "").trim() || "";
+            classroomSpan.text().replace("教室：", "").trim() || "";
 
           // Extract course ID from onclick attribute
           let courseId = "";
-          const onclickAttr = courseTitle.getAttribute("onclick");
+          const onclickAttr = courseTitle.attr("onclick");
           if (onclickAttr) {
             const match = onclickAttr.match(/'([^']+)'/);
             if (match) {
