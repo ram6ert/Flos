@@ -8,7 +8,6 @@ import {
   Loading,
   ErrorDisplay,
   InfoBanner,
-  cn,
 } from "./common/StyledComponents";
 
 interface DocumentListProps {
@@ -222,10 +221,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           {realDocuments
             .sort((a, b) => a.rpName.localeCompare(b.rpName))
             .map((doc) => (
-              <Card
-                key={doc.rpId}
-                padding="lg"
-              >
+              <Card key={doc.rpId} padding="lg">
                 <div className="flex justify-between items-center w-full">
                   <div className="flex-1">
                     <div className="flex items-center mb-2">

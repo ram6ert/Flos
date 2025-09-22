@@ -6,8 +6,6 @@ import {
   Button,
   Card,
   Grid,
-  Loading,
-  cn,
 } from "./common/StyledComponents";
 
 interface CourseListProps {
