@@ -1,5 +1,14 @@
 import React from "react";
 import { Course } from "../shared-types";
+import {
+  Container,
+  PageHeader,
+  Button,
+  Card,
+  Grid,
+  Loading,
+  cn,
+} from "./common/StyledComponents";
 
 interface CourseListProps {
   courses: Course[];
@@ -79,133 +88,69 @@ const CourseList: React.FC<CourseListProps> = ({
   }, [courses, courseImages]);
 
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "1rem",
-        }}
-      >
-        <h2>My Courses</h2>
-        {onRefresh && (
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: isRefreshing ? "#ccc" : "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: isRefreshing ? "not-allowed" : "pointer",
-              fontSize: "0.9rem",
-            }}
-          >
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </button>
-        )}
-      </div>
-      <div style={{ marginTop: "1.5rem" }}>
-        {courses.length === 0 ? (
-          <p>No courses available.</p>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: "1rem",
-              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-            }}
-          >
-            {courses.map((course) => (
-              <div
-                key={course.id}
-                className="course-card"
-                onClick={() => onCourseSelect(course)}
-                style={{
-                  cursor: "pointer",
-                  border: "1px solid #e0e0e0",
-                  borderRadius: "8px",
-                  padding: "1rem",
-                  backgroundColor: "#fff",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                  transition: "transform 0.2s, box-shadow 0.2s",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 8px rgba(0,0,0,0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                }}
-              >
-                {courseImages[course.id] && (
-                  <div style={{ marginBottom: "0.75rem" }}>
-                    <img
-                      src={courseImages[course.id]!}
-                      alt={course.name}
-                      style={{
-                        width: "100%",
-                        height: "120px",
-                        objectFit: "cover",
-                        borderRadius: "4px",
-                      }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
+    <Container padding="lg">
+      <PageHeader
+        title="My Courses"
+        actions={
+          onRefresh && (
+            <Button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              variant="primary"
+              size="sm"
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+          )
+        }
+      />
 
-                <div style={{ flex: 1 }}>
-                  <h3
-                    style={{
-                      margin: "0 0 0.5rem 0",
-                      fontSize: "1.1rem",
-                      color: "#333",
+      {courses.length === 0 ? (
+        <p className="text-gray-600">No courses available.</p>
+      ) : (
+        <Grid>
+          {courses.map((course) => (
+            <Card
+              key={course.id}
+              onClick={() => onCourseSelect(course)}
+              className="course-card flex flex-col"
+            >
+              {courseImages[course.id] && (
+                <div className="mb-3">
+                  <img
+                    src={courseImages[course.id]!}
+                    alt={course.name}
+                    className="w-full h-30 object-cover rounded-md"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
                     }}
-                  >
-                    {course.name}
-                  </h3>
-
-                  <p
-                    style={{
-                      margin: "0 0 0.5rem 0",
-                      color: "#666",
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    <strong>课程号:</strong> {course.course_num}
-                  </p>
-
-                  <p
-                    style={{
-                      margin: "0 0 0.5rem 0",
-                      color: "#666",
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    <strong>授课教师:</strong> {course.teacher_name}
-                  </p>
-
-                  <p
-                    style={{ margin: "0", color: "#888", fontSize: "0.85rem" }}
-                  >
-                    <strong>学期:</strong>{" "}
-                    {formatSemesterDates(course.begin_date, course.end_date)}
-                  </p>
+                  />
                 </div>
+              )}
+
+              <div className="flex-1">
+                <h3 className="m-0 mb-2 text-lg text-gray-900 font-semibold">
+                  {course.name}
+                </h3>
+
+                <p className="m-0 mb-2 text-gray-700 text-sm">
+                  <strong>课程号:</strong> {course.course_num}
+                </p>
+
+                <p className="m-0 mb-2 text-gray-700 text-sm">
+                  <strong>授课教师:</strong> {course.teacher_name}
+                </p>
+
+                <p className="m-0 text-gray-600 text-xs">
+                  <strong>学期:</strong>{" "}
+                  {formatSemesterDates(course.begin_date, course.end_date)}
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+            </Card>
+          ))}
+        </Grid>
+      )}
+    </Container>
   );
 };
 

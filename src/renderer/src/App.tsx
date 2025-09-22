@@ -6,6 +6,7 @@ import DocumentList from "./components/DocumentList";
 import Sidebar from "./components/Sidebar";
 import Login from "./components/Login";
 import FlowScheduleTable from "./components/FlowScheduleTable";
+import { Button, Loading } from "./components/common/StyledComponents";
 
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
 
@@ -178,19 +179,10 @@ const App: React.FC = () => {
   // Show loading screen while checking login status
   if (isCheckingLogin) {
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          color: "white",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <h2>BAKA Course Platform</h2>
-          <p>Loading...</p>
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 text-white">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold mb-4">BAKA Course Platform</h2>
+          <Loading message="Checking authentication..." />
         </div>
       </div>
     );
@@ -205,30 +197,19 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <header className="header">
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <div className="flex justify-between items-center">
           <div>
-            <h1>BAKA Course Platform</h1>
-            <p>Welcome back, {userSession.username}!</p>
+            <h1 className="text-2xl font-bold text-white m-0">BAKA Course Platform</h1>
+            <p className="text-blue-100 m-0 mt-1">Welcome back, {userSession.username}!</p>
           </div>
-          <button
+          <Button
             onClick={handleLogout}
-            style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: "rgba(255, 255, 255, 0.2)",
-              color: "white",
-              border: "1px solid rgba(255, 255, 255, 0.3)",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
+            variant="secondary"
+            size="sm"
+            className="bg-white/20 hover:bg-white/30 border-white/30"
           >
             Logout
-          </button>
+          </Button>
         </div>
       </header>
 

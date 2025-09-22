@@ -1,5 +1,15 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { HomeworkDetails, HomeworkAttachment } from "../shared-types";
+import {
+  Container,
+  PageHeader,
+  Button,
+  Card,
+  Loading,
+  ErrorDisplay,
+  InfoBanner,
+  cn,
+} from "./common/StyledComponents";
 
 interface Homework {
   id: number;
@@ -419,104 +429,62 @@ const HomeworkList: React.FC = () => {
   }, [homework, filter, sortBy, sortOrder]);
 
   if (loading) {
-    return <div style={{ padding: "20px" }}>Loading homework...</div>;
+    return (
+      <Container padding="lg">
+        <Loading message="Loading homework..." />
+      </Container>
+    );
   }
 
   if (error) {
     return (
-      <div style={{ padding: "20px" }}>
-        <div
-          style={{
-            padding: "16px",
-            backgroundColor: "#f8d7da",
-            border: "1px solid #f5c6cb",
-            borderRadius: "4px",
-            color: "#721c24",
-            marginBottom: "20px",
-          }}
-        >
-          <h3 style={{ margin: "0 0 8px 0" }}>Unable to Load Homework</h3>
-          <p style={{ margin: 0 }}>{error}</p>
-        </div>
-        <button
-          onClick={() => fetchHomework(true)}
-          disabled={loading || refreshing}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: loading || refreshing ? "#ccc" : "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: loading || refreshing ? "not-allowed" : "pointer",
-          }}
-        >
-          {refreshing ? "Retrying..." : loading ? "Loading..." : "Retry"}
-        </button>
-      </div>
+      <Container padding="lg">
+        <ErrorDisplay
+          title="Unable to Load Homework"
+          message={error}
+          onRetry={() => fetchHomework(true)}
+          retryLabel={refreshing ? "Retrying..." : loading ? "Loading..." : "Retry"}
+        />
+      </Container>
     );
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}
-      >
-        <h2>Homework ({filteredAndSortedHomework.length})</h2>
-        <button
-          onClick={() => fetchHomework(true)}
-          disabled={loading || refreshing}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: loading || refreshing ? "#ccc" : "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: loading || refreshing ? "not-allowed" : "pointer",
-          }}
-        >
-          {refreshing ? "Refreshing..." : loading ? "Loading..." : "Refresh"}
-        </button>
-      </div>
+    <Container padding="lg">
+      <PageHeader
+        title={`Homework (${filteredAndSortedHomework.length})`}
+        actions={
+          <Button
+            onClick={() => fetchHomework(true)}
+            disabled={loading || refreshing}
+            variant="primary"
+            size="sm"
+          >
+            {refreshing ? "Refreshing..." : loading ? "Loading..." : "Refresh"}
+          </Button>
+        }
+      />
 
       {cacheInfo && (
-        <div
-          style={{
-            padding: "8px 12px",
-            backgroundColor: "#f8f9fa",
-            border: "1px solid #dee2e6",
-            borderRadius: "4px",
-            marginBottom: "15px",
-            fontSize: "14px",
-            color: "#6c757d",
-          }}
-        >
+        <InfoBanner variant="info">
           {cacheInfo}
-        </div>
+        </InfoBanner>
       )}
 
-      <div style={{ marginBottom: "20px" }}>
-        <div style={{ marginBottom: "12px" }}>
-          <strong>Filter: </strong>
+      <div className="mb-6">
+        <div className="mb-4">
+          <strong className="mr-3">Filter: </strong>
           {["all", "pending", "submitted", "graded", "overdue"].map(
             (filterType) => (
               <button
                 key={filterType}
                 onClick={() => setFilter(filterType as any)}
-                style={{
-                  padding: "6px 12px",
-                  marginRight: "8px",
-                  backgroundColor:
-                    filter === filterType ? "#007bff" : "#f8f9fa",
-                  color: filter === filterType ? "white" : "#495057",
-                  border: "1px solid #dee2e6",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
+                className={cn(
+                  "px-3 py-1.5 mr-2 border border-gray-300 rounded-md cursor-pointer text-sm font-medium transition-colors",
+                  filter === filterType
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                )}
               >
                 {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
               </button>
@@ -524,16 +492,12 @@ const HomeworkList: React.FC = () => {
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div className="flex items-center gap-3">
           <strong>Sort by: </strong>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            style={{
-              padding: "4px 8px",
-              borderRadius: "4px",
-              border: "1px solid #dee2e6",
-            }}
+            className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="remaining_time">Remaining Time</option>
             <option value="due_date">Due Date</option>
@@ -543,13 +507,7 @@ const HomeworkList: React.FC = () => {
 
           <button
             onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-            style={{
-              padding: "4px 8px",
-              backgroundColor: "#f8f9fa",
-              border: "1px solid #dee2e6",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
+            className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
           >
             {sortOrder === "asc" ? "↑" : "↓"}
           </button>
@@ -557,42 +515,27 @@ const HomeworkList: React.FC = () => {
       </div>
 
       {filteredAndSortedHomework.length === 0 ? (
-        <p>No homework found for the selected filter.</p>
+        <p className="text-gray-600">No homework found for the selected filter.</p>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <div className="flex flex-col gap-3">
           {filteredAndSortedHomework.map((hw) => {
             const remainingTime = getRemainingTime(hw);
+            const statusColor = getStatusColor(hw);
             return (
-              <div
+              <Card
                 key={hw.id}
-                style={{
-                  border: "1px solid #ddd",
-                  padding: "15px",
-                  borderRadius: "5px",
-                  backgroundColor: remainingTime.isOverdue
-                    ? "#f8d7da"
-                    : "#ffffff",
-                  borderLeftWidth: "4px",
-                  borderLeftColor: getStatusColor(hw),
-                }}
+                padding="lg"
+                className={cn(
+                  "border-l-4",
+                  remainingTime.isOverdue && "bg-red-50"
+                )}
+                style={{ borderLeftColor: statusColor }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    marginBottom: "12px",
-                  }}
-                >
-                  <h3 style={{ margin: "0", flex: 1 }}>{hw.title}</h3>
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="m-0 flex-1 text-lg font-semibold text-gray-900">{hw.title}</h3>
                   <div
-                    style={{
-                      fontWeight: "bold",
-                      color: remainingTime.color,
-                      fontSize: "14px",
-                      textAlign: "right",
-                      minWidth: "120px",
-                    }}
+                    className="font-bold text-sm text-right min-w-30"
+                    style={{ color: remainingTime.color }}
                   >
                     {remainingTime.text}
                   </div>
@@ -854,12 +797,12 @@ const HomeworkList: React.FC = () => {
                     })()}
                   </div>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>
       )}
-    </div>
+    </Container>
   );
 };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import CryptoJS from "crypto-js";
+import { Container, Button, Input, FormGroup, ErrorDisplay, cn } from "./common/StyledComponents";
 interface LoginCredentials {
   username: string;
   password: string;
@@ -118,221 +119,107 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      }}
-    >
-      <div
-        style={{
-          background: "white",
-          padding: "2rem",
-          borderRadius: "10px",
-          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-          width: "400px",
-          maxWidth: "90vw",
-        }}
-      >
-        <h2
-          style={{ textAlign: "center", marginBottom: "1.5rem", color: "#333" }}
-        >
+    <div className="flex justify-center items-center h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600">
+      <div className="bg-white p-8 rounded-xl shadow-2xl w-96 max-w-sm mx-4">
+        <h2 className="text-center mb-6 text-2xl font-bold text-gray-800">
           BAKA Course Platform
         </h2>
-        <p style={{ textAlign: "center", color: "#666", marginBottom: "2rem" }}>
+        <p className="text-center text-gray-600 mb-8">
           Sign in to access your courses
         </p>
 
         {error && (
-          <div
-            style={{
-              background: "#fee",
-              color: "#c33",
-              padding: "0.75rem",
-              borderRadius: "5px",
-              marginBottom: "1rem",
-              border: "1px solid #fcc",
-            }}
-          >
-            {error}
-          </div>
+          <ErrorDisplay
+            message={error}
+            title="Login Failed"
+          />
         )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "1rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "bold",
-              }}
-            >
-              Username (Student ID)
-            </label>
-            <input
+          <FormGroup label="Username (Student ID)">
+            <Input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
               placeholder="Enter your student ID"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                border: "1px solid #ddd",
-                borderRadius: "5px",
-                fontSize: "1rem",
-              }}
             />
-          </div>
+          </FormGroup>
 
-          <div style={{ marginBottom: "1rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "bold",
-              }}
-            >
-              Password
-            </label>
-            <div
-              style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
-            >
-              <input
+          <FormGroup label="Password">
+            <div className="flex gap-2 items-center">
+              <Input
                 type="password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  setIsPasswordHashed(false); // Reset hashed flag when user types new password
+                  setIsPasswordHashed(false);
                 }}
                 required
                 placeholder="Enter your password"
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "5px",
-                  fontSize: "1rem",
-                }}
               />
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   setPassword("");
                   setIsPasswordHashed(false);
                 }}
-                style={{
-                  padding: "0.75rem",
-                  background: "transparent",
-                  color: "#666",
-                  border: "1px solid #ddd",
-                  borderRadius: "5px",
-                  cursor: "pointer",
-                  fontSize: "0.9rem",
-                }}
-                title="Clear password"
+                variant="secondary"
+                size="sm"
               >
                 ✕
-              </button>
+              </Button>
             </div>
-          </div>
+          </FormGroup>
 
-          <div style={{ marginBottom: "1rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "bold",
-              }}
-            >
-              Verification Code
-            </label>
-            <div
-              style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
-            >
-              <input
+          <FormGroup label="Verification Code">
+            <div className="flex gap-2 items-center">
+              <Input
                 type="text"
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
                 required
                 placeholder="Enter captcha"
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "5px",
-                  fontSize: "1rem",
-                }}
               />
-              <div style={{ position: "relative" }}>
+              <div className="relative">
                 <img
                   src={captchaUrl}
                   alt="Captcha"
-                  style={{
-                    height: "40px",
-                    border: "1px solid #ddd",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                  }}
+                  className="h-10 border border-gray-300 rounded-md cursor-pointer"
                   onClick={loadCaptcha}
                   title="Click to refresh"
                 />
               </div>
             </div>
-            <small style={{ color: "#666", fontSize: "0.8rem" }}>
+            <small className="text-gray-600 text-xs mt-1 block">
               Click the image to refresh captcha
             </small>
-          </div>
+          </FormGroup>
 
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-              }}
-            >
+          <div className="mb-6">
+            <label className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={rememberCredentials}
                 onChange={(e) => setRememberCredentials(e.target.checked)}
-                style={{ marginRight: "0.5rem" }}
+                className="mr-2"
               />
-              Remember my credentials
+              <span className="text-gray-700">Remember my credentials</span>
             </label>
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={isLoading}
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              background: isLoading ? "#ccc" : "#667eea",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              fontSize: "1rem",
-              fontWeight: "bold",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              transition: "background-color 0.2s",
-            }}
+            variant="primary"
+            size="lg"
+            className="w-full"
           >
             {isLoading ? "Signing in..." : "Sign In"}
-          </button>
+          </Button>
         </form>
 
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: "1rem",
-            fontSize: "0.9rem",
-            color: "#666",
-          }}
-        >
+        <div className="text-center mt-4 text-sm text-gray-600">
           <p>Having trouble? Check your network connection.</p>
         </div>
       </div>

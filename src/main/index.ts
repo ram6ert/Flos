@@ -341,8 +341,8 @@ ipcMain.handle(
 
     // If we have cached data, return it immediately
     if (cachedData) {
-      // Only start background refresh if cache is getting stale (older than 10 minutes)
-      const STALE_THRESHOLD = 10 * 60 * 1000; // 10 minutes
+      // Only start background refresh if cache is getting stale
+      const STALE_THRESHOLD = 2 * 60 * 60 * 1000; // 2 hours
       if (age > STALE_THRESHOLD) {
         refreshCacheInBackground(cacheKey, async () => {
           return await requestQueue.add(async () => {
