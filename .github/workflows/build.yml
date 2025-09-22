@@ -164,5 +164,3 @@ jobs:
           generate_release_notes: false
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.BAKA_ACCESS_TOKEN }}
