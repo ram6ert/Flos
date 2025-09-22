@@ -2,7 +2,7 @@
   "name": "smart-course-platform",
   "version": "1.4.6",
   "description": "An Electron app for convenient access to course information, homework, and documents",
-  "main": "dist/main/index.js",
+  "main": "dist/main/index.min.js",
   "scripts": {
     "dev": "concurrently \"yarn dev:vite\" \"yarn dev:electron\"",
     "dev:vite": "vite",
