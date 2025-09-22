@@ -1,6 +1,6 @@
 {
   "name": "smart-course-platform",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "description": "An Electron app for convenient access to course information, homework, and documents",
   "main": "dist/main/index.js",
   "scripts": {
@@ -32,7 +32,7 @@
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
     "@types/crypto-js": "^4.1.1",
-    "@types/jsdom": "^21.1.0",
+    "@types/cheerio": "^0.22.31",
     "@types/node": "^20.5.0",
     "@types/react": "^18.2.20",
     "@types/react-dom": "^18.2.7",
@@ -60,10 +60,9 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.1.13",
     "axios": "^1.5.0",
-    "canvas": "^3.2.0",
     "crypto-js": "^4.1.1",
     "iconv-lite": "^0.7.0",
-    "jsdom": "^21.1.0",
+    "cheerio": "1.0.0-rc.10",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
