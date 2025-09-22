@@ -339,17 +339,8 @@ ipcMain.handle(
     const cacheTimestamp = getCacheTimestamp(cacheKey);
     const age = Date.now() - cacheTimestamp;
 
-    // If we have cached data, return it immediately
+    // If we have cached data, return it immediately without background refresh
     if (cachedData) {
-      // Only start background refresh if cache is getting stale
-      const STALE_THRESHOLD = 2 * 60 * 60 * 1000; // 2 hours
-      if (age > STALE_THRESHOLD) {
-        refreshCacheInBackground(cacheKey, async () => {
-          return await requestQueue.add(async () => {
-            return await fetchHomeworkData(courseId);
-          });
-        });
-      }
       return { data: cachedData, fromCache: true, age };
     }
 
@@ -591,8 +582,13 @@ ipcMain.handle(
 
         const xqCode = semesterData.result[0].xqCode;
 
-        // Get course list to find the full course details
-        const courseList = await fetchCourseList();
+        // Get course list to find the full course details (prefer cache)
+        let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
+        if (!courseList) {
+          courseList = await fetchCourseList();
+          setCachedData("courses", courseList);
+          saveCacheToFile(currentSession?.username);
+        }
         const course = courseList.find((c: any) => c.course_num === courseCode);
 
         if (!course) {
