@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Course, CourseDocument } from "../shared-types";
 
 interface DocumentListProps {
@@ -9,7 +9,6 @@ interface DocumentListProps {
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
-  documents,
   selectedCourse,
   courses,
   onCourseSelect,
@@ -25,9 +24,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
     } else {
       setRealDocuments([]);
     }
-  }, [selectedCourse]);
+  }, [selectedCourse, fetchDocuments]);
 
-  const fetchDocuments = async (forceRefresh = false) => {
+  const fetchDocuments = useCallback(async (forceRefresh = false) => {
     if (!selectedCourse) return;
 
     try {
@@ -44,7 +43,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCourse]);
 
   const formatFileSize = (sizeStr: string) => {
     const size = parseFloat(sizeStr);

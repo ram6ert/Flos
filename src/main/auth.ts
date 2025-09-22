@@ -47,7 +47,7 @@ export const parseCookies = (setCookieHeaders: string[]): string[] => {
   return setCookieHeaders.map((cookieHeader) => cookieHeader.split(";")[0]);
 };
 
-export const updateSessionCookies = (response: any, source: string) => {
+export const updateSessionCookies = (response: any) => {
   const setCookieHeaders = response.headers["set-cookie"];
   if (setCookieHeaders) {
     const cookies = parseCookies(setCookieHeaders);
@@ -79,7 +79,7 @@ export const handleFetchCaptcha = async (): Promise<{
       }
     );
 
-    updateSessionCookies(response, "captcha");
+    updateSessionCookies(response);
     Logger.event("Captcha session created");
 
     const base64Image = Buffer.from(response.data).toString("base64");
@@ -122,7 +122,7 @@ export const handleLogin = async (
       }
     );
 
-    updateSessionCookies(response, "login");
+    updateSessionCookies(response);
 
     // Decode GBK response to handle Chinese error messages properly
     const responseText = iconv.decode(Buffer.from(response.data), "gbk");

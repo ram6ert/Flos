@@ -9,7 +9,6 @@ import {
 import {
   getCachedData,
   setCachedData,
-  CACHE_DURATION,
   COURSE_CACHE_DURATION,
   SCHEDULE_CACHE_DURATION,
 } from "./cache";
@@ -111,7 +110,7 @@ export async function authenticatedRequest(
       }
     );
 
-    updateSessionCookies(captchaResponse, "authenticated-request-captcha");
+    updateSessionCookies(captchaResponse);
     activeSession = captchaSession;
   }
 
@@ -140,7 +139,7 @@ export async function authenticatedRequest(
 
   if (response.status >= 200 && response.status < 400) {
     // Always update session cookies from successful responses
-    updateSessionCookies(response, "authenticated-request");
+    updateSessionCookies(response);
 
     // Check for session expiration indicators
     if (typeof response.data === "string") {
@@ -328,7 +327,7 @@ export async function fetchScheduleData(
     });
 
     if (response.status >= 200 && response.status < 400) {
-      updateSessionCookies(response, "schedule-request");
+      updateSessionCookies(response);
 
       // Decode GBK content to UTF-8
       const decodedHtml = iconv.decode(Buffer.from(response.data), "gbk");
@@ -353,7 +352,6 @@ function parseScheduleHTML(html: string): any {
   const document = dom.window.document;
 
   // Extract week info
-  const weekSelect = document.getElementById("jxzId");
   const beginTimeInput = document.getElementById("begin_time");
 
   let weekNumber = 2; // Default to week 2 as seen in the HTML
@@ -375,7 +373,7 @@ function parseScheduleHTML(html: string): any {
   // Get all schedule rows
   const scheduleRows = document.querySelectorAll(".timetable-tabletlist");
 
-  scheduleRows.forEach((row, timeSlotIndex) => {
+  scheduleRows.forEach((row) => {
     const timeSlotSpan = row.querySelector(".table-listsp1");
     let currentTimeSlot = "Unknown";
 
