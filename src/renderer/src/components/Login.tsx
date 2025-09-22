@@ -12,7 +12,6 @@ interface UserSession {
   isLoggedIn: boolean;
   loginTime: Date;
 }
-import { API_CONFIG } from "../constants";
 
 interface LoginProps {
   onLoginSuccess: (session: UserSession) => void;

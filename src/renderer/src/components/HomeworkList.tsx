@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   HomeworkDetails,
-  HomeworkDetailsResponse,
   HomeworkAttachment,
 } from "../shared-types";
 
@@ -118,14 +117,6 @@ const HomeworkList: React.FC = () => {
     return "#dc3545"; // red for pending
   };
 
-  const getStatusText = (hw: Homework) => {
-    const isGraded = hw.stu_score !== "未公布成绩" && hw.stu_score !== "";
-    const isSubmitted = hw.subStatus === "已提交";
-
-    if (isGraded) return "Graded";
-    if (isSubmitted) return "Submitted";
-    return "Pending";
-  };
 
   const formatDeadline = (dateString: string) => {
     const date = new Date(dateString);
@@ -225,7 +216,7 @@ const HomeworkList: React.FC = () => {
     try {
       // We need to extract teacher ID from homework data or make an assumption
       // For now, we'll use a default or extract from existing data
-      const hw = homework.find((h) => h.id === homeworkId);
+      const _hw = homework.find((h) => h.id === homeworkId);
       const response = await window.electronAPI.getHomeworkDetails(
         homeworkId.toString(),
         courseId.toString(),
@@ -315,12 +306,12 @@ const HomeworkList: React.FC = () => {
     if (!content) return "";
 
     // Check if content contains images and replace them with bolded text
-    let hasImages = false;
+    let _hasImages = false;
     let sanitized = content;
 
     // Replace img tags with placeholder text
     sanitized = sanitized.replace(/<img[^>]*>/gi, () => {
-      hasImages = true;
+      _hasImages = true;
       return "**[Image removed for security]**";
     });
 
