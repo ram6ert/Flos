@@ -12,6 +12,8 @@ export let currentSession: {
   username: string;
   passwordHash: string;
   sessionId?: string;
+  loginTime?: Date;
+  isLoggedIn?: boolean;
 } | null = null;
 
 // Captcha session management
@@ -63,6 +65,9 @@ export const handleFetchCaptcha = async (): Promise<{
   error?: string;
 }> => {
   try {
+    // Clear any existing captcha session to start fresh
+    captchaSession = null;
+
     const response = await axios.get(
       `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CAPTCHA}`,
       {
@@ -74,6 +79,7 @@ export const handleFetchCaptcha = async (): Promise<{
     );
 
     updateSessionCookies(response, "captcha");
+    console.log("Fresh captcha session created");
 
     const base64Image = Buffer.from(response.data).toString("base64");
     const dataUrl = `data:image/jpeg;base64,${base64Image}`;
@@ -111,14 +117,14 @@ export const handleLogin = async (
         },
         maxRedirects: 0,
         validateStatus: () => true,
-        responseType: 'arraybuffer', // Get raw bytes to decode as GBK
+        responseType: "arraybuffer", // Get raw bytes to decode as GBK
       }
     );
 
     updateSessionCookies(response, "login");
 
     // Decode GBK response to handle Chinese error messages properly
-    const responseText = iconv.decode(Buffer.from(response.data), 'gbk');
+    const responseText = iconv.decode(Buffer.from(response.data), "gbk");
 
     // Check for login failure indicators
     if (responseText.includes("alert(")) {
@@ -134,33 +140,37 @@ export const handleLogin = async (
         `${API_CONFIG.BASE_URL}/back/coursePlatform/message.shtml?method=getArticleList`,
         {
           headers: {
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
-            'Cookie': cookieHeader,
-            'Referer': `${API_CONFIG.BASE_URL}/ve/`,
-            'User-Agent': API_CONFIG.USER_AGENT,
-            'X-Requested-With': 'XMLHttpRequest',
+            Accept: "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language":
+              "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+            Cookie: cookieHeader,
+            Referer: `${API_CONFIG.BASE_URL}/ve/`,
+            "User-Agent": API_CONFIG.USER_AGENT,
+            "X-Requested-With": "XMLHttpRequest",
           },
           validateStatus: () => true,
         }
       );
 
       if (messageResponse.status === 200 && messageResponse.data) {
-        const messageData = typeof messageResponse.data === 'string'
-          ? JSON.parse(messageResponse.data)
-          : messageResponse.data;
+        const messageData =
+          typeof messageResponse.data === "string"
+            ? JSON.parse(messageResponse.data)
+            : messageResponse.data;
         sessionId = messageData.sessionId;
-        console.log('Fetched sessionId during login:', sessionId);
+        console.log("Fetched sessionId during login:", sessionId);
       }
     } catch (error) {
-      console.warn('Failed to fetch sessionId during login:', error);
+      console.warn("Failed to fetch sessionId during login:", error);
     }
 
     // Store credentials and sessionId for future authentication
     currentSession = {
       username: credentials.username,
       passwordHash: credentials.password,
-      sessionId
+      sessionId,
+      loginTime: new Date(),
+      isLoggedIn: true,
     };
 
     const requestIdMatch = responseText.match(/var requestId = '([^']+)'/);
@@ -176,6 +186,7 @@ export const handleLogin = async (
 export const handleStoreCredentials = async (credentials: {
   username: string;
   password: string;
+  jsessionId?: string;
 }): Promise<boolean> => {
   try {
     const credentialsPath = getCredentialsPath();
@@ -183,10 +194,12 @@ export const handleStoreCredentials = async (credentials: {
     const data = {
       username: credentials.username,
       passwordHash: credentials.password, // Already hashed
+      jsessionId: credentials.jsessionId || captchaSession?.jsessionId,
       savedAt: new Date().toISOString(),
     };
 
     await fs.promises.writeFile(credentialsPath, JSON.stringify(data, null, 2));
+    console.log("Credentials stored with JSESSIONID:", !!data.jsessionId);
     return true;
   } catch (error) {
     console.error("Failed to store credentials:", error);
@@ -197,6 +210,7 @@ export const handleStoreCredentials = async (credentials: {
 export const handleGetStoredCredentials = async (): Promise<{
   username: string;
   password: string;
+  jsessionId?: string;
 } | null> => {
   try {
     const credentialsPath = getCredentialsPath();
@@ -206,6 +220,7 @@ export const handleGetStoredCredentials = async (): Promise<{
     return {
       username: credentials.username,
       password: credentials.passwordHash,
+      jsessionId: credentials.jsessionId,
     };
   } catch (error) {
     return null;
@@ -213,10 +228,109 @@ export const handleGetStoredCredentials = async (): Promise<{
 };
 
 export const handleIsLoggedIn = async (): Promise<boolean> => {
-  return currentSession !== null && captchaSession !== null;
+  return currentSession?.isLoggedIn === true;
+};
+
+export const getCurrentSession = (): typeof currentSession => {
+  return currentSession;
 };
 
 export const handleLogout = async (): Promise<void> => {
+  // Clear all session data
   currentSession = null;
   captchaSession = null;
+
+  console.log("Logout: All session data cleared");
+};
+
+export const handleSessionExpired = async (): Promise<void> => {
+  console.log("Session expired - clearing authentication state");
+  currentSession = null;
+  captchaSession = null;
+
+  // Clear stored JSESSIONID since it's expired
+  try {
+    const stored = await handleGetStoredCredentials();
+    if (stored) {
+      await handleStoreCredentials({
+        username: stored.username,
+        password: stored.password,
+        // Don't include jsessionId - it's expired
+      });
+    }
+  } catch (error) {
+    console.error("Failed to clear expired JSESSIONID:", error);
+  }
+};
+
+export const handleValidateStoredSession = async (): Promise<boolean> => {
+  try {
+    const stored = await handleGetStoredCredentials();
+    if (!stored || !stored.jsessionId) {
+      console.log("No stored JSESSIONID found");
+      return false;
+    }
+
+    console.log("Attempting to restore session with stored JSESSIONID");
+
+    // Restore captcha session with stored JSESSIONID
+    captchaSession = {
+      jsessionId: stored.jsessionId,
+      cookies: [`JSESSIONID=${stored.jsessionId}`],
+    };
+
+    // Test the session by making a simple API call
+    const testUrl = `${API_CONFIG.BASE_URL}/back/coursePlatform/message.shtml?method=getArticleList`;
+    const response = await axios.get(testUrl, {
+      headers: {
+        Accept: "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        Cookie: captchaSession.cookies.join("; "),
+        Referer: `${API_CONFIG.BASE_URL}/ve/`,
+        "User-Agent": API_CONFIG.USER_AGENT,
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      validateStatus: () => true,
+    });
+
+    if (response.status === 200 && response.data) {
+      // Check if response contains login indicators
+      const responseText =
+        typeof response.data === "string"
+          ? response.data
+          : JSON.stringify(response.data);
+
+      if (responseText.includes("登录")) {
+        console.log("Response contains login indicators, session is expired");
+        captchaSession = null;
+        return false;
+      }
+
+      // Session is valid, restore full session state
+      const messageData =
+        typeof response.data === "string"
+          ? JSON.parse(response.data)
+          : response.data;
+
+      currentSession = {
+        username: stored.username,
+        passwordHash: stored.password,
+        sessionId: messageData.sessionId,
+        loginTime: new Date(),
+        isLoggedIn: true,
+      };
+
+      console.log("Session restored successfully with stored JSESSIONID");
+      return true;
+    } else {
+      console.log("Stored JSESSIONID is expired or invalid");
+      // Clear the expired session
+      captchaSession = null;
+      return false;
+    }
+  } catch (error) {
+    console.error("Failed to validate stored session:", error);
+    captchaSession = null;
+    return false;
+  }
 };

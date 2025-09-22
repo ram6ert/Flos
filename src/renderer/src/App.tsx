@@ -35,21 +35,60 @@ const App: React.FC = () => {
       }
     };
 
+    // Listen for session expiration
+    const handleSessionExpired = () => {
+      console.log('Session expired, prompting for re-login');
+      setUserSession(null);
+      // Don't clear cached data - keep it available until user explicitly refreshes
+      setSelectedCourse(null);
+      setActiveView('courses');
+    };
+
     window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
+    window.electronAPI.onSessionExpired?.(handleSessionExpired);
 
     return () => {
       window.electronAPI.removeAllListeners?.('cache-updated');
+      window.electronAPI.removeAllListeners?.('session-expired');
     };
   }, []);
 
   const checkLoginStatus = async () => {
     try {
-      const isLoggedIn = await window.electronAPI.isLoggedIn();
-      setIsCheckingLogin(false);
+      // First, try to validate stored session (JSESSIONID)
+      const storedSessionValid = await window.electronAPI.validateStoredSession();
 
-      if (!isLoggedIn) {
-        setUserSession(null);
+      if (storedSessionValid) {
+        console.log('Restored session from stored JSESSIONID');
+        const session = await window.electronAPI.getCurrentSession();
+        if (session) {
+          setUserSession({
+            username: session.username,
+            requestId: session.sessionId || '',
+            isLoggedIn: true,
+            loginTime: session.loginTime ? new Date(session.loginTime) : new Date()
+          });
+        }
+      } else {
+        // Fallback to regular login check
+        const isLoggedIn = await window.electronAPI.isLoggedIn();
+
+        if (isLoggedIn) {
+          const session = await window.electronAPI.getCurrentSession();
+          if (session) {
+            setUserSession({
+              username: session.username,
+              requestId: session.sessionId || '',
+              isLoggedIn: true,
+              loginTime: session.loginTime ? new Date(session.loginTime) : new Date()
+            });
+          }
+        } else {
+          setUserSession(null);
+        }
       }
+
+      setIsCheckingLogin(false);
     } catch (error) {
       console.error('Error checking login status:', error);
       setIsCheckingLogin(false);
