@@ -109,9 +109,9 @@ jobs:
             - 📅 Weekly schedule view with GBK encoding support
 
             ### Downloads
-            - **Windows**: `.exe` and `.msi` installers
+            - **Windows**: `.exe` installer
             - **macOS**: `.dmg` disk image and `.zip` archive
-            - **Linux**: `.AppImage`, `.deb`, and `.rpm` packages
+            - **Linux**: `.AppImage` package
 
             ### Installation
             1. Download the appropriate file for your operating system
@@ -130,15 +130,39 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Trigger mirror release workflow
+      - name: Mirror release to public repository
         if: success()
-        uses: actions/github-script@v7
+        uses: softprops/action-gh-release@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'mirror-release.yml',
-              ref: 'master'
-            });
+          tag_name: v${{ steps.version.outputs.version }}
+          name: BAKA Course Platform v${{ steps.version.outputs.version }}
+          body: |
+            ## BAKA Course Platform v${{ steps.version.outputs.version }}
+
+            ### Features
+            - 📚 Course management and viewing
+            - 📝 Homework tracking and submission
+            - 📄 Document access and download
+            - 📅 Weekly schedule view with GBK encoding support
+
+            ### Downloads
+            - **Windows**: `.exe` installer
+            - **macOS**: `.dmg` disk image and `.zip` archive
+            - **Linux**: `.AppImage` package
+
+            ### Installation
+            1. Download the appropriate file for your operating system
+            2. Run the installer or extract the archive
+            3. Launch BAKA Course Platform
+
+            ---
+            🤖 Built automatically with GitHub Actions
+          files: |
+            artifacts/smart-course-platform-windows/*
+            artifacts/smart-course-platform-macos/*
+            artifacts/smart-course-platform-linux/*
+          repository: Baka-Course-Platform/Baka-Course-Platform
+          token: ${{ secrets.BAKA_ACCESS_TOKEN }}
+          generate_release_notes: false
+          draft: false
+          prerelease: false
