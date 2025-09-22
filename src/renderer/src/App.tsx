@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Course, CourseDocument, UserSession } from './shared-types';
-import CourseList from './components/CourseList';
-import HomeworkList from './components/HomeworkList';
-import DocumentList from './components/DocumentList';
-import Sidebar from './components/Sidebar';
-import Login from './components/Login';
-import ScheduleTable from './components/ScheduleTable';
+import React, { useState, useEffect } from "react";
+import { Course, CourseDocument, UserSession } from "./shared-types";
+import CourseList from "./components/CourseList";
+import HomeworkList from "./components/HomeworkList";
+import DocumentList from "./components/DocumentList";
+import Sidebar from "./components/Sidebar";
+import Login from "./components/Login";
+import ScheduleTable from "./components/ScheduleTable";
 
-type ActiveView = 'courses' | 'homework' | 'documents' | 'schedule';
+type ActiveView = "courses" | "homework" | "documents" | "schedule";
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<ActiveView>('courses');
+  const [activeView, setActiveView] = useState<ActiveView>("courses");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [documents, setDocuments] = useState<CourseDocument[]>([]);
@@ -29,44 +29,50 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // Listen for cache updates
-    const handleCacheUpdate = (event: any, payload: { key: string; data: any }) => {
-      if (payload.key === 'courses') {
+    const handleCacheUpdate = (
+      event: any,
+      payload: { key: string; data: any }
+    ) => {
+      if (payload.key === "courses") {
         setCourses(payload.data || []);
       }
     };
 
     // Listen for session expiration
     const handleSessionExpired = () => {
-      console.log('Session expired, prompting for re-login');
+      console.log("Session expired, prompting for re-login");
       setUserSession(null);
       // Don't clear cached data - keep it available until user explicitly refreshes
       setSelectedCourse(null);
-      setActiveView('courses');
+      setActiveView("courses");
     };
 
     window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
     window.electronAPI.onSessionExpired?.(handleSessionExpired);
 
     return () => {
-      window.electronAPI.removeAllListeners?.('cache-updated');
-      window.electronAPI.removeAllListeners?.('session-expired');
+      window.electronAPI.removeAllListeners?.("cache-updated");
+      window.electronAPI.removeAllListeners?.("session-expired");
     };
   }, []);
 
   const checkLoginStatus = async () => {
     try {
       // First, try to validate stored session (JSESSIONID)
-      const storedSessionValid = await window.electronAPI.validateStoredSession();
+      const storedSessionValid =
+        await window.electronAPI.validateStoredSession();
 
       if (storedSessionValid) {
-        console.log('Restored session from stored JSESSIONID');
+        console.log("Restored session from stored JSESSIONID");
         const session = await window.electronAPI.getCurrentSession();
         if (session) {
           setUserSession({
             username: session.username,
-            requestId: session.sessionId || '',
+            requestId: session.sessionId || "",
             isLoggedIn: true,
-            loginTime: session.loginTime ? new Date(session.loginTime) : new Date()
+            loginTime: session.loginTime
+              ? new Date(session.loginTime)
+              : new Date(),
           });
         }
       } else {
@@ -78,9 +84,11 @@ const App: React.FC = () => {
           if (session) {
             setUserSession({
               username: session.username,
-              requestId: session.sessionId || '',
+              requestId: session.sessionId || "",
               isLoggedIn: true,
-              loginTime: session.loginTime ? new Date(session.loginTime) : new Date()
+              loginTime: session.loginTime
+                ? new Date(session.loginTime)
+                : new Date(),
             });
           }
         } else {
@@ -90,7 +98,7 @@ const App: React.FC = () => {
 
       setIsCheckingLogin(false);
     } catch (error) {
-      console.error('Error checking login status:', error);
+      console.error("Error checking login status:", error);
       setIsCheckingLogin(false);
       setUserSession(null);
     }
@@ -103,11 +111,10 @@ const App: React.FC = () => {
         : await window.electronAPI.getCourses();
       setCourses(coursesResponse.data || []);
     } catch (error) {
-      console.error('Failed to load courses:', error);
+      console.error("Failed to load courses:", error);
       setCourses([]);
     }
   };
-
 
   const handleCourseSelect = (course: Course) => {
     setSelectedCourse(course);
@@ -128,19 +135,25 @@ const App: React.FC = () => {
       setCourses([]);
       setDocuments([]);
       setSelectedCourse(null);
-      setActiveView('courses');
+      setActiveView("courses");
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error("Error during logout:", error);
     }
   };
 
   const renderContent = () => {
     switch (activeView) {
-      case 'courses':
-        return <CourseList courses={courses} onCourseSelect={handleCourseSelect} onRefresh={handleRefreshCourses} />;
-      case 'homework':
+      case "courses":
+        return (
+          <CourseList
+            courses={courses}
+            onCourseSelect={handleCourseSelect}
+            onRefresh={handleRefreshCourses}
+          />
+        );
+      case "homework":
         return <HomeworkList />;
-      case 'documents':
+      case "documents":
         return (
           <DocumentList
             documents={documents}
@@ -149,25 +162,33 @@ const App: React.FC = () => {
             onCourseSelect={handleCourseSelect}
           />
         );
-      case 'schedule':
+      case "schedule":
         return <ScheduleTable />;
       default:
-        return <CourseList courses={courses} onCourseSelect={handleCourseSelect} onRefresh={handleRefreshCourses} />;
+        return (
+          <CourseList
+            courses={courses}
+            onCourseSelect={handleCourseSelect}
+            onRefresh={handleRefreshCourses}
+          />
+        );
     }
   };
 
   // Show loading screen while checking login status
   if (isCheckingLogin) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white'
-      }}>
-        <div style={{ textAlign: 'center' }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          color: "white",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
           <h2>Smart Course Platform</h2>
           <p>Loading...</p>
         </div>
@@ -184,7 +205,13 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <header className="header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <div>
             <h1>Smart Course Platform</h1>
             <p>Welcome back, {userSession.username}!</p>
@@ -192,12 +219,12 @@ const App: React.FC = () => {
           <button
             onClick={handleLogout}
             style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              color: 'white',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              borderRadius: '4px',
-              cursor: 'pointer'
+              padding: "0.5rem 1rem",
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+              color: "white",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: "4px",
+              cursor: "pointer",
             }}
           >
             Logout
@@ -207,9 +234,7 @@ const App: React.FC = () => {
 
       <div className="main-content">
         <Sidebar activeView={activeView} onViewChange={setActiveView} />
-        <main className="content">
-          {renderContent()}
-        </main>
+        <main className="content">{renderContent()}</main>
       </div>
     </div>
   );

@@ -1,6 +1,11 @@
 import axios from "axios";
 import { API_CONFIG } from "./constants";
-import { currentSession, captchaSession, updateSessionCookies, handleSessionExpired } from "./auth";
+import {
+  currentSession,
+  captchaSession,
+  updateSessionCookies,
+  handleSessionExpired,
+} from "./auth";
 import {
   getCachedData,
   setCachedData,
@@ -139,7 +144,11 @@ export async function authenticatedRequest(
 
     // Check for session expiration indicators
     if (typeof response.data === "string") {
-      if (response.data.includes("登录") || response.data.includes("login") || response.data.includes("not logged")) {
+      if (
+        response.data.includes("登录") ||
+        response.data.includes("login") ||
+        response.data.includes("not logged")
+      ) {
         Logger.event("Session expiration detected");
         await handleSessionExpired();
         throw new Error("SESSION_EXPIRED");
@@ -221,10 +230,7 @@ export async function fetchHomeworkData(courseId?: string) {
           allHomework.push(...homework);
         }
       } catch (error) {
-        Logger.error(
-          `Failed to get ${type.name} for course`,
-          error
-        );
+        Logger.error(`Failed to get ${type.name} for course`, error);
       }
 
       // Add delay between requests
@@ -271,10 +277,7 @@ export async function fetchHomeworkData(courseId?: string) {
             allHomework.push(...homework);
           }
         } catch (error) {
-          Logger.error(
-            `Failed to get ${type.name} for course`,
-            error
-          );
+          Logger.error(`Failed to get ${type.name} for course`, error);
         }
 
         // Add delay between requests
@@ -289,7 +292,10 @@ export async function fetchHomeworkData(courseId?: string) {
 }
 
 // Helper function to fetch and parse schedule data
-export async function fetchScheduleData(sessionId: string = "2021112401", forceRefresh: boolean = false) {
+export async function fetchScheduleData(
+  sessionId: string = "2021112401",
+  forceRefresh: boolean = false
+) {
   if (!currentSession) {
     throw new Error("Not logged in");
   }
@@ -310,7 +316,8 @@ export async function fetchScheduleData(sessionId: string = "2021112401", forceR
   try {
     const response = await axios.get(url, {
       headers: {
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
         Cookie: captchaSession ? captchaSession.cookies.join("; ") : "",
         Referer: `${API_CONFIG.BASE_URL}/ve/`,
@@ -324,7 +331,7 @@ export async function fetchScheduleData(sessionId: string = "2021112401", forceR
       updateSessionCookies(response, "schedule-request");
 
       // Decode GBK content to UTF-8
-      const decodedHtml = iconv.decode(Buffer.from(response.data), 'gbk');
+      const decodedHtml = iconv.decode(Buffer.from(response.data), "gbk");
       const scheduleData = parseScheduleHTML(decodedHtml);
 
       // Cache the result
@@ -362,7 +369,7 @@ function parseScheduleHTML(html: string): any {
 
   // Helper function to sanitize time slots (remove extra spaces)
   const sanitizeTimeSlot = (timeSlot: string): string => {
-    return timeSlot.replace(/\s+/g, ' ').replace(/- /g, '-').trim();
+    return timeSlot.replace(/\s+/g, " ").replace(/- /g, "-").trim();
   };
 
   // Get all schedule rows
@@ -384,23 +391,31 @@ function parseScheduleHTML(html: string): any {
     courseCells.forEach((cell, dayIndex) => {
       const courseTitle = cell.querySelector(".table-t");
       if (courseTitle) {
-        const courseName = courseTitle.textContent?.replace("课程：", "").trim() || "";
+        const courseName =
+          courseTitle.textContent?.replace("课程：", "").trim() || "";
 
         const teacherSpan = cell.querySelector(".table-b");
-        const teacherName = teacherSpan?.textContent?.replace("教师：", "").trim() || "";
+        const teacherName =
+          teacherSpan?.textContent?.replace("教师：", "").trim() || "";
 
         const classSpans = cell.querySelectorAll(".table-b");
         let className = "";
         if (classSpans.length > 1) {
-          className = classSpans[1].textContent?.replace("班级：", "").trim() || "";
+          className =
+            classSpans[1].textContent?.replace("班级：", "").trim() || "";
         }
 
         const studentSpan = cell.querySelector(".table-m");
-        const studentText = studentSpan?.textContent?.replace("学生：", "").replace("人", "").trim() || "0";
+        const studentText =
+          studentSpan?.textContent
+            ?.replace("学生：", "")
+            .replace("人", "")
+            .trim() || "0";
         const studentCount = parseInt(studentText) || 0;
 
         const classroomSpan = cell.querySelector(".table-j");
-        const classroom = classroomSpan?.textContent?.replace("教室：", "").trim() || "";
+        const classroom =
+          classroomSpan?.textContent?.replace("教室：", "").trim() || "";
 
         // Extract course ID from onclick attribute
         let courseId = "";
@@ -421,7 +436,7 @@ function parseScheduleHTML(html: string): any {
             studentCount,
             classroom: classroom.trim(),
             timeSlot: currentTimeSlot,
-            dayOfWeek: dayIndex
+            dayOfWeek: dayIndex,
           };
           entries.push(entry);
         }
@@ -434,7 +449,7 @@ function parseScheduleHTML(html: string): any {
     const beginDateObj = new Date(beginDate);
     const endDateObj = new Date(beginDateObj);
     endDateObj.setDate(beginDateObj.getDate() + 6);
-    endDate = endDateObj.toISOString().split('T')[0];
+    endDate = endDateObj.toISOString().split("T")[0];
   }
 
   return {
@@ -442,9 +457,9 @@ function parseScheduleHTML(html: string): any {
       weekNumber,
       beginDate,
       endDate,
-      entries
+      entries,
     },
     STATUS: "0",
-    message: "Schedule fetched successfully"
+    message: "Schedule fetched successfully",
   };
 }

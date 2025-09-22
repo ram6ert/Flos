@@ -1,7 +1,7 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { app } from 'electron';
-import { Logger } from './logger';
+import * as fs from "fs";
+import * as path from "path";
+import { app } from "electron";
+import { Logger } from "./logger";
 
 // Cache storage
 let homeworkCache: { [key: string]: any } = {};
@@ -14,8 +14,8 @@ export const SCHEDULE_CACHE_DURATION = COURSE_CACHE_DURATION; // Same as courses
 
 // Get cache file path (user-specific)
 export const getCachePath = (username?: string) => {
-  const userDataPath = app.getPath('userData');
-  const cacheFileName = username ? `cache_${username}.json` : 'cache.json';
+  const userDataPath = app.getPath("userData");
+  const cacheFileName = username ? `cache_${username}.json` : "cache.json";
   return path.join(userDataPath, cacheFileName);
 };
 
@@ -24,14 +24,14 @@ export const loadCacheFromFile = (username?: string) => {
   try {
     const cachePath = getCachePath(username);
     if (fs.existsSync(cachePath)) {
-      const data = fs.readFileSync(cachePath, 'utf8');
+      const data = fs.readFileSync(cachePath, "utf8");
       const parsed = JSON.parse(data);
       homeworkCache = parsed.cache || {};
       cacheTimestamps = parsed.timestamps || {};
       Logger.event("Cache loaded");
     }
   } catch (error) {
-    Logger.error('Failed to load cache', error);
+    Logger.error("Failed to load cache", error);
     homeworkCache = {};
     cacheTimestamps = {};
   }
@@ -44,17 +44,20 @@ export const saveCacheToFile = (username?: string) => {
     const data = {
       cache: homeworkCache,
       timestamps: cacheTimestamps,
-      lastSaved: new Date().toISOString()
+      lastSaved: new Date().toISOString(),
     };
     fs.writeFileSync(cachePath, JSON.stringify(data, null, 2));
     Logger.event("Cache saved");
   } catch (error) {
-    Logger.error('Failed to save cache', error);
+    Logger.error("Failed to save cache", error);
   }
 };
 
 // Cache management functions
-export const getCachedData = (key: string, maxAge: number = CACHE_DURATION): any | null => {
+export const getCachedData = (
+  key: string,
+  maxAge: number = CACHE_DURATION
+): any | null => {
   const timestamp = cacheTimestamps[key];
   if (!timestamp) return null;
 
@@ -79,7 +82,7 @@ export const clearCache = (): void => {
 };
 
 export const invalidateCache = (keyPattern: string): void => {
-  Object.keys(homeworkCache).forEach(key => {
+  Object.keys(homeworkCache).forEach((key) => {
     if (key.includes(keyPattern)) {
       delete homeworkCache[key];
       delete cacheTimestamps[key];

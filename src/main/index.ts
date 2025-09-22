@@ -44,7 +44,10 @@ axios.defaults.headers.common["User-Agent"] = API_CONFIG.USER_AGENT;
 axios.defaults.timeout = API_CONFIG.TIMEOUT;
 
 // Helper function to handle API calls with session expiration
-const handleApiCall = async <T>(apiCall: () => Promise<T>, event?: Electron.IpcMainInvokeEvent): Promise<T> => {
+const handleApiCall = async <T>(
+  apiCall: () => Promise<T>,
+  event?: Electron.IpcMainInvokeEvent
+): Promise<T> => {
   try {
     return await apiCall();
   } catch (error: any) {
@@ -86,42 +89,43 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
 
     // Disable development shortcuts in production
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      const isCommandOrCtrl = process.platform === 'darwin' ? input.meta : input.control;
+    mainWindow.webContents.on("before-input-event", (event, input) => {
+      const isCommandOrCtrl =
+        process.platform === "darwin" ? input.meta : input.control;
 
       // Disable F12 (DevTools)
-      if (input.key === 'F12') {
+      if (input.key === "F12") {
         event.preventDefault();
       }
 
       // Disable Ctrl/Cmd+Shift+I (DevTools)
-      if (isCommandOrCtrl && input.shift && input.key === 'I') {
+      if (isCommandOrCtrl && input.shift && input.key === "I") {
         event.preventDefault();
       }
 
       // Disable Ctrl/Cmd+R (Reload)
-      if (isCommandOrCtrl && input.key === 'r') {
+      if (isCommandOrCtrl && input.key === "r") {
         event.preventDefault();
       }
 
       // Disable F5 (Reload)
-      if (input.key === 'F5') {
+      if (input.key === "F5") {
         event.preventDefault();
       }
 
       // Disable Ctrl/Cmd+Shift+R (Hard Reload)
-      if (isCommandOrCtrl && input.shift && input.key === 'R') {
+      if (isCommandOrCtrl && input.shift && input.key === "R") {
         event.preventDefault();
       }
 
       // Disable Ctrl/Cmd+Shift+C (DevTools Elements)
-      if (isCommandOrCtrl && input.shift && input.key === 'C') {
+      if (isCommandOrCtrl && input.shift && input.key === "C") {
         event.preventDefault();
       }
     });
 
     // Disable context menu in production to prevent "Inspect Element"
-    mainWindow.webContents.on('context-menu', (event) => {
+    mainWindow.webContents.on("context-menu", (event) => {
       event.preventDefault();
     });
   }
@@ -161,12 +165,14 @@ function createWindow(): void {
       {
         label: "View",
         submenu: [
-          ...(isDev ? [
-            { role: "reload" },
-            { role: "forceReload" },
-            { role: "toggleDevTools" },
-            { type: "separator" },
-          ] : []),
+          ...(isDev
+            ? [
+                { role: "reload" },
+                { role: "forceReload" },
+                { role: "toggleDevTools" },
+                { type: "separator" },
+              ]
+            : []),
           { role: "resetZoom" },
           { role: "zoomIn" },
           { role: "zoomOut" },
@@ -441,7 +447,10 @@ ipcMain.handle(
         ? `${API_CONFIG.DOCS_BASE_URL}${attachmentUrl}`
         : attachmentUrl;
 
-      Logger.debug("Downloading homework attachment from URL:", Logger.sanitizeUrl(fullUrl));
+      Logger.debug(
+        "Downloading homework attachment from URL:",
+        Logger.sanitizeUrl(fullUrl)
+      );
       Logger.event("Homework attachment download started");
 
       // First, check the file size with a HEAD request
@@ -671,7 +680,10 @@ ipcMain.handle(
         ? `${API_CONFIG.DOCS_BASE_URL}${documentUrl}`
         : documentUrl;
 
-      Logger.debug("Downloading document from URL:", Logger.sanitizeUrl(fullUrl));
+      Logger.debug(
+        "Downloading document from URL:",
+        Logger.sanitizeUrl(fullUrl)
+      );
       Logger.event("Document download started");
 
       // First, check the file size with a HEAD request

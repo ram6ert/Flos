@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { WeekSchedule, ScheduleEntry } from '../shared-types';
-import './ScheduleTable.css';
+import React, { useState, useEffect } from "react";
+import { WeekSchedule, ScheduleEntry } from "../shared-types";
+import "./ScheduleTable.css";
 
 interface ScheduleTableProps {
   onRefresh?: () => void;
@@ -19,7 +19,7 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
     "14:10-16:00",
     "16:20-18:10",
     "19:00-20:50",
-    "21:00-21:50"
+    "21:00-21:50",
   ];
 
   const weekdays = [
@@ -51,8 +51,8 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
         setError(scheduleResponse.message || "Failed to load schedule");
       }
     } catch (error) {
-      console.error('Failed to load schedule:', error);
-      setError('Failed to load schedule. Please try again.');
+      console.error("Failed to load schedule:", error);
+      setError("Failed to load schedule. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -63,28 +63,36 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
     onRefresh?.();
   };
 
-  const getScheduleEntryForSlot = (timeSlot: string, dayIndex: number): ScheduleEntry | null => {
+  const getScheduleEntryForSlot = (
+    timeSlot: string,
+    dayIndex: number
+  ): ScheduleEntry | null => {
     if (!schedule) return null;
 
-    return schedule.entries.find(entry =>
-      entry.timeSlot === timeSlot && entry.dayOfWeek === dayIndex
-    ) || null;
+    return (
+      schedule.entries.find(
+        (entry) => entry.timeSlot === timeSlot && entry.dayOfWeek === dayIndex
+      ) || null
+    );
   };
 
   const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
+    if (!dateStr) return "";
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   const getDateForDay = (dayIndex: number) => {
-    if (!schedule?.beginDate) return '';
+    if (!schedule?.beginDate) return "";
 
     const beginDate = new Date(schedule.beginDate);
     const targetDate = new Date(beginDate);
     targetDate.setDate(beginDate.getDate() + dayIndex);
 
-    return targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return targetDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
   };
 
   if (isLoading) {
@@ -142,7 +150,8 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
         <div>
           <h2>📅 Course Schedule</h2>
           <p className="schedule-week-info">
-            Week {schedule.weekNumber} • {formatDate(schedule.beginDate)} - {formatDate(schedule.endDate)}
+            Week {schedule.weekNumber} • {formatDate(schedule.beginDate)} -{" "}
+            {formatDate(schedule.endDate)}
           </p>
         </div>
         <button onClick={handleRefresh} className="refresh-btn">
@@ -150,13 +159,12 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
         </button>
       </div>
 
-
       <div className="schedule-table-wrapper">
         <table className="schedule-table">
           <thead>
             <tr>
               <th className="time-header">Time</th>
-              {weekdays.map(day => (
+              {weekdays.map((day) => (
                 <th key={day.index} className="day-header">
                   <div className="day-header-content">
                     <span className="day-name">{day.short}</span>
@@ -170,22 +178,34 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
             {timeSlots.map((timeSlot, timeIndex) => (
               <tr key={timeIndex} className="schedule-row">
                 <td className="time-cell">
-                  <div className="time-content">
-                    {timeSlot}
-                  </div>
+                  <div className="time-content">{timeSlot}</div>
                 </td>
-                {weekdays.map(day => {
+                {weekdays.map((day) => {
                   const entry = getScheduleEntryForSlot(timeSlot, day.index);
                   return (
-                    <td key={`${timeIndex}-${day.index}`} className={`schedule-cell ${entry ? 'has-course' : ''}`}>
+                    <td
+                      key={`${timeIndex}-${day.index}`}
+                      className={`schedule-cell ${entry ? "has-course" : ""}`}
+                    >
                       {entry ? (
-                        <div className="course-entry" title={`${entry.courseName}\nTeacher: ${entry.teacherName}\nClass: ${entry.className}\nRoom: ${entry.classroom}\nStudents: ${entry.studentCount}`}>
+                        <div
+                          className="course-entry"
+                          title={`${entry.courseName}\nTeacher: ${entry.teacherName}\nClass: ${entry.className}\nRoom: ${entry.classroom}\nStudents: ${entry.studentCount}`}
+                        >
                           <div className="course-name">{entry.courseName}</div>
-                          <div className="course-teacher">👨‍🏫 {entry.teacherName}</div>
-                          <div className="course-room">📍 {entry.classroom}</div>
+                          <div className="course-teacher">
+                            👨‍🏫 {entry.teacherName}
+                          </div>
+                          <div className="course-room">
+                            📍 {entry.classroom}
+                          </div>
                           <div className="course-details">
-                            <span className="course-class">📚 {entry.className}</span>
-                            <span className="course-students">👥 {entry.studentCount}</span>
+                            <span className="course-class">
+                              📚 {entry.className}
+                            </span>
+                            <span className="course-students">
+                              👥 {entry.studentCount}
+                            </span>
                           </div>
                         </div>
                       ) : (
@@ -201,7 +221,6 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
           </tbody>
         </table>
       </div>
-
     </div>
   );
 };

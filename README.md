@@ -28,11 +28,13 @@ An Electron-based desktop application for convenient access to course informatio
 ### Setup
 
 1. Install dependencies:
+
 ```bash
 yarn install
 ```
 
 2. Start development server:
+
 ```bash
 yarn dev
 ```
@@ -42,11 +44,13 @@ This will start both the Vite dev server and Electron app.
 ### Building
 
 Build the application for production:
+
 ```bash
 yarn build
 ```
 
 Create distributable packages:
+
 ```bash
 yarn build:dist
 ```

@@ -40,7 +40,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setCaptchaUrl(result.imageData);
       }
     } catch (error) {
-      console.error('Failed to fetch captcha:', error);
+      console.error("Failed to fetch captcha:", error);
     }
   };
 
@@ -79,7 +79,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       if (response.success) {
         if (rememberCredentials) {
           // Always store the password that will be sent to the server (hashed)
-          const passwordToStore = isPasswordHashed ? password : hashPassword(password);
+          const passwordToStore = isPasswordHashed
+            ? password
+            : hashPassword(password);
 
           await window.electronAPI.storeCredentials({
             username: username.trim(),
@@ -94,7 +96,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           username: currentSession?.username || username.trim(),
           requestId: currentSession?.sessionId || response.requestId || "",
           isLoggedIn: true,
-          loginTime: currentSession?.loginTime ? new Date(currentSession.loginTime) : new Date(),
+          loginTime: currentSession?.loginTime
+            ? new Date(currentSession.loginTime)
+            : new Date(),
         };
 
         onLoginSuccess(session);
@@ -195,7 +199,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             >
               Password
             </label>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <div
+              style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
+            >
               <input
                 type="password"
                 value={password}

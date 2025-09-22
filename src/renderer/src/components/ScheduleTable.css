@@ -47,7 +47,9 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
-.loading-container, .error-container, .empty-container {
+.loading-container,
+.error-container,
+.empty-container {
   text-align: center;
   padding: 3rem;
   color: #7f8c8d;
@@ -64,8 +66,12 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .retry-btn {
@@ -91,7 +97,8 @@
   font-size: 0.85rem;
 }
 
-.time-header, .day-header {
+.time-header,
+.day-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 1rem 0.5rem;
@@ -200,7 +207,8 @@
   margin-top: 0.25rem;
 }
 
-.course-class, .course-students {
+.course-class,
+.course-students {
   font-size: 0.65rem;
   color: #7f8c8d;
   line-height: 1.1;
@@ -231,11 +239,13 @@
     font-size: 0.75rem;
   }
 
-  .course-teacher, .course-room {
+  .course-teacher,
+  .course-room {
     font-size: 0.65rem;
   }
 
-  .course-class, .course-students {
+  .course-class,
+  .course-students {
     font-size: 0.6rem;
   }
 }
