@@ -199,8 +199,12 @@ const App: React.FC = () => {
       <header className="header">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-white m-0">BAKA Course Platform</h1>
-            <p className="text-blue-100 m-0 mt-1">Welcome back, {userSession.username}!</p>
+            <h1 className="text-2xl font-bold text-white m-0">
+              BAKA Course Platform
+            </h1>
+            <p className="text-blue-100 m-0 mt-1">
+              Welcome back, {userSession.username}!
+            </p>
           </div>
           <Button
             onClick={handleLogout}

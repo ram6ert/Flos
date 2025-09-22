@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { ScheduleData, ScheduleEntry } from "../shared-types";
-import { Container, PageHeader, Button, Loading, ErrorDisplay, Card, cn } from "./common/StyledComponents";
+import {
+  Container,
+  PageHeader,
+  Button,
+  Loading,
+  ErrorDisplay,
+  Card,
+  cn,
+} from "./common/StyledComponents";
 
 interface FlowScheduleTableProps {
   onRefresh?: () => void;
@@ -17,6 +25,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
   const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Timeline configuration
   const timelineStart = 8 * 60; // 8:00 AM in minutes
@@ -63,6 +72,15 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
 
   useEffect(() => {
     loadSchedule();
+  }, []);
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
   }, []);
 
   const handleRefresh = () => {
@@ -156,28 +174,46 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     };
   };
 
-  // Generate time markers for the timeline
-  const generateTimeMarkers = () => {
-    const markers = [];
-    for (let hour = 8; hour <= 22; hour++) {
-      const minutes = hour * 60;
-      const relativePosition =
-        ((minutes - timelineStart) / (timelineEnd - timelineStart)) * 100;
+  // Generate current time indicator
+  const generateCurrentTimeIndicator = () => {
+    const currentMinutes =
+      currentTime.getHours() * 60 + currentTime.getMinutes();
 
-      markers.push(
-        <div
-          key={hour}
-          className="absolute left-0 right-0 flex items-center"
-          style={{ top: `${relativePosition}%` }}
-        >
-          <span className="bg-gray-800/90 text-white px-2 py-1 rounded-full text-[11px] font-semibold min-w-[45px] text-center shadow">
-            {`${hour.toString().padStart(2, "0")}:00`}
-          </span>
-          <div className="flex-1 h-px bg-gradient-to-r from-gray-700/30 to-transparent ml-2" />
-        </div>
-      );
+    // Only show if current time is within the timeline
+    if (currentMinutes < timelineStart || currentMinutes > timelineEnd) {
+      return null;
     }
-    return markers;
+
+    const relativePosition =
+      ((currentMinutes - timelineStart) / (timelineEnd - timelineStart)) * 100;
+
+    const currentTimeStr = currentTime.toLocaleTimeString("en-US", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    // Position relative to the timeline height, accounting for header
+    const topPosition = 52 + (timelineHeight * relativePosition) / 100;
+
+    return (
+      <div
+        className="absolute left-0 right-0 z-30 pointer-events-none"
+        style={{ top: `${topPosition}px` }}
+      >
+        <div className="relative">
+          <div className="absolute left-0 right-0 h-0.5 bg-red-500 shadow-lg"></div>
+          <div className="absolute left-2 -top-3">
+            <span className="bg-red-500 text-white px-2 py-1 rounded-full text-[10px] font-bold shadow-lg">
+              NOW {currentTimeStr}
+            </span>
+          </div>
+          <div className="absolute right-2 -top-1">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg"></div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // Get current week
@@ -238,7 +274,9 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
             </Button>
           }
         />
-        <p className="text-gray-600 text-center py-12">No schedule flow data available</p>
+        <p className="text-gray-600 text-center py-12">
+          No schedule flow data available
+        </p>
       </Container>
     );
   }
@@ -264,58 +302,79 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
       />
 
       <Card className="overflow-hidden">
-        <div className="relative flex min-w-[800px] overflow-x-auto">
-          <div className="absolute left-0 top-0 w-20 h-full z-10 pointer-events-none">
-            {generateTimeMarkers()}
-          </div>
+        <div
+          className="overflow-x-auto overflow-y-hidden"
+          style={{
+            transform: "rotateX(180deg)",
+          }}
+        >
+          <div
+            className="relative flex min-w-[800px]"
+            style={{
+              transform: "rotateX(180deg)",
+            }}
+          >
+            {generateCurrentTimeIndicator()}
+            <div className="flex gap-0.5 flex-1 relative">
+              {weekdays.map((day) => (
+                <div key={day.index} className="flex-1 min-w-[120px]">
+                  <div className="text-center px-2.5 py-3 bg-gray-100 text-gray-900 border-b border-gray-200 h-[52px] flex flex-col justify-center">
+                    <span className="block font-semibold text-sm mb-0.5">
+                      {day.short}
+                    </span>
+                    <span className="block text-xs text-gray-600">
+                      {getDateForDay(day.index)}
+                    </span>
+                  </div>
 
-          <div className="flex ml-[90px] gap-0.5 flex-1">
-            {weekdays.map((day) => (
-              <div key={day.index} className="flex-1 min-w-[120px]">
-                <div className="text-center px-2.5 py-3 bg-gray-100 text-gray-900 rounded-t-md border-b border-gray-200">
-                  <span className="block font-semibold text-sm mb-0.5">{day.short}</span>
-                  <span className="block text-xs text-gray-600">{getDateForDay(day.index)}</span>
-                </div>
-
-                <div
-                  className="relative rounded-b-md overflow-hidden border border-gray-200 border-t-0 bg-gradient-to-b from-indigo-50/30 via-blue-50/30 to-teal-50/30"
-                  style={{ height: `${timelineHeight}px` }}
-                >
-                  {getCoursesForDay(day.index).map((flow, index) => {
-                    const color = blockColors[index % blockColors.length];
-                    return (
-                      <div
-                        key={`${flow.course.id}-${index}`}
-                        className={cn(
-                          "absolute left-1 right-1 bg-white/95 rounded-md p-2 cursor-pointer transition shadow",
-                          "hover:translate-x-2 hover:shadow-lg",
-                          "backdrop-blur-sm",
-                          color.border
-                        )}
-                        style={getFlowStyle(flow)}
-                        title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}`}
-                      >
-                        <div className="h-full flex flex-col justify-between">
-                          <div className="font-semibold text-[13px] text-gray-900 mb-1 leading-snug line-clamp-2">
-                            {flow.course.course.name}
-                          </div>
-                          <div className={cn("text-[11px] font-semibold mb-1 px-1.5 py-0.5 rounded text-center", color.chip)}>
-                            {formatTimeFromMinutes(flow.startMinutes)}-
-                            {formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}
-                          </div>
-                          <div className="text-[10px] text-gray-600 truncate">
-                            👨‍🏫 {flow.course.course.teacher}
-                          </div>
-                          <div className="text-[10px] text-gray-600 truncate">
-                            📍 {flow.course.course.classroom}
+                  <div
+                    className="relative overflow-hidden border border-gray-200 border-t-0 bg-gradient-to-b from-indigo-50/30 via-blue-50/30 to-teal-50/30"
+                    style={{ height: `${timelineHeight}px` }}
+                  >
+                    {getCoursesForDay(day.index).map((flow, index) => {
+                      const color = blockColors[index % blockColors.length];
+                      return (
+                        <div
+                          key={`${flow.course.id}-${index}`}
+                          className={cn(
+                            "absolute left-1 right-1 bg-white/95 rounded-md p-2 cursor-pointer transition shadow",
+                            "hover:translate-x-2 hover:shadow-lg hover:bg-blue-50/90",
+                            "backdrop-blur-sm",
+                            "hover:z-50",
+                            color.border
+                          )}
+                          style={getFlowStyle(flow)}
+                          title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}`}
+                        >
+                          <div className="h-full flex flex-col justify-between">
+                            <div className="font-semibold text-[13px] text-gray-900 mb-1 leading-snug line-clamp-2">
+                              {flow.course.course.name}
+                            </div>
+                            <div
+                              className={cn(
+                                "text-[11px] font-semibold mb-1 px-1.5 py-0.5 rounded text-center",
+                                color.chip
+                              )}
+                            >
+                              {formatTimeFromMinutes(flow.startMinutes)}-
+                              {formatTimeFromMinutes(
+                                flow.startMinutes + flow.durationMinutes
+                              )}
+                            </div>
+                            <div className="text-[10px] text-gray-600 truncate">
+                              👨‍🏫 {flow.course.course.teacher}
+                            </div>
+                            <div className="text-[10px] text-gray-600 truncate">
+                              📍 {flow.course.course.classroom}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </Card>

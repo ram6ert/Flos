@@ -20,7 +20,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
       {menuItems.map((item) => (
         <div
           key={item.id}
-          className={`p-4 cursor-pointer border-b border-gray-100 transition-colors duration-200 hover:bg-gray-50 ${
+          className={`p-4 cursor-pointer border-b border-gray-100 transition-colors duration-200 hover:bg-gray-400 ${
             activeView === item.id
               ? "bg-blue-600 text-white hover:bg-blue-700"
               : "text-gray-700"

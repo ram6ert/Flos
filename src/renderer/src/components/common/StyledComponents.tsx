@@ -1,7 +1,9 @@
 import React from "react";
 
 // Common utility functions for conditional classes
-export const cn = (...classes: (string | undefined | null | false)[]): string => {
+export const cn = (
+  ...classes: (string | undefined | null | false)[]
+): string => {
   return classes.filter(Boolean).join(" ");
 };
 
@@ -15,13 +17,13 @@ interface ContainerProps {
 export const Container: React.FC<ContainerProps> = ({
   children,
   padding = "lg",
-  className = ""
+  className = "",
 }) => {
   const paddingClasses = {
     sm: "p-4",
     md: "p-6",
     lg: "p-8",
-    xl: "p-10"
+    xl: "p-10",
   };
 
   return (
@@ -41,28 +43,22 @@ interface PageHeaderProps {
 export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
   subtitle,
-  actions
+  actions,
 }) => {
   return (
     <div className="flex justify-between items-start mb-8 pb-4 border-b border-gray-200">
       <div>
-        <h2 className={cn(
-          "text-2xl font-semibold text-gray-900 m-0",
-          subtitle && "mb-2"
-        )}>
+        <h2
+          className={cn(
+            "text-2xl font-semibold text-gray-900 m-0",
+            subtitle && "mb-2"
+          )}
+        >
           {title}
         </h2>
-        {subtitle && (
-          <p className="text-base text-gray-600 m-0">
-            {subtitle}
-          </p>
-        )}
+        {subtitle && <p className="text-base text-gray-600 m-0">{subtitle}</p>}
       </div>
-      {actions && (
-        <div className="flex gap-4">
-          {actions}
-        </div>
-      )}
+      {actions && <div className="flex gap-4">{actions}</div>}
     </div>
   );
 };
@@ -85,14 +81,16 @@ export const Button: React.FC<ButtonProps> = ({
   onClick,
   type = "button",
 }) => {
-  const baseClasses = "border-none rounded-md cursor-pointer font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
+  const baseClasses =
+    "border-none rounded-md cursor-pointer font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
 
   const variantClasses = {
     primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
     secondary: "bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500",
     success: "bg-green-600 text-white hover:bg-green-700 focus:ring-green-500",
     danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
-    warning: "bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-500",
+    warning:
+      "bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-500",
   };
 
   const sizeClasses = {
@@ -143,13 +141,13 @@ export const Card: React.FC<CardProps> = ({
   const paddingClasses = {
     sm: "p-3",
     md: "p-4",
-    lg: "p-6"
+    lg: "p-6",
   };
 
   const shadowClasses = {
     sm: "shadow-sm",
     md: "shadow-md",
-    lg: "shadow-lg"
+    lg: "shadow-lg",
   };
 
   const hoverClasses = onClick
@@ -187,7 +185,7 @@ export const Grid: React.FC<GridProps> = ({
   const gapClasses = {
     sm: "gap-3",
     md: "gap-4",
-    lg: "gap-6"
+    lg: "gap-6",
   };
 
   return (
@@ -260,10 +258,12 @@ export const InfoBanner: React.FC<InfoBannerProps> = ({
   };
 
   return (
-    <div className={cn(
-      "border rounded-md p-3 mb-4 text-sm",
-      variantClasses[variant]
-    )}>
+    <div
+      className={cn(
+        "border rounded-md p-3 mb-4 text-sm",
+        variantClasses[variant]
+      )}
+    >
       {children}
     </div>
   );
@@ -283,15 +283,9 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 }) => {
   return (
     <div className="mb-4">
-      <label className="block mb-2 font-medium text-gray-900">
-        {label}
-      </label>
+      <label className="block mb-2 font-medium text-gray-900">{label}</label>
       {children}
-      {error && (
-        <div className="text-red-600 text-sm mt-2">
-          {error}
-        </div>
-      )}
+      {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
     </div>
   );
 };

@@ -443,7 +443,9 @@ const HomeworkList: React.FC = () => {
           title="Unable to Load Homework"
           message={error}
           onRetry={() => fetchHomework(true)}
-          retryLabel={refreshing ? "Retrying..." : loading ? "Loading..." : "Retry"}
+          retryLabel={
+            refreshing ? "Retrying..." : loading ? "Loading..." : "Retry"
+          }
         />
       </Container>
     );
@@ -465,11 +467,7 @@ const HomeworkList: React.FC = () => {
         }
       />
 
-      {cacheInfo && (
-        <InfoBanner variant="info">
-          {cacheInfo}
-        </InfoBanner>
-      )}
+      {cacheInfo && <InfoBanner variant="info">{cacheInfo}</InfoBanner>}
 
       <div className="mb-6">
         <div className="mb-4">
@@ -515,7 +513,9 @@ const HomeworkList: React.FC = () => {
       </div>
 
       {filteredAndSortedHomework.length === 0 ? (
-        <p className="text-gray-600">No homework found for the selected filter.</p>
+        <p className="text-gray-600">
+          No homework found for the selected filter.
+        </p>
       ) : (
         <div className="flex flex-col gap-3">
           {filteredAndSortedHomework.map((hw) => {
@@ -532,7 +532,9 @@ const HomeworkList: React.FC = () => {
                 style={{ borderLeftColor: statusColor }}
               >
                 <div className="flex justify-between items-start mb-3">
-                  <h3 className="m-0 flex-1 text-lg font-semibold text-gray-900">{hw.title}</h3>
+                  <h3 className="m-0 flex-1 text-lg font-semibold text-gray-900">
+                    {hw.title}
+                  </h3>
                   <div
                     className="font-bold text-sm text-right min-w-30"
                     style={{ color: remainingTime.color }}
