@@ -81,6 +81,46 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+
+    // Disable development shortcuts in production
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const isCommandOrCtrl = process.platform === 'darwin' ? input.meta : input.control;
+
+      // Disable F12 (DevTools)
+      if (input.key === 'F12') {
+        event.preventDefault();
+      }
+
+      // Disable Ctrl/Cmd+Shift+I (DevTools)
+      if (isCommandOrCtrl && input.shift && input.key === 'I') {
+        event.preventDefault();
+      }
+
+      // Disable Ctrl/Cmd+R (Reload)
+      if (isCommandOrCtrl && input.key === 'r') {
+        event.preventDefault();
+      }
+
+      // Disable F5 (Reload)
+      if (input.key === 'F5') {
+        event.preventDefault();
+      }
+
+      // Disable Ctrl/Cmd+Shift+R (Hard Reload)
+      if (isCommandOrCtrl && input.shift && input.key === 'R') {
+        event.preventDefault();
+      }
+
+      // Disable Ctrl/Cmd+Shift+C (DevTools Elements)
+      if (isCommandOrCtrl && input.shift && input.key === 'C') {
+        event.preventDefault();
+      }
+    });
+
+    // Disable context menu in production to prevent "Inspect Element"
+    mainWindow.webContents.on('context-menu', (event) => {
+      event.preventDefault();
+    });
   }
 
   if (process.platform === "darwin") {
@@ -118,10 +158,12 @@ function createWindow(): void {
       {
         label: "View",
         submenu: [
-          { role: "reload" },
-          { role: "forceReload" },
-          { role: "toggleDevTools" },
-          { type: "separator" },
+          ...(isDev ? [
+            { role: "reload" },
+            { role: "forceReload" },
+            { role: "toggleDevTools" },
+            { type: "separator" },
+          ] : []),
           { role: "resetZoom" },
           { role: "zoomIn" },
           { role: "zoomOut" },
