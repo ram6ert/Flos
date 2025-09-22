@@ -203,10 +203,7 @@ export async function fetchCourseList() {
   if (data.courseList) {
     // Try to enrich course data with schedule information
     try {
-      const scheduleData = await fetchScheduleData(
-        currentSession?.sessionId || "2021112401",
-        false
-      );
+      const scheduleData = await fetchScheduleData(false);
 
       // Create a map of schedule courses for quick lookup
       const scheduleCourseMap = new Map();
@@ -350,13 +347,13 @@ export async function fetchHomeworkData(courseId?: string) {
 
 // Helper function to fetch and parse schedule data
 export async function fetchScheduleData(
-  sessionId: string = "2021112401",
   forceRefresh: boolean = false
 ): Promise<ScheduleData> {
   if (!currentSession) {
     throw new Error("Not logged in");
   }
 
+  const sessionId = "2021112401";
   const cacheKey = `schedule_${sessionId}`;
 
   // Check cache first unless force refresh is requested

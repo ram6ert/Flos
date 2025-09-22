@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { HomeworkDetails, HomeworkAttachment } from "../shared-types";
 import {
   Container,
@@ -52,8 +52,17 @@ const HomeworkList: React.FC = () => {
     string | null
   >(null);
 
+  const isFetchingRef = useRef(false);
+
   const fetchHomework = useCallback(async (forceRefresh = false) => {
+    // Prevent duplicate requests
+    if (isFetchingRef.current) {
+      console.log("Homework fetch already in progress, skipping duplicate request");
+      return;
+    }
+
     try {
+      isFetchingRef.current = true;
       if (forceRefresh) {
         setRefreshing(true);
       } else {
@@ -96,6 +105,7 @@ const HomeworkList: React.FC = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      isFetchingRef.current = false;
     }
   }, []);
 
@@ -227,12 +237,24 @@ const HomeworkList: React.FC = () => {
     }
   };
 
+  const [fetchingDetails, setFetchingDetails] = useState<Set<number>>(new Set());
+
   const fetchHomeworkDetails = async (
     homeworkId: number,
     courseId: number,
     teacherId?: string
   ) => {
+    // Prevent duplicate detail fetches
+    if (fetchingDetails.has(homeworkId)) {
+      console.log(`Homework details fetch already in progress for ID ${homeworkId}, skipping duplicate request`);
+      return;
+    }
+
     setDetailsLoading(true);
+    const newFetching = new Set(fetchingDetails);
+    newFetching.add(homeworkId);
+    setFetchingDetails(newFetching);
+
     try {
       // We need to extract teacher ID from homework data or make an assumption
       // For now, we'll use a default or extract from existing data
@@ -249,6 +271,9 @@ const HomeworkList: React.FC = () => {
       setError("Failed to load homework details. Please try again.");
     } finally {
       setDetailsLoading(false);
+      const newFetching = new Set(fetchingDetails);
+      newFetching.delete(homeworkId);
+      setFetchingDetails(newFetching);
     }
   };
 
