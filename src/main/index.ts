@@ -13,9 +13,8 @@ import {
   handleGetStoredCredentials,
   handleIsLoggedIn,
   handleLogout,
-  getCurrentSession,
-  handleSessionExpired,
   handleValidateStoredSession,
+  getCurrentSession,
   getCredentialsPath,
 } from "./auth";
 import {
@@ -35,7 +34,6 @@ import {
   fetchHomeworkDetails,
   fetchScheduleData,
 } from "./api";
-import { Logger } from "./logger";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -43,32 +41,10 @@ const isDev = process.env.NODE_ENV === "development";
 axios.defaults.headers.common["User-Agent"] = API_CONFIG.USER_AGENT;
 axios.defaults.timeout = API_CONFIG.TIMEOUT;
 
-// Helper function to handle API calls with session expiration
-const handleApiCall = async <T>(
-  apiCall: () => Promise<T>,
-  event?: Electron.IpcMainInvokeEvent
-): Promise<T> => {
-  try {
-    return await apiCall();
-  } catch (error: any) {
-    if (error.message === "SESSION_EXPIRED") {
-      Logger.event("Session expired notification sent");
-      // Notify renderer about session expiration
-      if (event) {
-        event.sender.send("session-expired");
-      }
-      throw new Error("Session expired. Please log in again.");
-    }
-    throw error;
-  }
-};
-
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    title: "BAKA Course Platform",
-    icon: path.join(__dirname, "..", "assets", "icon.png"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -87,53 +63,12 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
-
-    // Disable development shortcuts in production
-    mainWindow.webContents.on("before-input-event", (event, input) => {
-      const isCommandOrCtrl =
-        process.platform === "darwin" ? input.meta : input.control;
-
-      // Disable F12 (DevTools)
-      if (input.key === "F12") {
-        event.preventDefault();
-      }
-
-      // Disable Ctrl/Cmd+Shift+I (DevTools)
-      if (isCommandOrCtrl && input.shift && input.key === "I") {
-        event.preventDefault();
-      }
-
-      // Disable Ctrl/Cmd+R (Reload)
-      if (isCommandOrCtrl && input.key === "r") {
-        event.preventDefault();
-      }
-
-      // Disable F5 (Reload)
-      if (input.key === "F5") {
-        event.preventDefault();
-      }
-
-      // Disable Ctrl/Cmd+Shift+R (Hard Reload)
-      if (isCommandOrCtrl && input.shift && input.key === "R") {
-        event.preventDefault();
-      }
-
-      // Disable Ctrl/Cmd+Shift+C (DevTools Elements)
-      if (isCommandOrCtrl && input.shift && input.key === "C") {
-        event.preventDefault();
-      }
-    });
-
-    // Disable context menu in production to prevent "Inspect Element"
-    mainWindow.webContents.on("context-menu", (event) => {
-      event.preventDefault();
-    });
   }
 
   if (process.platform === "darwin") {
     const template = [
       {
-        label: "BAKA Course Platform",
+        label: app.getName(),
         submenu: [
           { role: "about" },
           { type: "separator" },
@@ -165,14 +100,10 @@ function createWindow(): void {
       {
         label: "View",
         submenu: [
-          ...(isDev
-            ? [
-                { role: "reload" },
-                { role: "forceReload" },
-                { role: "toggleDevTools" },
-                { type: "separator" },
-              ]
-            : []),
+          { role: "reload" },
+          { role: "forceReload" },
+          { role: "toggleDevTools" },
+          { type: "separator" },
           { role: "resetZoom" },
           { role: "zoomIn" },
           { role: "zoomOut" },
@@ -190,7 +121,6 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  Logger.event("Application starting");
   createWindow();
 
   app.on("activate", () => {
@@ -198,8 +128,6 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
-
-  Logger.event("Application ready");
 });
 
 app.on("window-all-closed", () => {
@@ -236,23 +164,14 @@ ipcMain.handle("logout", async () => {
 });
 
 ipcMain.handle("is-logged-in", handleIsLoggedIn);
-ipcMain.handle("get-current-session", async () => {
-  return getCurrentSession();
-});
-
-ipcMain.handle("session-expired", async () => {
-  await handleSessionExpired();
-});
-
-ipcMain.handle("validate-stored-session", async () => {
-  return await handleValidateStoredSession();
-});
+ipcMain.handle("validate-stored-session", handleValidateStoredSession);
+ipcMain.handle("get-current-session", () => getCurrentSession());
 
 // Credential storage handlers
 ipcMain.handle("store-credentials", async (event, credentials) => {
   return await handleStoreCredentials(credentials);
 });
-ipcMain.handle("get-stored-credentials", async () => {
+ipcMain.handle("get-stored-credentials", async (event) => {
   return await handleGetStoredCredentials();
 });
 
@@ -301,7 +220,7 @@ async function refreshCacheInBackground(
       });
     });
   } catch (error) {
-    Logger.error(`Background refresh failed for ${cacheKey}`, error);
+    console.error(`Background refresh failed for ${cacheKey}:`, error);
   }
 }
 
@@ -313,11 +232,12 @@ ipcMain.handle(
     }
 
     const cacheKey = "courses";
+    const now = Date.now();
 
     // If skipCache is requested, fetch fresh data immediately
     if (options?.skipCache) {
       return requestQueue.add(async () => {
-        const courseList = await handleApiCall(() => fetchCourseList(), event);
+        const courseList = await fetchCourseList();
         // Update cache with fresh data
         setCachedData(cacheKey, courseList);
         saveCacheToFile(currentSession?.username);
@@ -332,7 +252,7 @@ ipcMain.handle(
     if (!cachedData) {
       refreshCacheInBackground(cacheKey, async () => {
         return requestQueue.add(async () => {
-          return await handleApiCall(() => fetchCourseList(), event);
+          return await fetchCourseList();
         });
       });
     }
@@ -343,7 +263,7 @@ ipcMain.handle(
     } else {
       // No cache, wait for fresh data
       return requestQueue.add(async () => {
-        const courseList = await handleApiCall(() => fetchCourseList(), event);
+        const courseList = await fetchCourseList();
         setCachedData(cacheKey, courseList);
         saveCacheToFile(currentSession?.username);
         return { data: courseList, fromCache: false, age: 0 };
@@ -373,6 +293,7 @@ ipcMain.handle(
     }
 
     const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
+    const now = Date.now();
 
     // If skipCache is requested, fetch fresh data immediately
     if (options?.skipCache) {
@@ -425,7 +346,7 @@ ipcMain.handle(
         );
         return { data, success: true };
       } catch (error) {
-        Logger.error("Failed to fetch homework details", error);
+        console.error("Failed to fetch homework details:", error);
         throw error;
       }
     });
@@ -445,11 +366,7 @@ ipcMain.handle(
         ? `${API_CONFIG.DOCS_BASE_URL}${attachmentUrl}`
         : attachmentUrl;
 
-      Logger.debug(
-        "Downloading homework attachment from URL:",
-        Logger.sanitizeUrl(fullUrl)
-      );
-      Logger.event("Homework attachment download started");
+      console.log("Downloading homework attachment from URL:", fullUrl);
 
       // First, check the file size with a HEAD request
       const headResponse = await axios.head(fullUrl, {
@@ -548,7 +465,7 @@ ipcMain.handle(
         });
       }
     } catch (error) {
-      Logger.error("Failed to download homework attachment", error);
+      console.error("Failed to download homework attachment:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Download failed",
@@ -590,7 +507,7 @@ ipcMain.handle(
       const base64 = buffer.toString("base64");
       return `data:${contentType};base64,${base64}`;
     } catch (error) {
-      Logger.error("Failed to fetch course image", error);
+      console.error("Failed to fetch course image:", error);
       return null;
     }
   }
@@ -605,6 +522,7 @@ ipcMain.handle(
     }
 
     const cacheKey = `documents_${courseCode}`;
+    const now = Date.now();
     const cachedData = getCachedData(cacheKey, CACHE_DURATION);
 
     // Use cached data if available and not expired (unless skipCache is true)
@@ -657,7 +575,7 @@ ipcMain.handle(
           ).join(", ")}`
         );
       } catch (error) {
-        Logger.error("Failed to fetch course documents", error);
+        console.error("Failed to fetch course documents:", error);
         throw error;
       }
     });
@@ -677,11 +595,7 @@ ipcMain.handle(
         ? `${API_CONFIG.DOCS_BASE_URL}${documentUrl}`
         : documentUrl;
 
-      Logger.debug(
-        "Downloading document from URL:",
-        Logger.sanitizeUrl(fullUrl)
-      );
-      Logger.event("Document download started");
+      console.log("Downloading document from URL:", fullUrl);
 
       // First, check the file size with a HEAD request
       const headResponse = await axios.head(fullUrl, {
@@ -733,6 +647,7 @@ ipcMain.handle(
       } else {
         // For larger files, use the Electron dialog to save directly to disk
         const { dialog } = await import("electron");
+        const path = await import("path");
 
         const result = await dialog.showSaveDialog({
           defaultPath: fileName,
@@ -780,7 +695,7 @@ ipcMain.handle(
         });
       }
     } catch (error) {
-      Logger.error("Failed to download document", error);
+      console.error("Failed to download document:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Download failed",

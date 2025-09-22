@@ -32,10 +32,6 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
     { short: "Sun", full: "Sunday", index: 6 },
   ];
 
-  useEffect(() => {
-    loadSchedule();
-  }, []);
-
   const loadSchedule = async (forceRefresh = false) => {
     try {
       setIsLoading(true);
@@ -57,6 +53,10 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadSchedule();
+  }, []);
 
   const handleRefresh = () => {
     loadSchedule(true);

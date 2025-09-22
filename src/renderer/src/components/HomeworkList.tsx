@@ -44,32 +44,6 @@ const HomeworkList: React.FC = () => {
     string | null
   >(null);
 
-  useEffect(() => {
-    fetchHomework();
-  }, []);
-
-  useEffect(() => {
-    // Listen for cache updates
-    const handleCacheUpdate = (
-      event: any,
-      payload: { key: string; data: any }
-    ) => {
-      if (
-        payload.key === "all_homework" ||
-        payload.key.startsWith("homework_")
-      ) {
-        setHomework(payload.data || []);
-        setCacheInfo("Data updated in background");
-      }
-    };
-
-    window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
-
-    return () => {
-      window.electronAPI.removeAllListeners?.("cache-updated");
-    };
-  }, []);
-
   const fetchHomework = async (forceRefresh = false) => {
     try {
       setLoading(true);
@@ -104,6 +78,32 @@ const HomeworkList: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchHomework();
+  }, []);
+
+  useEffect(() => {
+    // Listen for cache updates
+    const handleCacheUpdate = (
+      event: any,
+      payload: { key: string; data: any }
+    ) => {
+      if (
+        payload.key === "all_homework" ||
+        payload.key.startsWith("homework_")
+      ) {
+        setHomework(payload.data || []);
+        setCacheInfo("Data updated in background");
+      }
+    };
+
+    window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
+
+    return () => {
+      window.electronAPI.removeAllListeners?.("cache-updated");
+    };
+  }, []);
 
   const getStatusColor = (hw: Homework) => {
     const isGraded =

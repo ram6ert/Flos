@@ -18,14 +18,6 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [error, setError] = useState<string>("");
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (selectedCourse) {
-      fetchDocuments();
-    } else {
-      setRealDocuments([]);
-    }
-  }, [selectedCourse, fetchDocuments]);
-
   const fetchDocuments = useCallback(async (forceRefresh = false) => {
     if (!selectedCourse) return;
 
@@ -44,6 +36,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
       setLoading(false);
     }
   }, [selectedCourse]);
+
+  useEffect(() => {
+    if (selectedCourse) {
+      fetchDocuments();
+    } else {
+      setRealDocuments([]);
+    }
+  }, [selectedCourse, fetchDocuments]);
 
   const formatFileSize = (sizeStr: string) => {
     const size = parseFloat(sizeStr);

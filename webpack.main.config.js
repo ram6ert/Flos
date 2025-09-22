@@ -28,7 +28,7 @@ module.exports = {
   },
   externals: {
     electron: 'commonjs electron',
-    canvas: 'commonjs canvas',
+    canvas: 'commonjs2 canvas',
     bufferutil: 'commonjs bufferutil',
     'utf-8-validate': 'commonjs utf-8-validate',
   },
