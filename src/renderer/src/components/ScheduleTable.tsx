@@ -43,8 +43,12 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
         : await window.electronAPI.getSchedule();
 
       // Validate schedule response format
-      if (scheduleResponse && typeof scheduleResponse === 'object' &&
-          'weeks' in scheduleResponse && 'courses' in scheduleResponse) {
+      if (
+        scheduleResponse &&
+        typeof scheduleResponse === "object" &&
+        "weeks" in scheduleResponse &&
+        "courses" in scheduleResponse
+      ) {
         setScheduleData(scheduleResponse as ScheduleData);
       } else {
         console.error("Invalid schedule response format:", scheduleResponse);
@@ -70,17 +74,21 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
   // Get current week (using first week if available)
   const currentWeek = scheduleData?.weeks[0];
 
-
   const getScheduleEntryForSlot = (
     timeSlotId: string,
     dayIndex: number
   ): ScheduleEntry | null => {
     if (!currentWeek) return null;
 
-    const daySchedule = currentWeek.days.find(day => day.dayOfWeek === dayIndex);
+    const daySchedule = currentWeek.days.find(
+      (day) => day.dayOfWeek === dayIndex
+    );
     if (!daySchedule) return null;
 
-    return daySchedule.entries.find(entry => entry.timeSlot.id === timeSlotId) || null;
+    return (
+      daySchedule.entries.find((entry) => entry.timeSlot.id === timeSlotId) ||
+      null
+    );
   };
 
   const formatDate = (dateStr: string) => {
@@ -92,7 +100,9 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
   const getDateForDay = (dayIndex: number) => {
     if (!currentWeek) return "";
 
-    const daySchedule = currentWeek.days.find(day => day.dayOfWeek === dayIndex);
+    const daySchedule = currentWeek.days.find(
+      (day) => day.dayOfWeek === dayIndex
+    );
     return daySchedule ? formatDate(daySchedule.date) : "";
   };
 
@@ -155,11 +165,13 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
           <h2>📅 Course Schedule</h2>
           <div className="schedule-info">
             <p className="schedule-week-info">
-              Week {currentWeek.weekNumber} • {formatDate(currentWeek.startDate)} -{" "}
+              Week {currentWeek.weekNumber} •{" "}
+              {formatDate(currentWeek.startDate)} -{" "}
               {formatDate(currentWeek.endDate)}
             </p>
             <p className="schedule-stats">
-              {scheduleData.statistics.totalCourses} courses • {currentWeek.metadata.totalHours} hours
+              {scheduleData.statistics.totalCourses} courses •{" "}
+              {currentWeek.metadata.totalHours} hours
               {hasConflicts && (
                 <span className="conflict-warning">
                   ⚠️ {currentWeek.metadata.conflicts.length} conflict(s)
@@ -167,9 +179,7 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
               )}
             </p>
             {scheduleData.semester && (
-              <p className="semester-info">
-                {scheduleData.semester.name}
-              </p>
+              <p className="semester-info">{scheduleData.semester.name}</p>
             )}
           </div>
         </div>
@@ -203,8 +213,12 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
                 </td>
                 {weekdays.map((day) => {
                   const entry = getScheduleEntryForSlot(timeSlot.id, day.index);
-                  const daySchedule = currentWeek.days.find(d => d.dayOfWeek === day.index);
-                  const hasConflict = daySchedule?.conflicts.some(c => c.timeSlot.id === timeSlot.id);
+                  const daySchedule = currentWeek.days.find(
+                    (d) => d.dayOfWeek === day.index
+                  );
+                  const hasConflict = daySchedule?.conflicts.some(
+                    (c) => c.timeSlot.id === timeSlot.id
+                  );
 
                   return (
                     <td
@@ -214,7 +228,7 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ onRefresh }) => {
                       {entry ? (
                         <div
                           className="course-entry"
-                          title={`${entry.course.name}\nTeacher: ${entry.course.teacher}\nClass: ${entry.course.className}\nRoom: ${entry.course.classroom}\nStudents: ${entry.course.studentCount}${hasConflict ? '\n⚠️ Time conflict detected' : ''}`}
+                          title={`${entry.course.name}\nTeacher: ${entry.course.teacher}\nClass: ${entry.course.className}\nRoom: ${entry.course.classroom}\nStudents: ${entry.course.studentCount}${hasConflict ? "\n⚠️ Time conflict detected" : ""}`}
                         >
                           <div className="course-name">{entry.course.name}</div>
                           <div className="course-teacher">

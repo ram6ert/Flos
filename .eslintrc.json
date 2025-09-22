@@ -1,7 +1,5 @@
 {
-  "extends": [
-    "plugin:react-hooks/recommended"
-  ],
+  "extends": ["plugin:react-hooks/recommended"],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaFeatures": {
@@ -10,10 +8,7 @@
     "ecmaVersion": 2020,
     "sourceType": "module"
   },
-  "plugins": [
-    "react-hooks",
-    "unused-imports"
-  ],
+  "plugins": ["react-hooks", "unused-imports"],
   "rules": {
     "unused-imports/no-unused-imports": "error",
     "unused-imports/no-unused-vars": [

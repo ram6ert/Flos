@@ -238,12 +238,15 @@ async function refreshCacheInBackground(
       return; // Success, exit retry loop
     } catch (error) {
       lastError = error as Error;
-      console.error(`Background refresh attempt ${attempt + 1} failed for ${cacheKey}:`, error);
+      console.error(
+        `Background refresh attempt ${attempt + 1} failed for ${cacheKey}:`,
+        error
+      );
 
       if (attempt < retries) {
         // Wait before retrying (exponential backoff)
         const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }

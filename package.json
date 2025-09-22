@@ -15,7 +15,9 @@
     "build:mac": "NODE_ENV=production yarn build && electron-builder --mac",
     "build:linux": "NODE_ENV=production yarn build && electron-builder --linux",
     "build:all": "NODE_ENV=production yarn build && electron-builder --mac --win --linux",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "prettier": "prettier --write ."
   },
   "keywords": [
     "electron",

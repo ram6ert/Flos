@@ -1,13 +1,13 @@
-const path = require('path');
-const TerserPlugin = require('terser-webpack-plugin');
+const path = require("path");
+const TerserPlugin = require("terser-webpack-plugin");
 
 module.exports = {
-  entry: './dist/main/index.js',
-  target: 'electron-main',
-  mode: 'production',
+  entry: "./dist/main/index.js",
+  target: "electron-main",
+  mode: "production",
   output: {
-    path: path.resolve(__dirname, 'dist/main'),
-    filename: 'index.min.js',
+    path: path.resolve(__dirname, "dist/main"),
+    filename: "index.min.js",
   },
   optimization: {
     minimize: true,
@@ -24,13 +24,13 @@ module.exports = {
     ],
   },
   resolve: {
-    extensions: ['.js'],
+    extensions: [".js"],
   },
   externals: {
-    electron: 'commonjs electron',
-    canvas: 'commonjs2 canvas',
-    bufferutil: 'commonjs bufferutil',
-    'utf-8-validate': 'commonjs utf-8-validate',
+    electron: "commonjs electron",
+    canvas: "commonjs2 canvas",
+    bufferutil: "commonjs bufferutil",
+    "utf-8-validate": "commonjs utf-8-validate",
   },
   node: {
     __dirname: false,

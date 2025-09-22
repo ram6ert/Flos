@@ -29,9 +29,9 @@ let cacheData: CacheFile = {
   metadata: {
     created: new Date().toISOString(),
     lastSaved: new Date().toISOString(),
-    appVersion: process.env.npm_package_version || "unknown"
+    appVersion: process.env.npm_package_version || "unknown",
   },
-  entries: {}
+  entries: {},
 };
 
 // Cache durations
@@ -46,7 +46,6 @@ export const getCachePath = (username?: string) => {
   return path.join(userDataPath, cacheFileName);
 };
 
-
 // Load cache from file
 export const loadCacheFromFile = (username?: string) => {
   try {
@@ -56,7 +55,12 @@ export const loadCacheFromFile = (username?: string) => {
       const parsed = JSON.parse(data);
 
       // Validate cache format
-      if (parsed && parsed.entries && parsed.metadata && parsed.version === "2.0") {
+      if (
+        parsed &&
+        parsed.entries &&
+        parsed.metadata &&
+        parsed.version === "2.0"
+      ) {
         cacheData = parsed;
         if (username) {
           cacheData.metadata.username = username;
@@ -78,9 +82,9 @@ export const loadCacheFromFile = (username?: string) => {
         created: new Date().toISOString(),
         lastSaved: new Date().toISOString(),
         username,
-        appVersion: process.env.npm_package_version || "unknown"
+        appVersion: process.env.npm_package_version || "unknown",
       },
-      entries: {}
+      entries: {},
     };
 
     // Try to backup corrupted cache
@@ -136,10 +140,7 @@ export const saveCacheToFile = (username?: string) => {
 };
 
 // Cache management functions
-export const getCachedData = (
-  key: string,
-  maxAge?: number
-): any | null => {
+export const getCachedData = (key: string, maxAge?: number): any | null => {
   const entry = cacheData.entries[key];
   if (!entry) return null;
 
@@ -157,11 +158,15 @@ export const getCacheTimestamp = (key: string): number => {
   return cacheData.entries[key]?.timestamp || 0;
 };
 
-export const setCachedData = (key: string, data: any, ttl: number = CACHE_DURATION): void => {
+export const setCachedData = (
+  key: string,
+  data: any,
+  ttl: number = CACHE_DURATION
+): void => {
   cacheData.entries[key] = {
     data,
     timestamp: Date.now(),
-    ttl
+    ttl,
   };
 };
 

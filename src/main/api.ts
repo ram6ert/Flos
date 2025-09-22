@@ -203,13 +203,16 @@ export async function fetchCourseList() {
   if (data.courseList) {
     // Try to enrich course data with schedule information
     try {
-      const scheduleData = await fetchScheduleData(currentSession?.sessionId || "2021112401", false);
+      const scheduleData = await fetchScheduleData(
+        currentSession?.sessionId || "2021112401",
+        false
+      );
 
       // Create a map of schedule courses for quick lookup
       const scheduleCourseMap = new Map();
-      scheduleData.weeks.forEach(week => {
-        week.days.forEach(day => {
-          day.entries.forEach(entry => {
+      scheduleData.weeks.forEach((week) => {
+        week.days.forEach((day) => {
+          day.entries.forEach((entry) => {
             const courseKey = entry.course.name.toLowerCase().trim();
             if (!scheduleCourseMap.has(courseKey)) {
               scheduleCourseMap.set(courseKey, []);
@@ -220,7 +223,7 @@ export async function fetchCourseList() {
               classroom: entry.course.classroom,
               weekNumbers: entry.weekNumbers,
               className: entry.course.className,
-              studentCount: entry.course.studentCount
+              studentCount: entry.course.studentCount,
             });
           });
         });
@@ -237,18 +240,23 @@ export async function fetchCourseList() {
             schedule: {
               timeSlots: scheduleInfo,
               className: scheduleInfo[0].className,
-              studentCount: scheduleInfo[0].studentCount
-            }
+              studentCount: scheduleInfo[0].studentCount,
+            },
           };
         }
 
         return course;
       });
 
-      Logger.event(`Enriched ${enrichedCourses.filter((c: any) => c.schedule).length} courses with schedule data`);
+      Logger.event(
+        `Enriched ${enrichedCourses.filter((c: any) => c.schedule).length} courses with schedule data`
+      );
       return enrichedCourses;
     } catch (scheduleError) {
-      Logger.warn("Failed to enrich courses with schedule data, returning basic course list", scheduleError);
+      Logger.warn(
+        "Failed to enrich courses with schedule data, returning basic course list",
+        scheduleError
+      );
       return data.courseList;
     }
   }
