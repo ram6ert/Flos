@@ -9,7 +9,8 @@ export default defineConfig({
   build: {
     outDir: path.join(__dirname, 'dist/renderer'),
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: process.env.NODE_ENV === 'development',
+    minify: process.env.NODE_ENV === 'production' ? 'esbuild' : false,
     rollupOptions: {
       input: path.join(__dirname, 'src/renderer/index.html'),
     },

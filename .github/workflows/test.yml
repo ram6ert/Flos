@@ -37,10 +37,13 @@ jobs:
 
     - name: Build application
       run: yarn build
+      env:
+        NODE_ENV: production
 
     - name: Test build (no packaging)
       run: yarn build:dist --publish=never
       env:
+        NODE_ENV: production
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload build artifacts (test)
