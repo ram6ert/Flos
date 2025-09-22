@@ -1,20 +1,20 @@
 {
   "name": "smart-course-platform",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "An Electron app for convenient access to course information, homework, and documents",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "concurrently \"yarn dev:vite\" \"yarn dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "sleep 3 && NODE_ENV=development electron .",
-    "build": "yarn build:vite && yarn build:electron",
-    "build:vite": "vite build",
+    "build": "NODE_ENV=production yarn build:vite && yarn build:electron",
+    "build:vite": "NODE_ENV=production vite build",
     "build:electron": "tsc -p tsconfig.main.json",
-    "build:dist": "yarn build && electron-builder",
-    "build:win": "yarn build && electron-builder --win",
-    "build:mac": "yarn build && electron-builder --mac",
-    "build:linux": "yarn build && electron-builder --linux",
-    "build:all": "yarn build && electron-builder --mac --win --linux",
+    "build:dist": "NODE_ENV=production yarn build && electron-builder",
+    "build:win": "NODE_ENV=production yarn build && electron-builder --win",
+    "build:mac": "NODE_ENV=production yarn build && electron-builder --mac",
+    "build:linux": "NODE_ENV=production yarn build && electron-builder --linux",
+    "build:all": "NODE_ENV=production yarn build && electron-builder --mac --win --linux",
     "preview": "vite preview"
   },
   "keywords": [

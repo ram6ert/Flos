@@ -33,10 +33,13 @@ jobs:
 
     - name: Build application
       run: yarn build
+      env:
+        NODE_ENV: production
 
     - name: Build distributables
       run: yarn build:dist
       env:
+        NODE_ENV: production
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload artifacts (Windows)
