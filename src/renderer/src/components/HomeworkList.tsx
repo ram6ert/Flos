@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   HomeworkDetails,
   HomeworkAttachment,
@@ -28,6 +28,7 @@ interface HomeworkResponse {
 const HomeworkList: React.FC = () => {
   const [homework, setHomework] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<
     "all" | "pending" | "submitted" | "graded" | "overdue"
   >("all");
@@ -44,21 +45,32 @@ const HomeworkList: React.FC = () => {
     string | null
   >(null);
 
-  const fetchHomework = async (forceRefresh = false) => {
+  const fetchHomework = useCallback(async (forceRefresh = false) => {
     try {
-      setLoading(true);
+      if (forceRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError("");
+
       const response: HomeworkResponse = forceRefresh
         ? await window.electronAPI.refreshHomework()
         : await window.electronAPI.getHomework();
-      setHomework(response.data);
 
-      const ageMinutes = Math.floor(response.age / (1000 * 60));
-      setCacheInfo(
-        response.fromCache
-          ? `Showing cached data (${ageMinutes} minutes old)`
-          : "Showing fresh data"
-      );
+      if (response.data && Array.isArray(response.data)) {
+        setHomework(response.data);
+
+        const ageMinutes = Math.floor(response.age / (1000 * 60));
+        setCacheInfo(
+          response.fromCache
+            ? `Showing cached data (${ageMinutes} minutes old)`
+            : "Showing fresh data"
+        );
+      } else {
+        setHomework([]);
+        setCacheInfo("No homework data available");
+      }
     } catch (error) {
       console.error("Failed to fetch homework:", error);
       if (error instanceof Error) {
@@ -76,25 +88,27 @@ const HomeworkList: React.FC = () => {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchHomework();
   }, []);
 
   useEffect(() => {
-    // Listen for cache updates
+    fetchHomework();
+  }, [fetchHomework]);
+
+  useEffect(() => {
     const handleCacheUpdate = (
-      event: any,
+      _event: any,
       payload: { key: string; data: any }
     ) => {
       if (
         payload.key === "all_homework" ||
         payload.key.startsWith("homework_")
       ) {
-        setHomework(payload.data || []);
-        setCacheInfo("Data updated in background");
+        if (payload.data && Array.isArray(payload.data)) {
+          setHomework(payload.data);
+          setCacheInfo("Data updated in background");
+        }
       }
     };
 
@@ -216,7 +230,6 @@ const HomeworkList: React.FC = () => {
     try {
       // We need to extract teacher ID from homework data or make an assumption
       // For now, we'll use a default or extract from existing data
-      const _hw = homework.find((h) => h.id === homeworkId);
       const response = await window.electronAPI.getHomeworkDetails(
         homeworkId.toString(),
         courseId.toString(),
@@ -306,12 +319,10 @@ const HomeworkList: React.FC = () => {
     if (!content) return "";
 
     // Check if content contains images and replace them with bolded text
-    let _hasImages = false;
     let sanitized = content;
 
     // Replace img tags with placeholder text
     sanitized = sanitized.replace(/<img[^>]*>/gi, () => {
-      _hasImages = true;
       return "**[Image removed for security]**";
     });
 
@@ -351,67 +362,65 @@ const HomeworkList: React.FC = () => {
   >("remaining_time");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
-  const filteredAndSortedHomework = homework
-    .filter((hw) => {
-      const isGraded = hw.stu_score !== "未公布成绩" && hw.stu_score !== "";
-      const isSubmitted = hw.subStatus === "已提交";
-      const hwIsOverdue = isOverdue(hw);
+  const filteredAndSortedHomework = useMemo(() => {
+    return homework
+      .filter((hw) => {
+        const isGraded = hw.stu_score !== "未公布成绩" && hw.stu_score !== "";
+        const isSubmitted = hw.subStatus === "已提交";
+        const hwIsOverdue = isOverdue(hw);
 
-      switch (filter) {
-        case "pending":
-          return !isSubmitted && !isGraded && !hwIsOverdue;
-        case "submitted":
-          return isSubmitted && !isGraded;
-        case "graded":
-          return isGraded;
-        case "overdue":
-          return hwIsOverdue && !isSubmitted;
-        default:
-          return true;
-      }
-    })
-    .sort((a, b) => {
-      let comparison = 0;
+        switch (filter) {
+          case "pending":
+            return !isSubmitted && !isGraded && !hwIsOverdue;
+          case "submitted":
+            return isSubmitted && !isGraded;
+          case "graded":
+            return isGraded;
+          case "overdue":
+            return hwIsOverdue && !isSubmitted;
+          default:
+            return true;
+        }
+      })
+      .sort((a, b) => {
+        let comparison = 0;
 
-      switch (sortBy) {
-        case "due_date":
-          comparison =
-            new Date(a.end_time).getTime() - new Date(b.end_time).getTime();
-          break;
-        case "course":
-          comparison = a.course_name.localeCompare(b.course_name);
-          break;
-        case "status":
-          comparison = a.subStatus.localeCompare(b.subStatus);
-          break;
-        case "remaining_time":
-          // Sort by remaining time (overdue first, then by time remaining)
-          const nowTime = new Date().getTime();
-          const timeA = new Date(a.end_time).getTime() - nowTime;
-          const timeB = new Date(b.end_time).getTime() - nowTime;
+        switch (sortBy) {
+          case "due_date":
+            comparison =
+              new Date(a.end_time).getTime() - new Date(b.end_time).getTime();
+            break;
+          case "course":
+            comparison = a.course_name.localeCompare(b.course_name);
+            break;
+          case "status":
+            comparison = a.subStatus.localeCompare(b.subStatus);
+            break;
+          case "remaining_time":
+            const nowTime = new Date().getTime();
+            const timeA = new Date(a.end_time).getTime() - nowTime;
+            const timeB = new Date(b.end_time).getTime() - nowTime;
 
-          const isOverdueA = timeA < 0 && a.subStatus !== "已提交";
-          const isOverdueB = timeB < 0 && b.subStatus !== "已提交";
-          const isSubmittedA = a.subStatus === "已提交";
-          const isSubmittedB = b.subStatus === "已提交";
+            const isOverdueA = timeA < 0 && a.subStatus !== "已提交";
+            const isOverdueB = timeB < 0 && b.subStatus !== "已提交";
+            const isSubmittedA = a.subStatus === "已提交";
+            const isSubmittedB = b.subStatus === "已提交";
 
-          // Submitted items go to bottom
-          if (isSubmittedA && !isSubmittedB) return 1;
-          if (!isSubmittedA && isSubmittedB) return -1;
+            if (isSubmittedA && !isSubmittedB) return 1;
+            if (!isSubmittedA && isSubmittedB) return -1;
 
-          // Overdue items come first among non-submitted
-          if (isOverdueA && !isOverdueB) return -1;
-          if (!isOverdueA && isOverdueB) return 1;
+            if (isOverdueA && !isOverdueB) return -1;
+            if (!isOverdueA && isOverdueB) return 1;
 
-          // Both overdue or both not overdue, sort by actual time
-          comparison = Math.abs(timeA) - Math.abs(timeB);
-          break;
-        default:
-          comparison = 0;
-      }
+            comparison = Math.abs(timeA) - Math.abs(timeB);
+            break;
+          default:
+            comparison = 0;
+        }
 
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
+        return sortOrder === "asc" ? comparison : -comparison;
+      });
+  }, [homework, filter, sortBy, sortOrder]);
 
   if (loading) {
     return <div style={{ padding: "20px" }}>Loading homework...</div>;
@@ -435,16 +444,17 @@ const HomeworkList: React.FC = () => {
         </div>
         <button
           onClick={() => fetchHomework(true)}
+          disabled={loading || refreshing}
           style={{
             padding: "8px 16px",
-            backgroundColor: "#007bff",
+            backgroundColor: loading || refreshing ? "#ccc" : "#007bff",
             color: "white",
             border: "none",
             borderRadius: "4px",
-            cursor: "pointer",
+            cursor: loading || refreshing ? "not-allowed" : "pointer",
           }}
         >
-          Retry
+          {refreshing ? "Retrying..." : loading ? "Loading..." : "Retry"}
         </button>
       </div>
     );
@@ -463,17 +473,17 @@ const HomeworkList: React.FC = () => {
         <h2>Homework ({filteredAndSortedHomework.length})</h2>
         <button
           onClick={() => fetchHomework(true)}
-          disabled={loading}
+          disabled={loading || refreshing}
           style={{
             padding: "8px 16px",
-            backgroundColor: loading ? "#ccc" : "#007bff",
+            backgroundColor: loading || refreshing ? "#ccc" : "#007bff",
             color: "white",
             border: "none",
             borderRadius: "4px",
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: loading || refreshing ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "Refreshing..." : "Refresh"}
+          {refreshing ? "Refreshing..." : loading ? "Loading..." : "Refresh"}
         </button>
       </div>
 

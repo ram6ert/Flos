@@ -140,7 +140,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         <h2
           style={{ textAlign: "center", marginBottom: "1.5rem", color: "#333" }}
         >
-          Smart Course Platform
+          BAKA Course Platform
         </h2>
         <p style={{ textAlign: "center", color: "#666", marginBottom: "2rem" }}>
           Sign in to access your courses

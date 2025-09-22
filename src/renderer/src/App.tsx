@@ -5,9 +5,9 @@ import HomeworkList from "./components/HomeworkList";
 import DocumentList from "./components/DocumentList";
 import Sidebar from "./components/Sidebar";
 import Login from "./components/Login";
-import ScheduleTable from "./components/ScheduleTable";
+import FlowScheduleTable from "./components/FlowScheduleTable";
 
-type ActiveView = "courses" | "homework" | "documents" | "schedule";
+type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ActiveView>("courses");
@@ -30,7 +30,7 @@ const App: React.FC = () => {
   useEffect(() => {
     // Listen for cache updates
     const handleCacheUpdate = (
-      event: any,
+      _event: any,
       payload: { key: string; data: any }
     ) => {
       if (payload.key === "courses") {
@@ -162,8 +162,8 @@ const App: React.FC = () => {
             onCourseSelect={handleCourseSelect}
           />
         );
-      case "schedule":
-        return <ScheduleTable />;
+      case "flow-schedule":
+        return <FlowScheduleTable />;
       default:
         return (
           <CourseList
@@ -189,7 +189,7 @@ const App: React.FC = () => {
         }}
       >
         <div style={{ textAlign: "center" }}>
-          <h2>Smart Course Platform</h2>
+          <h2>BAKA Course Platform</h2>
           <p>Loading...</p>
         </div>
       </div>
@@ -213,7 +213,7 @@ const App: React.FC = () => {
           }}
         >
           <div>
-            <h1>Smart Course Platform</h1>
+            <h1>BAKA Course Platform</h1>
             <p>Welcome back, {userSession.username}!</p>
           </div>
           <button

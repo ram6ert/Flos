@@ -12,6 +12,18 @@ export interface Course {
   fz_id: string;
   xq_code: string;
   boy: string;
+  schedule?: CourseScheduleInfo;
+}
+
+export interface CourseScheduleInfo {
+  timeSlots: Array<{
+    dayOfWeek: number; // 0 = Monday, 6 = Sunday
+    timeSlotId: string; // e.g., "1-2", "3-4"
+    classroom: string;
+    weekNumbers: number[]; // Which weeks this schedule applies
+  }>;
+  className?: string;
+  studentCount?: number;
 }
 
 export interface CourseListResponse {
@@ -153,26 +165,82 @@ export interface LoginResponse {
   requestId?: string;
 }
 
-export interface ScheduleEntry {
-  courseId: string;
-  courseName: string;
-  teacherName: string;
+// Schedule types
+export interface TimeSlot {
+  id: string; // e.g., "1-2" for periods 1-2
+  startPeriod: number; // 1-based period number
+  endPeriod: number;
+  startTime: string; // "08:00"
+  endTime: string; // "09:40"
+  label: string; // "第1-2节"
+}
+
+export interface ScheduleCourse {
+  id: string;
+  name: string;
+  teacher: string;
+  classroom: string;
   className: string;
   studentCount: number;
-  classroom: string;
-  timeSlot: string;
+  credits?: number;
+  courseType?: string; // "必修" | "选修" | "实践"
+}
+
+export interface ScheduleEntry {
+  id: string; // unique identifier
+  course: ScheduleCourse;
+  timeSlot: TimeSlot;
   dayOfWeek: number; // 0 = Monday, 6 = Sunday
+  weekNumbers: number[]; // [1, 3, 5] for weeks when this course occurs
+  recurrence?: {
+    type: "weekly" | "biweekly" | "custom";
+    pattern?: string;
+  };
+}
+
+export interface DaySchedule {
+  dayOfWeek: number;
+  date: string; // "2025-09-22"
+  entries: ScheduleEntry[];
+  conflicts: ScheduleConflict[];
+}
+
+export interface ScheduleConflict {
+  timeSlot: TimeSlot;
+  conflictingEntries: ScheduleEntry[];
+  severity: "warning" | "error";
+  message: string;
 }
 
 export interface WeekSchedule {
   weekNumber: number;
-  beginDate: string;
-  endDate: string;
-  entries: ScheduleEntry[];
+  year: number;
+  startDate: string; // "2025-09-22"
+  endDate: string; // "2025-09-28"
+  days: DaySchedule[];
+  metadata: {
+    totalCourses: number;
+    totalHours: number;
+    conflicts: ScheduleConflict[];
+    lastUpdated: string;
+  };
 }
 
-export interface ScheduleResponse {
-  schedule: WeekSchedule;
-  STATUS: string;
-  message?: string;
+export interface ScheduleData {
+  semester: {
+    id: string;
+    name: string; // "2025-2026学年第一学期"
+    startDate: string;
+    endDate: string;
+  };
+  weeks: WeekSchedule[];
+  courses: { [courseId: string]: ScheduleCourse };
+  timeSlots: { [timeSlotId: string]: TimeSlot };
+  statistics: {
+    totalWeeks: number;
+    totalCourses: number;
+    averageHoursPerWeek: number;
+    busyDays: number[];
+    freeDays: number[];
+  };
 }

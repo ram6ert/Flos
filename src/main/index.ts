@@ -22,6 +22,7 @@ import {
   saveCacheToFile,
   getCachedData,
   setCachedData,
+  getCacheTimestamp,
   CACHE_DURATION,
   COURSE_CACHE_DURATION,
   clearCache,
@@ -201,27 +202,54 @@ ipcMain.handle("get-semester-info", async () => {
   });
 });
 
-// Background refresh function
+// Track ongoing refresh operations to prevent duplicate requests
+const ongoingRefreshes = new Set<string>();
+
+// Background refresh function with retry logic
 async function refreshCacheInBackground(
   cacheKey: string,
-  refreshFunction: () => Promise<any>
+  refreshFunction: () => Promise<any>,
+  retries = 2
 ) {
-  try {
-    const freshData = await refreshFunction();
-    setCachedData(cacheKey, freshData);
-    saveCacheToFile(currentSession?.username);
-
-    // Notify renderer of updated data
-    const allWindows = BrowserWindow.getAllWindows();
-    allWindows.forEach((window) => {
-      window.webContents.send("cache-updated", {
-        key: cacheKey,
-        data: freshData,
-      });
-    });
-  } catch (error) {
-    console.error(`Background refresh failed for ${cacheKey}:`, error);
+  // Prevent duplicate refreshes for the same cache key
+  if (ongoingRefreshes.has(cacheKey)) {
+    return;
   }
+
+  ongoingRefreshes.add(cacheKey);
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const freshData = await refreshFunction();
+      setCachedData(cacheKey, freshData);
+      saveCacheToFile(currentSession?.username);
+
+      // Notify renderer of updated data
+      const allWindows = BrowserWindow.getAllWindows();
+      allWindows.forEach((window) => {
+        window.webContents.send("cache-updated", {
+          key: cacheKey,
+          data: freshData,
+        });
+      });
+
+      return; // Success, exit retry loop
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Background refresh attempt ${attempt + 1} failed for ${cacheKey}:`, error);
+
+      if (attempt < retries) {
+        // Wait before retrying (exponential backoff)
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  console.error(`All refresh attempts failed for ${cacheKey}:`, lastError);
+  ongoingRefreshes.delete(cacheKey);
 }
 
 ipcMain.handle(
@@ -293,13 +321,11 @@ ipcMain.handle(
     }
 
     const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
-    const now = Date.now();
 
     // If skipCache is requested, fetch fresh data immediately
     if (options?.skipCache) {
       return requestQueue.add(async () => {
         const data = await fetchHomeworkData(courseId);
-        // Update cache with fresh data
         setCachedData(cacheKey, data);
         saveCacheToFile(currentSession?.username);
         return { data, fromCache: false, age: 0 };
@@ -307,16 +333,21 @@ ipcMain.handle(
     }
 
     const cachedData = getCachedData(cacheKey, CACHE_DURATION);
+    const cacheTimestamp = getCacheTimestamp(cacheKey);
+    const age = Date.now() - cacheTimestamp;
 
-    // Return cached data if available and start background refresh if stale
+    // If we have cached data, return it immediately
     if (cachedData) {
-      // Start background refresh for stale data
-      refreshCacheInBackground(cacheKey, async () => {
-        return await requestQueue.add(async () => {
-          return await fetchHomeworkData(courseId);
+      // Only start background refresh if cache is getting stale (older than 10 minutes)
+      const STALE_THRESHOLD = 10 * 60 * 1000; // 10 minutes
+      if (age > STALE_THRESHOLD) {
+        refreshCacheInBackground(cacheKey, async () => {
+          return await requestQueue.add(async () => {
+            return await fetchHomeworkData(courseId);
+          });
         });
-      });
-      return { data: cachedData, fromCache: true, age: 0 };
+      }
+      return { data: cachedData, fromCache: true, age };
     }
 
     // No cache, fetch fresh data
@@ -328,6 +359,21 @@ ipcMain.handle(
     });
   }
 );
+
+ipcMain.handle("refresh-homework", async (event, courseId?: string) => {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
+
+  return requestQueue.add(async () => {
+    const data = await fetchHomeworkData(courseId);
+    setCachedData(cacheKey, data);
+    saveCacheToFile(currentSession?.username);
+    return { data, fromCache: false, age: 0 };
+  });
+});
 
 // Fetch homework details
 ipcMain.handle(
