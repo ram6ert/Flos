@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
+import { Logger } from './logger';
 
 // Cache storage
 let homeworkCache: { [key: string]: any } = {};
@@ -27,10 +28,10 @@ export const loadCacheFromFile = (username?: string) => {
       const parsed = JSON.parse(data);
       homeworkCache = parsed.cache || {};
       cacheTimestamps = parsed.timestamps || {};
-      console.log(`Loaded cache for user: ${username || 'default'}`);
+      Logger.event("Cache loaded");
     }
   } catch (error) {
-    console.error('Failed to load cache:', error);
+    Logger.error('Failed to load cache', error);
     homeworkCache = {};
     cacheTimestamps = {};
   }
@@ -46,9 +47,9 @@ export const saveCacheToFile = (username?: string) => {
       lastSaved: new Date().toISOString()
     };
     fs.writeFileSync(cachePath, JSON.stringify(data, null, 2));
-    console.log(`Saved cache for user: ${username || 'default'}`);
+    Logger.event("Cache saved");
   } catch (error) {
-    console.error('Failed to save cache:', error);
+    Logger.error('Failed to save cache', error);
   }
 };
 
