@@ -12,8 +12,9 @@ import {
   COURSE_CACHE_DURATION,
   SCHEDULE_CACHE_DURATION,
 } from "./cache";
-import { JSDOM } from "jsdom";
 import * as iconv from "iconv-lite";
+import { ScheduleParser } from "./schedule-parser";
+import { ScheduleData } from "./schedule-types";
 import { Logger } from "./logger";
 
 // Helper function to fetch homework details
@@ -200,7 +201,56 @@ export async function fetchCourseList() {
   const data = await authenticatedRequest(url, true); // Use dynamic session ID
 
   if (data.courseList) {
-    return data.courseList;
+    // Try to enrich course data with schedule information
+    try {
+      const scheduleData = await fetchScheduleData(currentSession?.sessionId || "2021112401", false);
+
+      // Create a map of schedule courses for quick lookup
+      const scheduleCourseMap = new Map();
+      scheduleData.weeks.forEach(week => {
+        week.days.forEach(day => {
+          day.entries.forEach(entry => {
+            const courseKey = entry.course.name.toLowerCase().trim();
+            if (!scheduleCourseMap.has(courseKey)) {
+              scheduleCourseMap.set(courseKey, []);
+            }
+            scheduleCourseMap.get(courseKey).push({
+              dayOfWeek: entry.dayOfWeek,
+              timeSlotId: entry.timeSlot.id,
+              classroom: entry.course.classroom,
+              weekNumbers: entry.weekNumbers,
+              className: entry.course.className,
+              studentCount: entry.course.studentCount
+            });
+          });
+        });
+      });
+
+      // Enrich course list with schedule info
+      const enrichedCourses = data.courseList.map((course: any) => {
+        const courseKey = course.name.toLowerCase().trim();
+        const scheduleInfo = scheduleCourseMap.get(courseKey);
+
+        if (scheduleInfo && scheduleInfo.length > 0) {
+          return {
+            ...course,
+            schedule: {
+              timeSlots: scheduleInfo,
+              className: scheduleInfo[0].className,
+              studentCount: scheduleInfo[0].studentCount
+            }
+          };
+        }
+
+        return course;
+      });
+
+      Logger.event(`Enriched ${enrichedCourses.filter((c: any) => c.schedule).length} courses with schedule data`);
+      return enrichedCourses;
+    } catch (scheduleError) {
+      Logger.warn("Failed to enrich courses with schedule data, returning basic course list", scheduleError);
+      return data.courseList;
+    }
   }
   throw new Error("Failed to get course list");
 }
@@ -294,7 +344,7 @@ export async function fetchHomeworkData(courseId?: string) {
 export async function fetchScheduleData(
   sessionId: string = "2021112401",
   forceRefresh: boolean = false
-) {
+): Promise<ScheduleData> {
   if (!currentSession) {
     throw new Error("Not logged in");
   }
@@ -331,11 +381,16 @@ export async function fetchScheduleData(
 
       // Decode GBK content to UTF-8
       const decodedHtml = iconv.decode(Buffer.from(response.data), "gbk");
-      const scheduleData = parseScheduleHTML(decodedHtml);
 
-      // Cache the result
-      setCachedData(cacheKey, scheduleData);
+      // Use new parser to transform HTML into structured data
+      const scheduleData = await ScheduleParser.parseAndTransform(decodedHtml);
 
+      // Cache the result with custom TTL
+      setCachedData(cacheKey, scheduleData, SCHEDULE_CACHE_DURATION);
+
+      Logger.event(
+        `Schedule data transformed: ${scheduleData.statistics.totalCourses} courses, ${scheduleData.weeks[0]?.metadata.conflicts.length || 0} conflicts`
+      );
       return scheduleData;
     }
 
@@ -344,120 +399,4 @@ export async function fetchScheduleData(
     Logger.error("Failed to fetch schedule", error);
     throw error;
   }
-}
-
-// Helper function to parse schedule HTML
-function parseScheduleHTML(html: string): any {
-  const dom = new JSDOM(html);
-  const document = dom.window.document;
-
-  // Extract week info
-  const beginTimeInput = document.getElementById("begin_time");
-
-  let weekNumber = 2; // Default to week 2 as seen in the HTML
-  let beginDate = "";
-  let endDate = "";
-
-  if (beginTimeInput) {
-    beginDate = beginTimeInput.getAttribute("value") || "";
-  }
-
-  // Parse schedule entries
-  const entries: any[] = [];
-
-  // Helper function to sanitize time slots (remove extra spaces)
-  const sanitizeTimeSlot = (timeSlot: string): string => {
-    return timeSlot.replace(/\s+/g, " ").replace(/- /g, "-").trim();
-  };
-
-  // Get all schedule rows
-  const scheduleRows = document.querySelectorAll(".timetable-tabletlist");
-
-  scheduleRows.forEach((row) => {
-    const timeSlotSpan = row.querySelector(".table-listsp1");
-    let currentTimeSlot = "Unknown";
-
-    if (timeSlotSpan) {
-      // Get the time slot from HTML and sanitize it
-      const rawTimeSlot = timeSlotSpan.textContent?.trim() || "";
-      currentTimeSlot = sanitizeTimeSlot(rawTimeSlot);
-    }
-
-    // Get course cells for each day
-    const courseCells = row.querySelectorAll(".table-list2");
-
-    courseCells.forEach((cell, dayIndex) => {
-      const courseTitle = cell.querySelector(".table-t");
-      if (courseTitle) {
-        const courseName =
-          courseTitle.textContent?.replace("课程：", "").trim() || "";
-
-        const teacherSpan = cell.querySelector(".table-b");
-        const teacherName =
-          teacherSpan?.textContent?.replace("教师：", "").trim() || "";
-
-        const classSpans = cell.querySelectorAll(".table-b");
-        let className = "";
-        if (classSpans.length > 1) {
-          className =
-            classSpans[1].textContent?.replace("班级：", "").trim() || "";
-        }
-
-        const studentSpan = cell.querySelector(".table-m");
-        const studentText =
-          studentSpan?.textContent
-            ?.replace("学生：", "")
-            .replace("人", "")
-            .trim() || "0";
-        const studentCount = parseInt(studentText) || 0;
-
-        const classroomSpan = cell.querySelector(".table-j");
-        const classroom =
-          classroomSpan?.textContent?.replace("教室：", "").trim() || "";
-
-        // Extract course ID from onclick attribute
-        let courseId = "";
-        const onclickAttr = courseTitle.getAttribute("onclick");
-        if (onclickAttr) {
-          const match = onclickAttr.match(/'([^']+)'/);
-          if (match) {
-            courseId = match[1];
-          }
-        }
-
-        if (courseName) {
-          const entry = {
-            courseId,
-            courseName: courseName.trim(),
-            teacherName: teacherName.trim(),
-            className: className.trim(),
-            studentCount,
-            classroom: classroom.trim(),
-            timeSlot: currentTimeSlot,
-            dayOfWeek: dayIndex,
-          };
-          entries.push(entry);
-        }
-      }
-    });
-  });
-
-  // Calculate end date (assuming 7 days from begin date)
-  if (beginDate) {
-    const beginDateObj = new Date(beginDate);
-    const endDateObj = new Date(beginDateObj);
-    endDateObj.setDate(beginDateObj.getDate() + 6);
-    endDate = endDateObj.toISOString().split("T")[0];
-  }
-
-  return {
-    schedule: {
-      weekNumber,
-      beginDate,
-      endDate,
-      entries,
-    },
-    STATUS: "0",
-    message: "Schedule fetched successfully",
-  };
 }

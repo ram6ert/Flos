@@ -3,9 +3,36 @@ import * as path from "path";
 import { app } from "electron";
 import { Logger } from "./logger";
 
+// Cache storage interfaces
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+  ttl: number;
+}
+
+interface CacheMetadata {
+  created: string;
+  lastSaved: string;
+  username?: string;
+  appVersion: string;
+}
+
+interface CacheFile {
+  version: string;
+  metadata: CacheMetadata;
+  entries: { [key: string]: CacheEntry };
+}
+
 // Cache storage
-let homeworkCache: { [key: string]: any } = {};
-let cacheTimestamps: { [key: string]: number } = {};
+let cacheData: CacheFile = {
+  version: "2.0",
+  metadata: {
+    created: new Date().toISOString(),
+    lastSaved: new Date().toISOString(),
+    appVersion: process.env.npm_package_version || "unknown"
+  },
+  entries: {}
+};
 
 // Cache durations
 export const CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day for homework
@@ -19,6 +46,7 @@ export const getCachePath = (username?: string) => {
   return path.join(userDataPath, cacheFileName);
 };
 
+
 // Load cache from file
 export const loadCacheFromFile = (username?: string) => {
   try {
@@ -26,14 +54,46 @@ export const loadCacheFromFile = (username?: string) => {
     if (fs.existsSync(cachePath)) {
       const data = fs.readFileSync(cachePath, "utf8");
       const parsed = JSON.parse(data);
-      homeworkCache = parsed.cache || {};
-      cacheTimestamps = parsed.timestamps || {};
-      Logger.event("Cache loaded");
+
+      // Validate cache format
+      if (parsed && parsed.entries && parsed.metadata && parsed.version === "2.0") {
+        cacheData = parsed;
+        if (username) {
+          cacheData.metadata.username = username;
+        }
+        Logger.event("Cache loaded and validated");
+      } else {
+        Logger.warn("Invalid or outdated cache format, resetting cache");
+        throw new Error("Invalid cache structure");
+      }
+    } else {
+      // Initialize new cache
+      cacheData.metadata.username = username;
     }
   } catch (error) {
-    Logger.error("Failed to load cache", error);
-    homeworkCache = {};
-    cacheTimestamps = {};
+    Logger.error("Failed to load cache, resetting", error);
+    cacheData = {
+      version: "2.0",
+      metadata: {
+        created: new Date().toISOString(),
+        lastSaved: new Date().toISOString(),
+        username,
+        appVersion: process.env.npm_package_version || "unknown"
+      },
+      entries: {}
+    };
+
+    // Try to backup corrupted cache
+    try {
+      const cachePath = getCachePath(username);
+      if (fs.existsSync(cachePath)) {
+        const backupPath = `${cachePath}.backup.${Date.now()}`;
+        fs.renameSync(cachePath, backupPath);
+        Logger.event(`Corrupted cache backed up to ${backupPath}`);
+      }
+    } catch (backupError) {
+      Logger.error("Failed to backup corrupted cache", backupError);
+    }
   }
 };
 
@@ -41,51 +101,91 @@ export const loadCacheFromFile = (username?: string) => {
 export const saveCacheToFile = (username?: string) => {
   try {
     const cachePath = getCachePath(username);
-    const data = {
-      cache: homeworkCache,
-      timestamps: cacheTimestamps,
-      lastSaved: new Date().toISOString(),
-    };
-    fs.writeFileSync(cachePath, JSON.stringify(data, null, 2));
-    Logger.event("Cache saved");
+    const tempPath = `${cachePath}.tmp`;
+
+    // Update metadata
+    cacheData.metadata.lastSaved = new Date().toISOString();
+    if (username) {
+      cacheData.metadata.username = username;
+    }
+
+    // Write to temp file first, then rename to prevent corruption
+    fs.writeFileSync(tempPath, JSON.stringify(cacheData, null, 2));
+
+    // Verify the written file is valid JSON
+    const verification = JSON.parse(fs.readFileSync(tempPath, "utf8"));
+    if (verification && verification.entries && verification.metadata) {
+      fs.renameSync(tempPath, cachePath);
+      Logger.event("Cache saved successfully");
+    } else {
+      throw new Error("Cache verification failed");
+    }
   } catch (error) {
     Logger.error("Failed to save cache", error);
+
+    // Clean up temp file if it exists
+    try {
+      const tempPath = `${getCachePath(username)}.tmp`;
+      if (fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+      }
+    } catch (cleanupError) {
+      Logger.error("Failed to cleanup temp file", cleanupError);
+    }
   }
 };
 
 // Cache management functions
 export const getCachedData = (
   key: string,
-  maxAge: number = CACHE_DURATION
+  maxAge?: number
 ): any | null => {
-  const timestamp = cacheTimestamps[key];
-  if (!timestamp) return null;
+  const entry = cacheData.entries[key];
+  if (!entry) return null;
 
-  const isExpired = Date.now() - timestamp > maxAge;
+  const ttl = maxAge || entry.ttl;
+  const isExpired = Date.now() - entry.timestamp > ttl;
   if (isExpired) {
-    delete homeworkCache[key];
-    delete cacheTimestamps[key];
+    delete cacheData.entries[key];
     return null;
   }
 
-  return homeworkCache[key] || null;
+  return entry.data;
 };
 
-export const setCachedData = (key: string, data: any): void => {
-  homeworkCache[key] = data;
-  cacheTimestamps[key] = Date.now();
+export const getCacheTimestamp = (key: string): number => {
+  return cacheData.entries[key]?.timestamp || 0;
+};
+
+export const setCachedData = (key: string, data: any, ttl: number = CACHE_DURATION): void => {
+  cacheData.entries[key] = {
+    data,
+    timestamp: Date.now(),
+    ttl
+  };
 };
 
 export const clearCache = (): void => {
-  homeworkCache = {};
-  cacheTimestamps = {};
+  cacheData.entries = {};
 };
 
 export const invalidateCache = (keyPattern: string): void => {
-  Object.keys(homeworkCache).forEach((key) => {
+  Object.keys(cacheData.entries).forEach((key) => {
     if (key.includes(keyPattern)) {
-      delete homeworkCache[key];
-      delete cacheTimestamps[key];
+      delete cacheData.entries[key];
     }
   });
+};
+
+export const isCacheStale = (key: string, maxAge?: number): boolean => {
+  const entry = cacheData.entries[key];
+  if (!entry) return true;
+  const ttl = maxAge || entry.ttl;
+  return Date.now() - entry.timestamp > ttl;
+};
+
+export const getCacheAge = (key: string): number => {
+  const entry = cacheData.entries[key];
+  if (!entry) return -1;
+  return Date.now() - entry.timestamp;
 };
