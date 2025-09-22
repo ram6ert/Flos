@@ -71,6 +71,7 @@ interface ButtonProps {
   disabled?: boolean;
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
+  className?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -80,6 +81,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   onClick,
   type = "button",
+  className = "",
 }) => {
   const baseClasses =
     "border-none rounded-md cursor-pointer font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
@@ -112,7 +114,8 @@ export const Button: React.FC<ButtonProps> = ({
         baseClasses,
         !disabled && variantClasses[variant],
         sizeClasses[size],
-        disabledClasses
+        disabledClasses,
+        ...className.split(" ")
       )}
     >
       {children}
@@ -127,6 +130,7 @@ interface CardProps {
   shadow?: "sm" | "md" | "lg";
   onClick?: () => void;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export const Card: React.FC<CardProps> = ({
