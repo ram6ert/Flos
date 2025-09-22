@@ -3,8 +3,6 @@ name: Build and Release BAKA Course Platform
 on:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
 
 permissions:
   contents: write
