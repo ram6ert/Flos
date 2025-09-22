@@ -1,14 +1,15 @@
-# Smart Course Platform
+# BAKA Course Platform
 
-An Electron-based desktop application for convenient access to course information, homework management, and document downloads.
+An Electron-based desktop application for convenient access to course information, homework management, and document downloads with full GBK encoding support.
 
 ## Features
 
-- 📚 Course management and overview
-- 📝 Homework tracking with due dates
+- 📚 Course management and overview with real-time updates
+- 📝 Homework tracking with due dates and submission status
 - 📄 Document downloads and organization
-- 📢 Announcements (coming soon)
-- 🎨 Clean, modern interface
+- 📅 Weekly schedule visualization with flow-based layout
+- 🔤 Full GBK encoding support for Chinese content
+- 🎨 Clean, modern interface with responsive design
 
 ## Tech Stack
 
@@ -76,4 +77,18 @@ src/
 - `yarn dev` - Start development environment
 - `yarn build` - Build for production
 - `yarn build:dist` - Create distributable packages
+- `yarn build:win` - Build Windows distributables
+- `yarn build:mac` - Build macOS distributables
+- `yarn build:linux` - Build Linux distributables
+- `yarn build:all` - Build for all platforms
 - `yarn preview` - Preview production build
+- `yarn lint` - Run ESLint code analysis
+- `yarn prettier` - Format code with Prettier
+
+## Download
+
+Get the latest release from our [GitHub Releases page](https://github.com/Baka-Course-Platform/Baka-Course-Platform/releases) with builds available for:
+
+- **Windows**: `.exe` installer and `.msi` package
+- **macOS**: `.dmg` disk image and `.zip` archive
+- **Linux**: `.AppImage`, `.deb`, and `.rpm` packages
