@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import CryptoJS from "crypto-js";
-import { Container, Button, Input, FormGroup, ErrorDisplay, cn } from "./common/StyledComponents";
+import {
+  Button,
+  Input,
+  FormGroup,
+  ErrorDisplay,
+} from "./common/StyledComponents";
 interface LoginCredentials {
   username: string;
   password: string;
@@ -128,12 +133,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           Sign in to access your courses
         </p>
 
-        {error && (
-          <ErrorDisplay
-            message={error}
-            title="Login Failed"
-          />
-        )}
+        {error && <ErrorDisplay message={error} title="Login Failed" />}
 
         <form onSubmit={handleSubmit}>
           <FormGroup label="Username (Student ID)">
