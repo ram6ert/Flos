@@ -35,6 +35,7 @@ import {
   fetchHomeworkDetails,
   fetchScheduleData,
 } from "./api";
+import { Logger } from "./logger";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -48,7 +49,7 @@ const handleApiCall = async <T>(apiCall: () => Promise<T>, event?: Electron.IpcM
     return await apiCall();
   } catch (error: any) {
     if (error.message === "SESSION_EXPIRED") {
-      console.log("Session expired, notifying renderer");
+      Logger.event("Session expired notification sent");
       // Notify renderer about session expiration
       if (event) {
         event.sender.send("session-expired");
@@ -181,6 +182,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  Logger.event("Application starting");
   createWindow();
 
   app.on("activate", () => {
@@ -188,6 +190,8 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+
+  Logger.event("Application ready");
 });
 
 app.on("window-all-closed", () => {
@@ -289,7 +293,7 @@ async function refreshCacheInBackground(
       });
     });
   } catch (error) {
-    console.error(`Background refresh failed for ${cacheKey}:`, error);
+    Logger.error(`Background refresh failed for ${cacheKey}`, error);
   }
 }
 
@@ -415,7 +419,7 @@ ipcMain.handle(
         );
         return { data, success: true };
       } catch (error) {
-        console.error("Failed to fetch homework details:", error);
+        Logger.error("Failed to fetch homework details", error);
         throw error;
       }
     });
@@ -435,7 +439,8 @@ ipcMain.handle(
         ? `${API_CONFIG.DOCS_BASE_URL}${attachmentUrl}`
         : attachmentUrl;
 
-      console.log("Downloading homework attachment from URL:", fullUrl);
+      Logger.debug("Downloading homework attachment from URL:", Logger.sanitizeUrl(fullUrl));
+      Logger.event("Homework attachment download started");
 
       // First, check the file size with a HEAD request
       const headResponse = await axios.head(fullUrl, {
@@ -534,7 +539,7 @@ ipcMain.handle(
         });
       }
     } catch (error) {
-      console.error("Failed to download homework attachment:", error);
+      Logger.error("Failed to download homework attachment", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Download failed",
@@ -576,7 +581,7 @@ ipcMain.handle(
       const base64 = buffer.toString("base64");
       return `data:${contentType};base64,${base64}`;
     } catch (error) {
-      console.error("Failed to fetch course image:", error);
+      Logger.error("Failed to fetch course image", error);
       return null;
     }
   }
@@ -644,7 +649,7 @@ ipcMain.handle(
           ).join(", ")}`
         );
       } catch (error) {
-        console.error("Failed to fetch course documents:", error);
+        Logger.error("Failed to fetch course documents", error);
         throw error;
       }
     });
@@ -664,7 +669,8 @@ ipcMain.handle(
         ? `${API_CONFIG.DOCS_BASE_URL}${documentUrl}`
         : documentUrl;
 
-      console.log("Downloading document from URL:", fullUrl);
+      Logger.debug("Downloading document from URL:", Logger.sanitizeUrl(fullUrl));
+      Logger.event("Document download started");
 
       // First, check the file size with a HEAD request
       const headResponse = await axios.head(fullUrl, {
@@ -764,7 +770,7 @@ ipcMain.handle(
         });
       }
     } catch (error) {
-      console.error("Failed to download document:", error);
+      Logger.error("Failed to download document", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Download failed",

@@ -10,6 +10,7 @@ import {
 } from "./cache";
 import { JSDOM } from "jsdom";
 import * as iconv from "iconv-lite";
+import { Logger } from "./logger";
 
 // Helper function to fetch homework details
 export async function fetchHomeworkDetails(
@@ -139,7 +140,7 @@ export async function authenticatedRequest(
     // Check for session expiration indicators
     if (typeof response.data === "string") {
       if (response.data.includes("登录") || response.data.includes("login") || response.data.includes("not logged")) {
-        console.log("Session expiration detected, clearing authentication state");
+        Logger.event("Session expiration detected");
         await handleSessionExpired();
         throw new Error("SESSION_EXPIRED");
       }
@@ -153,7 +154,7 @@ export async function authenticatedRequest(
       try {
         return JSON.parse(response.data);
       } catch (parseError) {
-        console.warn(
+        Logger.debug(
           "Failed to parse JSON response, treating as string:",
           response.data.substring(0, 200)
         );
@@ -162,7 +163,7 @@ export async function authenticatedRequest(
           response.data.includes("html") ||
           response.data.includes("<!DOCTYPE")
         ) {
-          console.log("HTML response detected, likely session expired");
+          Logger.event("HTML response detected - session expired");
           await handleSessionExpired();
           throw new Error("SESSION_EXPIRED");
         }
@@ -220,8 +221,8 @@ export async function fetchHomeworkData(courseId?: string) {
           allHomework.push(...homework);
         }
       } catch (error) {
-        console.error(
-          `Failed to get ${type.name} for course ${courseId}:`,
+        Logger.error(
+          `Failed to get ${type.name} for course`,
           error
         );
       }
@@ -238,14 +239,14 @@ export async function fetchHomeworkData(courseId?: string) {
     let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
 
     if (!courseList) {
-      console.log("Fetching fresh course list for homework");
+      Logger.event("Fetching fresh course list for homework");
       courseList = await fetchCourseList();
       setCachedData("courses", courseList);
     } else {
-      console.log("Using cached course list for homework");
+      Logger.event("Using cached course list for homework");
     }
 
-    console.log(`Found ${courseList.length} courses for homework fetching`);
+    Logger.debug(`Found ${courseList.length} courses for homework fetching`);
 
     const allHomework = [];
     for (const course of courseList) {
@@ -270,8 +271,8 @@ export async function fetchHomeworkData(courseId?: string) {
             allHomework.push(...homework);
           }
         } catch (error) {
-          console.error(
-            `Failed to get ${type.name} for course ${course.name}:`,
+          Logger.error(
+            `Failed to get ${type.name} for course`,
             error
           );
         }
@@ -299,7 +300,7 @@ export async function fetchScheduleData(sessionId: string = "2021112401", forceR
   if (!forceRefresh) {
     const cachedData = getCachedData(cacheKey, SCHEDULE_CACHE_DURATION);
     if (cachedData) {
-      console.log("Using cached schedule data");
+      Logger.event("Using cached schedule data");
       return cachedData;
     }
   }
@@ -334,7 +335,7 @@ export async function fetchScheduleData(sessionId: string = "2021112401", forceR
 
     throw new Error(`Request failed with status: ${response.status}`);
   } catch (error) {
-    console.error("Failed to fetch schedule:", error);
+    Logger.error("Failed to fetch schedule", error);
     throw error;
   }
 }

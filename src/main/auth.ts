@@ -6,6 +6,7 @@ import axios from "axios";
 import * as iconv from "iconv-lite";
 import { API_CONFIG } from "./constants";
 import { LoginCredentials, LoginResponse } from "./types";
+import { Logger } from "./logger";
 
 // Session management - store credentials for re-authentication
 export let currentSession: {
@@ -79,14 +80,14 @@ export const handleFetchCaptcha = async (): Promise<{
     );
 
     updateSessionCookies(response, "captcha");
-    console.log("Fresh captcha session created");
+    Logger.event("Captcha session created");
 
     const base64Image = Buffer.from(response.data).toString("base64");
     const dataUrl = `data:image/jpeg;base64,${base64Image}`;
 
     return { success: true, imageData: dataUrl };
   } catch (error) {
-    console.error("Captcha fetch error:", error);
+    Logger.error("Captcha fetch failed", error);
     return { success: false, error: "Failed to fetch captcha" };
   }
 };
@@ -158,10 +159,11 @@ export const handleLogin = async (
             ? JSON.parse(messageResponse.data)
             : messageResponse.data;
         sessionId = messageData.sessionId;
-        console.log("Fetched sessionId during login:", sessionId);
+        Logger.debug("Fetched sessionId during login:", Logger.maskSensitive(sessionId || ""));
+        Logger.event("Session ID obtained");
       }
     } catch (error) {
-      console.warn("Failed to fetch sessionId during login:", error);
+      Logger.warn("Failed to fetch session ID during login", error);
     }
 
     // Store credentials and sessionId for future authentication
@@ -178,7 +180,7 @@ export const handleLogin = async (
 
     return { success: true, requestId };
   } catch (error) {
-    console.error("Login error:", error);
+    Logger.error("Login failed", error);
     return { success: false, message: "Network error during login" };
   }
 };
@@ -199,10 +201,10 @@ export const handleStoreCredentials = async (credentials: {
     };
 
     await fs.promises.writeFile(credentialsPath, JSON.stringify(data, null, 2));
-    console.log("Credentials stored with JSESSIONID:", !!data.jsessionId);
+    Logger.event("Credentials stored", data.jsessionId ? "with JSESSIONID" : "without JSESSIONID");
     return true;
   } catch (error) {
-    console.error("Failed to store credentials:", error);
+    Logger.error("Failed to store credentials", error);
     return false;
   }
 };
@@ -240,11 +242,11 @@ export const handleLogout = async (): Promise<void> => {
   currentSession = null;
   captchaSession = null;
 
-  console.log("Logout: All session data cleared");
+  Logger.event("User logged out");
 };
 
 export const handleSessionExpired = async (): Promise<void> => {
-  console.log("Session expired - clearing authentication state");
+  Logger.event("Session expired");
   currentSession = null;
   captchaSession = null;
 
@@ -259,7 +261,7 @@ export const handleSessionExpired = async (): Promise<void> => {
       });
     }
   } catch (error) {
-    console.error("Failed to clear expired JSESSIONID:", error);
+    Logger.error("Failed to clear expired JSESSIONID", error);
   }
 };
 
@@ -267,11 +269,11 @@ export const handleValidateStoredSession = async (): Promise<boolean> => {
   try {
     const stored = await handleGetStoredCredentials();
     if (!stored || !stored.jsessionId) {
-      console.log("No stored JSESSIONID found");
+      Logger.debug("No stored JSESSIONID found");
       return false;
     }
 
-    console.log("Attempting to restore session with stored JSESSIONID");
+    Logger.event("Attempting session restoration");
 
     // Restore captcha session with stored JSESSIONID
     captchaSession = {
@@ -301,7 +303,7 @@ export const handleValidateStoredSession = async (): Promise<boolean> => {
           : JSON.stringify(response.data);
 
       if (responseText.includes("登录")) {
-        console.log("Response contains login indicators, session is expired");
+        Logger.event("Session restoration failed - expired");
         captchaSession = null;
         return false;
       }
@@ -320,16 +322,16 @@ export const handleValidateStoredSession = async (): Promise<boolean> => {
         isLoggedIn: true,
       };
 
-      console.log("Session restored successfully with stored JSESSIONID");
+      Logger.event("Session restored successfully");
       return true;
     } else {
-      console.log("Stored JSESSIONID is expired or invalid");
+      Logger.event("Session restoration failed - invalid");
       // Clear the expired session
       captchaSession = null;
       return false;
     }
   } catch (error) {
-    console.error("Failed to validate stored session:", error);
+    Logger.error("Failed to validate stored session", error);
     captchaSession = null;
     return false;
   }
