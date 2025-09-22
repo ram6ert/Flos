@@ -18,10 +18,13 @@ export interface ElectronAPI {
   login: (credentials: LoginCredentials) => Promise<LoginResponse>;
   logout: () => Promise<void>;
   isLoggedIn: () => Promise<boolean>;
-  storeCredentials: (credentials: { username: string; password: string }) => Promise<void>;
-  getStoredCredentials: () => Promise<{ username?: string; password?: string } | null>;
+  getCurrentSession: () => Promise<any>;
+  validateStoredSession: () => Promise<boolean>;
+  storeCredentials: (credentials: { username: string; password: string; jsessionId?: string }) => Promise<void>;
+  getStoredCredentials: () => Promise<{ username?: string; password?: string; jsessionId?: string } | null>;
   clearStoredCredentials: () => Promise<void>;
   onCacheUpdate: (callback: (event: any, payload: { key: string; data: any }) => void) => void;
+  onSessionExpired: (callback: () => void) => void;
   removeAllListeners: (channel: string) => void;
 }
 
@@ -42,10 +45,13 @@ const electronAPI: ElectronAPI = {
   login: (credentials: LoginCredentials) => ipcRenderer.invoke('login', credentials),
   logout: () => ipcRenderer.invoke('logout'),
   isLoggedIn: () => ipcRenderer.invoke('is-logged-in'),
+  getCurrentSession: () => ipcRenderer.invoke('get-current-session'),
+  validateStoredSession: () => ipcRenderer.invoke('validate-stored-session'),
   storeCredentials: (credentials) => ipcRenderer.invoke('store-credentials', credentials),
   getStoredCredentials: () => ipcRenderer.invoke('get-stored-credentials'),
   clearStoredCredentials: () => ipcRenderer.invoke('clear-stored-credentials'),
   onCacheUpdate: (callback) => ipcRenderer.on('cache-updated', callback),
+  onSessionExpired: (callback) => ipcRenderer.on('session-expired', callback),
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 };
 

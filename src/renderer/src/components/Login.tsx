@@ -77,21 +77,25 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       const response = await window.electronAPI.login(credentials);
 
       if (response.success) {
-        const session: UserSession = {
-          username: username.trim(),
-          requestId: response.requestId || "",
-          isLoggedIn: true,
-          loginTime: new Date(),
-        };
-
         if (rememberCredentials) {
           // Always store the password that will be sent to the server (hashed)
           const passwordToStore = isPasswordHashed ? password : hashPassword(password);
+
           await window.electronAPI.storeCredentials({
             username: username.trim(),
             password: passwordToStore,
+            // JSESSIONID will be automatically extracted from captchaSession in the main process
           });
         }
+
+        // Get the session from main thread after successful login
+        const currentSession = await window.electronAPI.getCurrentSession();
+        const session: UserSession = {
+          username: currentSession?.username || username.trim(),
+          requestId: currentSession?.sessionId || response.requestId || "",
+          isLoggedIn: true,
+          loginTime: currentSession?.loginTime ? new Date(currentSession.loginTime) : new Date(),
+        };
 
         onLoginSuccess(session);
       } else {
@@ -191,23 +195,44 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             >
               Password
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setIsPasswordHashed(false); // Reset hashed flag when user types new password
-              }}
-              required
-              placeholder="Enter your password"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                border: "1px solid #ddd",
-                borderRadius: "5px",
-                fontSize: "1rem",
-              }}
-            />
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setIsPasswordHashed(false); // Reset hashed flag when user types new password
+                }}
+                required
+                placeholder="Enter your password"
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  border: "1px solid #ddd",
+                  borderRadius: "5px",
+                  fontSize: "1rem",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setPassword("");
+                  setIsPasswordHashed(false);
+                }}
+                style={{
+                  padding: "0.75rem",
+                  background: "transparent",
+                  color: "#666",
+                  border: "1px solid #ddd",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                  fontSize: "0.9rem",
+                }}
+                title="Clear password"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           <div style={{ marginBottom: "1rem" }}>

@@ -1,6 +1,6 @@
 import axios from "axios";
 import { API_CONFIG } from "./constants";
-import { currentSession, captchaSession, updateSessionCookies } from "./auth";
+import { currentSession, captchaSession, updateSessionCookies, handleSessionExpired } from "./auth";
 import {
   getCachedData,
   setCachedData,
@@ -138,8 +138,10 @@ export async function authenticatedRequest(
 
     // Check for session expiration indicators
     if (typeof response.data === "string") {
-      if (response.data.includes("登录")) {
-        throw new Error("Session expired or not logged in");
+      if (response.data.includes("登录") || response.data.includes("login") || response.data.includes("not logged")) {
+        console.log("Session expiration detected, clearing authentication state");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
     }
 
@@ -160,9 +162,9 @@ export async function authenticatedRequest(
           response.data.includes("html") ||
           response.data.includes("<!DOCTYPE")
         ) {
-          throw new Error(
-            "Received HTML response instead of JSON - session likely expired"
-          );
+          console.log("HTML response detected, likely session expired");
+          await handleSessionExpired();
+          throw new Error("SESSION_EXPIRED");
         }
         return response.data;
       }

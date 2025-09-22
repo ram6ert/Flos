@@ -13,6 +13,9 @@ import {
   handleGetStoredCredentials,
   handleIsLoggedIn,
   handleLogout,
+  getCurrentSession,
+  handleSessionExpired,
+  handleValidateStoredSession,
   getCredentialsPath,
 } from "./auth";
 import {
@@ -38,6 +41,23 @@ const isDev = process.env.NODE_ENV === "development";
 // Configure axios defaults
 axios.defaults.headers.common["User-Agent"] = API_CONFIG.USER_AGENT;
 axios.defaults.timeout = API_CONFIG.TIMEOUT;
+
+// Helper function to handle API calls with session expiration
+const handleApiCall = async <T>(apiCall: () => Promise<T>, event?: Electron.IpcMainInvokeEvent): Promise<T> => {
+  try {
+    return await apiCall();
+  } catch (error: any) {
+    if (error.message === "SESSION_EXPIRED") {
+      console.log("Session expired, notifying renderer");
+      // Notify renderer about session expiration
+      if (event) {
+        event.sender.send("session-expired");
+      }
+      throw new Error("Session expired. Please log in again.");
+    }
+    throw error;
+  }
+};
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -162,6 +182,17 @@ ipcMain.handle("logout", async () => {
 });
 
 ipcMain.handle("is-logged-in", handleIsLoggedIn);
+ipcMain.handle("get-current-session", async () => {
+  return getCurrentSession();
+});
+
+ipcMain.handle("session-expired", async () => {
+  await handleSessionExpired();
+});
+
+ipcMain.handle("validate-stored-session", async () => {
+  return await handleValidateStoredSession();
+});
 
 // Credential storage handlers
 ipcMain.handle("store-credentials", async (event, credentials) => {
@@ -233,7 +264,7 @@ ipcMain.handle(
     // If skipCache is requested, fetch fresh data immediately
     if (options?.skipCache) {
       return requestQueue.add(async () => {
-        const courseList = await fetchCourseList();
+        const courseList = await handleApiCall(() => fetchCourseList(), event);
         // Update cache with fresh data
         setCachedData(cacheKey, courseList);
         saveCacheToFile(currentSession?.username);
@@ -248,7 +279,7 @@ ipcMain.handle(
     if (!cachedData) {
       refreshCacheInBackground(cacheKey, async () => {
         return requestQueue.add(async () => {
-          return await fetchCourseList();
+          return await handleApiCall(() => fetchCourseList(), event);
         });
       });
     }
@@ -259,7 +290,7 @@ ipcMain.handle(
     } else {
       // No cache, wait for fresh data
       return requestQueue.add(async () => {
-        const courseList = await fetchCourseList();
+        const courseList = await handleApiCall(() => fetchCourseList(), event);
         setCachedData(cacheKey, courseList);
         saveCacheToFile(currentSession?.username);
         return { data: courseList, fromCache: false, age: 0 };
