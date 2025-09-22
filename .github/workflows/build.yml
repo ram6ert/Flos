@@ -1,4 +1,4 @@
-name: Build Smart Course Platform
+name: Build and Release BAKA Course Platform
 
 on:
   push:

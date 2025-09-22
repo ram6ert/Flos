@@ -1,4 +1,4 @@
-name: Test Build
+name: Test Build and Quality Checks
 
 on:
   push:
@@ -28,8 +28,8 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Check code style
-        run: echo "Code style check (lint not configured)"
-        continue-on-error: true
+        run: yarn lint
+        continue-on-error: false
 
       - name: Type check
         run: yarn build:electron
