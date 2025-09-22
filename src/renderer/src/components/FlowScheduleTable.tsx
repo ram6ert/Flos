@@ -233,6 +233,14 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     return daySchedule ? formatDate(daySchedule.date) : "";
   };
 
+  const isTodayColumn = (dayIndex: number) => {
+    const today = new Date();
+    const todayDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    // Convert to our dayIndex format (0 = Monday, 1 = Tuesday, ..., 6 = Sunday)
+    const adjustedTodayIndex = todayDay === 0 ? 6 : todayDay - 1;
+    return dayIndex === adjustedTodayIndex;
+  };
+
   if (isLoading) {
     return (
       <Container padding="lg">
@@ -316,19 +324,38 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
           >
             {generateCurrentTimeIndicator()}
             <div className="flex gap-0.5 flex-1 relative">
-              {weekdays.map((day) => (
-                <div key={day.index} className="flex-1 min-w-[120px]">
-                  <div className="text-center px-2.5 py-3 bg-gray-100 text-gray-900 border-b border-gray-200 h-[52px] flex flex-col justify-center">
-                    <span className="block font-semibold text-sm mb-0.5">
-                      {day.short}
-                    </span>
-                    <span className="block text-xs text-gray-600">
-                      {getDateForDay(day.index)}
-                    </span>
-                  </div>
+              {weekdays.map((day) => {
+                const isToday = isTodayColumn(day.index);
+                return (
+                  <div key={day.index} className="flex-1 min-w-[120px]">
+                    <div className={cn(
+                      "text-center px-2.5 py-3 border-b border-gray-200 h-[52px] flex flex-col justify-center",
+                      isToday
+                        ? "bg-blue-100 text-blue-900 border-blue-300"
+                        : "bg-gray-100 text-gray-900"
+                    )}>
+                      <span className={cn(
+                        "block font-semibold text-sm mb-0.5",
+                        isToday && "text-blue-800"
+                      )}>
+                        {day.short}
+                        {isToday && " 🌟"}
+                      </span>
+                      <span className={cn(
+                        "block text-xs",
+                        isToday ? "text-blue-700" : "text-gray-600"
+                      )}>
+                        {getDateForDay(day.index)}
+                      </span>
+                    </div>
 
                   <div
-                    className="relative overflow-hidden border border-gray-200 border-t-0 bg-gradient-to-b from-indigo-50/30 via-blue-50/30 to-teal-50/30"
+                    className={cn(
+                      "relative overflow-hidden border border-t-0",
+                      isToday
+                        ? "border-blue-300 bg-gradient-to-b from-blue-100/40 via-blue-50/40 to-blue-100/40"
+                        : "border-gray-200 bg-gradient-to-b from-indigo-50/30 via-blue-50/30 to-teal-50/30"
+                    )}
                     style={{ height: `${timelineHeight}px` }}
                   >
                     {getCoursesForDay(day.index).map((flow, index) => {
@@ -373,7 +400,8 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
                     })}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
