@@ -392,7 +392,9 @@ export class ScheduleParser {
       const $container = $(container);
 
       // Get the time slot from the first li element
-      const timeSlotElement = $container.find("li.table-list span.table-listsp1");
+      const timeSlotElement = $container.find(
+        "li.table-list span.table-listsp1"
+      );
       let currentTimeSlot = "Unknown";
 
       if (timeSlotElement.length > 0) {
@@ -426,14 +428,12 @@ export class ScheduleParser {
           // Get student count
           const studentSpan = $cell.find(".table-m");
           const studentText =
-            studentSpan.text()
-              .replace("学生：", "")
-              .replace("人", "")
-              .trim() || "0";
+            studentSpan.text().replace("学生：", "").replace("人", "").trim() ||
+            "0";
           const studentCount = parseInt(studentText) || 0;
 
           // Get classroom
-          const classroomSpan = $cell.find(".table-j");
+          const classroomSpan = $cell.find(".table-j:not([onclick])");
           const classroom =
             classroomSpan.text().replace("教室：", "").trim() || "";
 
