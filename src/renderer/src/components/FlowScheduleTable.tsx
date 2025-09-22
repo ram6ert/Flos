@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ScheduleData, ScheduleEntry } from "../shared-types";
-import "./FlowScheduleTable.css";
+import { Container, PageHeader, Button, Loading, ErrorDisplay, Card, cn } from "./common/StyledComponents";
 
 interface FlowScheduleTableProps {
   onRefresh?: () => void;
@@ -167,11 +167,13 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
       markers.push(
         <div
           key={hour}
-          className="time-marker"
+          className="absolute left-0 right-0 flex items-center"
           style={{ top: `${relativePosition}%` }}
         >
-          <span className="time-label">{`${hour.toString().padStart(2, "0")}:00`}</span>
-          <div className="time-line"></div>
+          <span className="bg-gray-800/90 text-white px-2 py-1 rounded-full text-[11px] font-semibold min-w-[45px] text-center shadow">
+            {`${hour.toString().padStart(2, "0")}:00`}
+          </span>
+          <div className="flex-1 h-px bg-gradient-to-r from-gray-700/30 to-transparent ml-2" />
         </div>
       );
     }
@@ -197,127 +199,127 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
 
   if (isLoading) {
     return (
-      <div className="flow-schedule-container">
-        <div className="schedule-header">
-          <h2>🌊 Course Flow Schedule</h2>
-        </div>
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading schedule flow...</p>
-        </div>
-      </div>
+      <Container padding="lg">
+        <PageHeader title="🌊 Course Flow Schedule" />
+        <Loading message="Loading schedule flow..." />
+      </Container>
     );
   }
 
   if (error) {
     return (
-      <div className="flow-schedule-container">
-        <div className="schedule-header">
-          <h2>🌊 Course Flow Schedule</h2>
-          <button onClick={handleRefresh} className="refresh-btn">
-            🔄 Refresh
-          </button>
-        </div>
-        <div className="error-container">
-          <p>❌ {error}</p>
-          <button onClick={handleRefresh} className="retry-btn">
-            Try Again
-          </button>
-        </div>
-      </div>
+      <Container padding="lg">
+        <PageHeader
+          title="🌊 Course Flow Schedule"
+          actions={
+            <Button onClick={handleRefresh} variant="primary" size="sm">
+              Refresh
+            </Button>
+          }
+        />
+        <ErrorDisplay
+          title="Failed to Load Schedule"
+          message={error}
+          onRetry={handleRefresh}
+          retryLabel="Try Again"
+        />
+      </Container>
     );
   }
 
   if (!scheduleData || !currentWeek) {
     return (
-      <div className="flow-schedule-container">
-        <div className="schedule-header">
-          <h2>🌊 Course Flow Schedule</h2>
-          <button onClick={handleRefresh} className="refresh-btn">
-            🔄 Refresh
-          </button>
-        </div>
-        <div className="empty-container">
-          <p>No schedule flow data available</p>
-        </div>
-      </div>
+      <Container padding="lg">
+        <PageHeader
+          title="🌊 Course Flow Schedule"
+          actions={
+            <Button onClick={handleRefresh} variant="primary" size="sm">
+              Refresh
+            </Button>
+          }
+        />
+        <p className="text-gray-600 text-center py-12">No schedule flow data available</p>
+      </Container>
     );
   }
 
+  // Colors for flow blocks (rotate by index for variety)
+  const blockColors = [
+    { border: "border-l-red-500", chip: "bg-red-50 text-red-600" },
+    { border: "border-l-blue-500", chip: "bg-blue-50 text-blue-600" },
+    { border: "border-l-green-500", chip: "bg-green-50 text-green-600" },
+    { border: "border-l-amber-500", chip: "bg-amber-50 text-amber-600" },
+  ];
+
   return (
-    <div className="flow-schedule-container">
-      <div className="schedule-header">
-        <div>
-          <h2>🌊 Course Flow Schedule</h2>
-          <div className="schedule-info">
-            <p className="schedule-week-info">
-              Week {currentWeek.weekNumber} •{" "}
-              {formatDate(currentWeek.startDate)} -{" "}
-              {formatDate(currentWeek.endDate)}
-            </p>
-            <p className="schedule-stats">
-              {scheduleData.statistics.totalCourses} courses flowing •{" "}
-              {currentWeek.metadata.totalHours} hours
-            </p>
-            {scheduleData.semester && (
-              <p className="semester-info">{scheduleData.semester.name}</p>
-            )}
+    <Container padding="lg">
+      <PageHeader
+        title="🌊 Course Flow Schedule"
+        subtitle={`Week ${currentWeek.weekNumber} • ${formatDate(currentWeek.startDate)} - ${formatDate(currentWeek.endDate)}`}
+        actions={
+          <Button onClick={handleRefresh} variant="primary" size="sm">
+            Refresh
+          </Button>
+        }
+      />
+
+      <Card className="overflow-hidden">
+        <div className="relative flex min-w-[800px] overflow-x-auto">
+          <div className="absolute left-0 top-0 w-20 h-full z-10 pointer-events-none">
+            {generateTimeMarkers()}
           </div>
-        </div>
-        <button onClick={handleRefresh} className="refresh-btn">
-          🔄 Refresh
-        </button>
-      </div>
 
-      <div className="flow-schedule-wrapper">
-        <div className="timeline-container">
-          <div className="timeline-markers">{generateTimeMarkers()}</div>
-
-          <div className="flow-columns">
+          <div className="flex ml-[90px] gap-0.5 flex-1">
             {weekdays.map((day) => (
-              <div key={day.index} className="day-column">
-                <div className="day-header">
-                  <span className="day-name">{day.short}</span>
-                  <span className="day-date">{getDateForDay(day.index)}</span>
+              <div key={day.index} className="flex-1 min-w-[120px]">
+                <div className="text-center px-2.5 py-3 bg-gray-100 text-gray-900 rounded-t-md border-b border-gray-200">
+                  <span className="block font-semibold text-sm mb-0.5">{day.short}</span>
+                  <span className="block text-xs text-gray-600">{getDateForDay(day.index)}</span>
                 </div>
 
                 <div
-                  className="course-flow-area"
+                  className="relative rounded-b-md overflow-hidden border border-gray-200 border-t-0 bg-gradient-to-b from-indigo-50/30 via-blue-50/30 to-teal-50/30"
                   style={{ height: `${timelineHeight}px` }}
                 >
-                  {getCoursesForDay(day.index).map((flow, index) => (
-                    <div
-                      key={`${flow.course.id}-${index}`}
-                      className="course-flow-block"
-                      style={getFlowStyle(flow)}
-                      title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}`}
-                    >
-                      <div className="course-flow-content">
-                        <div className="course-name">
-                          {flow.course.course.name}
-                        </div>
-                        <div className="course-time">
-                          {formatTimeFromMinutes(flow.startMinutes)}-
-                          {formatTimeFromMinutes(
-                            flow.startMinutes + flow.durationMinutes
-                          )}
-                        </div>
-                        <div className="course-teacher">
-                          👨‍🏫 {flow.course.course.teacher}
-                        </div>
-                        <div className="course-room">
-                          📍 {flow.course.course.classroom}
+                  {getCoursesForDay(day.index).map((flow, index) => {
+                    const color = blockColors[index % blockColors.length];
+                    return (
+                      <div
+                        key={`${flow.course.id}-${index}`}
+                        className={cn(
+                          "absolute left-1 right-1 bg-white/95 rounded-md p-2 cursor-pointer transition shadow",
+                          "hover:translate-x-2 hover:shadow-lg",
+                          "backdrop-blur-sm",
+                          color.border
+                        )}
+                        style={getFlowStyle(flow)}
+                        title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}`}
+                      >
+                        <div className="h-full flex flex-col justify-between">
+                          <div className="font-semibold text-[13px] text-gray-900 mb-1 leading-snug line-clamp-2">
+                            {flow.course.course.name}
+                          </div>
+                          <div className={cn("text-[11px] font-semibold mb-1 px-1.5 py-0.5 rounded text-center", color.chip)}>
+                            {formatTimeFromMinutes(flow.startMinutes)}-
+                            {formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}
+                          </div>
+                          <div className="text-[10px] text-gray-600 truncate">
+                            👨‍🏫 {flow.course.course.teacher}
+                          </div>
+                          <div className="text-[10px] text-gray-600 truncate">
+                            📍 {flow.course.course.classroom}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </div>
-    </div>
+      </Card>
+    </Container>
   );
 };
 

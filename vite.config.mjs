@@ -1,9 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   root: path.join(__dirname, "src/renderer"),
   base: "./",
   build: {
@@ -23,5 +24,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src/renderer"),
       "@shared": path.resolve(__dirname, "src/shared"),
     },
+  },
+  css: {
+    devSourcemap: process.env.NODE_ENV === "development",
   },
 });
