@@ -1,6 +1,6 @@
 {
   "name": "smart-course-platform",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "An Electron app for convenient access to course information, homework, and documents",
   "main": "dist/main/index.js",
   "scripts": {
@@ -56,16 +56,18 @@
   },
   "build": {
     "appId": "com.smartcourse.platform",
-    "productName": "Smart Course Platform",
+    "productName": "BAKA Course Platform",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
+      "assets/**/*",
       "package.json"
     ],
     "mac": {
-      "category": "public.app-category.education"
+      "category": "public.app-category.education",
+      "icon": "assets/icon.icns"
     },
     "win": {
       "target": [
@@ -86,7 +88,8 @@
       "icon": "assets/icon.ico"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "assets/icon.png"
     }
   }
 }
