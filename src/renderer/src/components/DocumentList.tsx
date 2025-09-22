@@ -18,24 +18,27 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [error, setError] = useState<string>("");
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
 
-  const fetchDocuments = useCallback(async (forceRefresh = false) => {
-    if (!selectedCourse) return;
+  const fetchDocuments = useCallback(
+    async (forceRefresh = false) => {
+      if (!selectedCourse) return;
 
-    try {
-      setLoading(true);
-      setError("");
-      const response = await window.electronAPI.getCourseDocuments(
-        selectedCourse.course_num,
-        { skipCache: forceRefresh }
-      );
-      setRealDocuments(response.data);
-    } catch (error) {
-      console.error("Failed to fetch documents:", error);
-      setError("Failed to fetch course documents. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedCourse]);
+      try {
+        setLoading(true);
+        setError("");
+        const response = await window.electronAPI.getCourseDocuments(
+          selectedCourse.course_num,
+          { skipCache: forceRefresh }
+        );
+        setRealDocuments(response.data);
+      } catch (error) {
+        console.error("Failed to fetch documents:", error);
+        setError("Failed to fetch course documents. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedCourse]
+  );
 
   useEffect(() => {
     if (selectedCourse) {

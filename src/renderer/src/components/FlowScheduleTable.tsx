@@ -42,8 +42,12 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
         ? await window.electronAPI.refreshSchedule()
         : await window.electronAPI.getSchedule();
 
-      if (scheduleResponse && typeof scheduleResponse === 'object' &&
-          'weeks' in scheduleResponse && 'courses' in scheduleResponse) {
+      if (
+        scheduleResponse &&
+        typeof scheduleResponse === "object" &&
+        "weeks" in scheduleResponse &&
+        "courses" in scheduleResponse
+      ) {
         setScheduleData(scheduleResponse as ScheduleData);
       } else {
         console.error("Invalid schedule response format:", scheduleResponse);
@@ -68,7 +72,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
 
   // Convert time string to minutes since midnight
   const timeToMinutes = (timeStr: string): number => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
+    const [hours, minutes] = timeStr.split(":").map(Number);
     return hours * 60 + minutes;
   };
 
@@ -76,28 +80,32 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
   const formatTimeFromMinutes = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
   };
 
   // Convert course entries to flow objects and concatenate neighboring same courses
   const getCoursesForDay = (dayIndex: number): CourseFlow[] => {
     if (!scheduleData?.weeks[0]) return [];
 
-    const daySchedule = scheduleData.weeks[0].days.find(day => day.dayOfWeek === dayIndex);
+    const daySchedule = scheduleData.weeks[0].days.find(
+      (day) => day.dayOfWeek === dayIndex
+    );
     if (!daySchedule) return [];
 
-    const flows = daySchedule.entries.map(entry => {
-      const startMinutes = timeToMinutes(entry.timeSlot.startTime);
-      const endMinutes = timeToMinutes(entry.timeSlot.endTime);
-      const durationMinutes = endMinutes - startMinutes;
+    const flows = daySchedule.entries
+      .map((entry) => {
+        const startMinutes = timeToMinutes(entry.timeSlot.startTime);
+        const endMinutes = timeToMinutes(entry.timeSlot.endTime);
+        const durationMinutes = endMinutes - startMinutes;
 
-      return {
-        course: entry,
-        startMinutes,
-        durationMinutes,
-        dayIndex
-      };
-    }).sort((a, b) => a.startMinutes - b.startMinutes);
+        return {
+          course: entry,
+          startMinutes,
+          durationMinutes,
+          dayIndex,
+        };
+      })
+      .sort((a, b) => a.startMinutes - b.startMinutes);
 
     // Concatenate neighboring same courses
     const concatenatedFlows: CourseFlow[] = [];
@@ -108,9 +116,12 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
 
       // Look for consecutive same courses
       let j = i + 1;
-      while (j < flows.length &&
-             flows[j].course.course.name === currentFlow.course.course.name &&
-             flows[j].startMinutes <= endMinutes + 30) { // Allow up to 30 min gap
+      while (
+        j < flows.length &&
+        flows[j].course.course.name === currentFlow.course.course.name &&
+        flows[j].startMinutes <= endMinutes + 30
+      ) {
+        // Allow up to 30 min gap
         endMinutes = flows[j].startMinutes + flows[j].durationMinutes;
         j++;
       }
@@ -120,7 +131,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
         course: currentFlow.course,
         startMinutes: currentFlow.startMinutes,
         durationMinutes: endMinutes - currentFlow.startMinutes,
-        dayIndex
+        dayIndex,
       };
 
       concatenatedFlows.push(concatenatedFlow);
@@ -141,7 +152,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     return {
       top: `${Math.max(0, topPercent)}%`,
       height: `${heightPercent}%`,
-      minHeight: '40px' // Ensure readability
+      minHeight: "40px", // Ensure readability
     };
   };
 
@@ -150,7 +161,8 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     const markers = [];
     for (let hour = 8; hour <= 22; hour++) {
       const minutes = hour * 60;
-      const relativePosition = ((minutes - timelineStart) / (timelineEnd - timelineStart)) * 100;
+      const relativePosition =
+        ((minutes - timelineStart) / (timelineEnd - timelineStart)) * 100;
 
       markers.push(
         <div
@@ -158,7 +170,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
           className="time-marker"
           style={{ top: `${relativePosition}%` }}
         >
-          <span className="time-label">{`${hour.toString().padStart(2, '0')}:00`}</span>
+          <span className="time-label">{`${hour.toString().padStart(2, "0")}:00`}</span>
           <div className="time-line"></div>
         </div>
       );
@@ -177,7 +189,9 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
 
   const getDateForDay = (dayIndex: number) => {
     if (!currentWeek) return "";
-    const daySchedule = currentWeek.days.find(day => day.dayOfWeek === dayIndex);
+    const daySchedule = currentWeek.days.find(
+      (day) => day.dayOfWeek === dayIndex
+    );
     return daySchedule ? formatDate(daySchedule.date) : "";
   };
 
@@ -237,16 +251,16 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
           <h2>🌊 Course Flow Schedule</h2>
           <div className="schedule-info">
             <p className="schedule-week-info">
-              Week {currentWeek.weekNumber} • {formatDate(currentWeek.startDate)} -{" "}
+              Week {currentWeek.weekNumber} •{" "}
+              {formatDate(currentWeek.startDate)} -{" "}
               {formatDate(currentWeek.endDate)}
             </p>
             <p className="schedule-stats">
-              {scheduleData.statistics.totalCourses} courses flowing • {currentWeek.metadata.totalHours} hours
+              {scheduleData.statistics.totalCourses} courses flowing •{" "}
+              {currentWeek.metadata.totalHours} hours
             </p>
             {scheduleData.semester && (
-              <p className="semester-info">
-                {scheduleData.semester.name}
-              </p>
+              <p className="semester-info">{scheduleData.semester.name}</p>
             )}
           </div>
         </div>
@@ -257,9 +271,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
 
       <div className="flow-schedule-wrapper">
         <div className="timeline-container">
-          <div className="timeline-markers">
-            {generateTimeMarkers()}
-          </div>
+          <div className="timeline-markers">{generateTimeMarkers()}</div>
 
           <div className="flow-columns">
             {weekdays.map((day) => (
@@ -269,7 +281,10 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
                   <span className="day-date">{getDateForDay(day.index)}</span>
                 </div>
 
-                <div className="course-flow-area" style={{ height: `${timelineHeight}px` }}>
+                <div
+                  className="course-flow-area"
+                  style={{ height: `${timelineHeight}px` }}
+                >
                   {getCoursesForDay(day.index).map((flow, index) => (
                     <div
                       key={`${flow.course.id}-${index}`}
@@ -278,12 +293,21 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
                       title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}`}
                     >
                       <div className="course-flow-content">
-                        <div className="course-name">{flow.course.course.name}</div>
-                        <div className="course-time">
-                          {formatTimeFromMinutes(flow.startMinutes)}-{formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}
+                        <div className="course-name">
+                          {flow.course.course.name}
                         </div>
-                        <div className="course-teacher">👨‍🏫 {flow.course.course.teacher}</div>
-                        <div className="course-room">📍 {flow.course.course.classroom}</div>
+                        <div className="course-time">
+                          {formatTimeFromMinutes(flow.startMinutes)}-
+                          {formatTimeFromMinutes(
+                            flow.startMinutes + flow.durationMinutes
+                          )}
+                        </div>
+                        <div className="course-teacher">
+                          👨‍🏫 {flow.course.course.teacher}
+                        </div>
+                        <div className="course-room">
+                          📍 {flow.course.course.classroom}
+                        </div>
                       </div>
                     </div>
                   ))}

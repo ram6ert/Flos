@@ -1,5 +1,4 @@
 import { JSDOM } from "jsdom";
-import * as iconv from "iconv-lite";
 import { Logger } from "./logger";
 import {
   ScheduleData,
@@ -9,7 +8,7 @@ import {
   ScheduleCourse,
   TimeSlot,
   ScheduleConflict,
-  DEFAULT_TIME_SLOTS
+  DEFAULT_TIME_SLOTS,
 } from "./schedule-types";
 
 // Raw schedule entry from server HTML parsing
@@ -39,21 +38,28 @@ interface RawScheduleResponse {
 export class ScheduleParser {
   private static parseTimeSlot(timeSlotStr: string): TimeSlot | null {
     // Clean up the time slot string
-    const cleanStr = timeSlotStr.replace(/\s+/g, " ").replace(/- /g, "-").trim();
+    const cleanStr = timeSlotStr
+      .replace(/\s+/g, " ")
+      .replace(/- /g, "-")
+      .trim();
 
     // First try to match time range patterns like "8:00-9:50", "14:00-15:40"
-    const timeRangeMatch = cleanStr.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+    const timeRangeMatch = cleanStr.match(
+      /(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/
+    );
     if (timeRangeMatch) {
       const startHour = parseInt(timeRangeMatch[1]);
       const startMin = parseInt(timeRangeMatch[2]);
       const endHour = parseInt(timeRangeMatch[3]);
       const endMin = parseInt(timeRangeMatch[4]);
 
-      const startTime = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
-      const endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+      const startTime = `${startHour.toString().padStart(2, "0")}:${startMin.toString().padStart(2, "0")}`;
+      const endTime = `${endHour.toString().padStart(2, "0")}:${endMin.toString().padStart(2, "0")}`;
 
       // Map actual time ranges from server to period IDs
-      const timeSlotMap: { [key: string]: { id: string; period: number; label: string } } = {
+      const timeSlotMap: {
+        [key: string]: { id: string; period: number; label: string };
+      } = {
         "08:00-09:50": { id: "1", period: 1, label: "08:00-09:50" },
         "10:10-12:00": { id: "2", period: 2, label: "10:10-12:00" },
         "10:30-12:20": { id: "3", period: 3, label: "10:30-12:20" },
@@ -61,7 +67,7 @@ export class ScheduleParser {
         "14:10-16:00": { id: "5", period: 5, label: "14:10-16:00" },
         "16:20-18:10": { id: "6", period: 6, label: "16:20-18:10" },
         "19:00-20:50": { id: "7", period: 7, label: "19:00-20:50" },
-        "21:00-21:50": { id: "8", period: 8, label: "21:00-21:50" }
+        "21:00-21:50": { id: "8", period: 8, label: "21:00-21:50" },
       };
 
       const timeKey = `${startTime}-${endTime}`;
@@ -74,7 +80,7 @@ export class ScheduleParser {
           endPeriod: mappedSlot.period,
           startTime,
           endTime,
-          label: mappedSlot.label
+          label: mappedSlot.label,
         };
       }
 
@@ -88,7 +94,7 @@ export class ScheduleParser {
         endPeriod: period,
         startTime,
         endTime,
-        label: `${startTime}-${endTime}`
+        label: `${startTime}-${endTime}`,
       };
     }
 
@@ -110,7 +116,7 @@ export class ScheduleParser {
         endPeriod,
         startTime: this.calculateTimeFromPeriod(startPeriod),
         endTime: this.calculateTimeFromPeriod(endPeriod + 1),
-        label: cleanStr
+        label: cleanStr,
       };
     }
 
@@ -121,9 +127,19 @@ export class ScheduleParser {
   private static calculateTimeFromPeriod(period: number): string {
     // Standard schedule: 8:00, 9:00, 10:00, 11:00, 14:00, 15:00, 16:00, 17:00, 19:00, 20:00
     const times = [
-      "08:00", "09:00", "10:00", "11:00", "12:00",
-      "14:00", "15:00", "16:00", "17:00", "18:00",
-      "19:00", "20:00", "21:00"
+      "08:00",
+      "09:00",
+      "10:00",
+      "11:00",
+      "12:00",
+      "14:00",
+      "15:00",
+      "16:00",
+      "17:00",
+      "18:00",
+      "19:00",
+      "20:00",
+      "21:00",
     ];
 
     return times[period - 1] || "00:00";
@@ -133,14 +149,14 @@ export class ScheduleParser {
     const timeInMinutes = hour * 60 + minute;
 
     // Map time ranges to periods based on actual server schedule
-    if (timeInMinutes >= 8 * 60 && timeInMinutes < 10 * 60) return 1;        // 08:00-09:50
-    if (timeInMinutes >= 10 * 60 + 10 && timeInMinutes < 12 * 60) return 2;  // 10:10-12:00
+    if (timeInMinutes >= 8 * 60 && timeInMinutes < 10 * 60) return 1; // 08:00-09:50
+    if (timeInMinutes >= 10 * 60 + 10 && timeInMinutes < 12 * 60) return 2; // 10:10-12:00
     if (timeInMinutes >= 10 * 60 + 30 && timeInMinutes < 12 * 60 + 20) return 3; // 10:30-12:20
-    if (timeInMinutes >= 12 * 60 + 10 && timeInMinutes < 14 * 60) return 4;  // 12:10-14:00
-    if (timeInMinutes >= 14 * 60 + 10 && timeInMinutes < 16 * 60) return 5;  // 14:10-16:00
+    if (timeInMinutes >= 12 * 60 + 10 && timeInMinutes < 14 * 60) return 4; // 12:10-14:00
+    if (timeInMinutes >= 14 * 60 + 10 && timeInMinutes < 16 * 60) return 5; // 14:10-16:00
     if (timeInMinutes >= 16 * 60 + 20 && timeInMinutes < 18 * 60 + 10) return 6; // 16:20-18:10
-    if (timeInMinutes >= 19 * 60 && timeInMinutes < 20 * 60 + 50) return 7;  // 19:00-20:50
-    if (timeInMinutes >= 21 * 60 && timeInMinutes < 21 * 60 + 50) return 8;  // 21:00-21:50
+    if (timeInMinutes >= 19 * 60 && timeInMinutes < 20 * 60 + 50) return 7; // 19:00-20:50
+    if (timeInMinutes >= 21 * 60 && timeInMinutes < 21 * 60 + 50) return 8; // 21:00-21:50
 
     // Default fallback - estimate based on hour
     if (timeInMinutes < 10 * 60) return 1;
@@ -155,7 +171,7 @@ export class ScheduleParser {
     const timeSlotMap = new Map<string, ScheduleEntry[]>();
 
     // Group entries by day and time slot
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       const key = `${entry.dayOfWeek}-${entry.timeSlot.id}`;
       if (!timeSlotMap.has(key)) {
         timeSlotMap.set(key, []);
@@ -166,12 +182,12 @@ export class ScheduleParser {
     // Find conflicts
     timeSlotMap.forEach((conflictingEntries, key) => {
       if (conflictingEntries.length > 1) {
-        const [dayOfWeek, timeSlotId] = key.split('-');
+        const [dayOfWeek, timeSlotId] = key.split("-");
         conflicts.push({
           timeSlot: conflictingEntries[0].timeSlot,
           conflictingEntries,
           severity: "error",
-          message: `Time conflict on ${this.getDayName(parseInt(dayOfWeek))} at ${conflictingEntries[0].timeSlot.label}`
+          message: `Time conflict on ${this.getDayName(parseInt(dayOfWeek))} at ${conflictingEntries[0].timeSlot.label}`,
         });
       }
     });
@@ -180,12 +196,20 @@ export class ScheduleParser {
   }
 
   private static getDayName(dayOfWeek: number): string {
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const days = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
     return days[dayOfWeek] || "Unknown";
   }
 
   private static generateEntryId(rawEntry: RawScheduleEntry): string {
-    return `${rawEntry.courseId}_${rawEntry.dayOfWeek}_${rawEntry.timeSlot.replace(/\s+/g, '')}`;
+    return `${rawEntry.courseId}_${rawEntry.dayOfWeek}_${rawEntry.timeSlot.replace(/\s+/g, "")}`;
   }
 
   private static calculateWeekDates(startDate: string): string[] {
@@ -195,7 +219,7 @@ export class ScheduleParser {
     for (let i = 0; i < 7; i++) {
       const date = new Date(start);
       date.setDate(start.getDate() + i);
-      dates.push(date.toISOString().split('T')[0]);
+      dates.push(date.toISOString().split("T")[0]);
     }
 
     return dates;
@@ -206,12 +230,14 @@ export class ScheduleParser {
 
     // Extract unique courses
     const courses: { [courseId: string]: ScheduleCourse } = {};
-    const timeSlots: { [timeSlotId: string]: TimeSlot } = { ...DEFAULT_TIME_SLOTS };
+    const timeSlots: { [timeSlotId: string]: TimeSlot } = {
+      ...DEFAULT_TIME_SLOTS,
+    };
 
     // Process raw entries
     const scheduleEntries: ScheduleEntry[] = [];
 
-    schedule.entries.forEach(rawEntry => {
+    schedule.entries.forEach((rawEntry) => {
       // Create course if not exists
       if (!courses[rawEntry.courseId]) {
         courses[rawEntry.courseId] = {
@@ -220,7 +246,7 @@ export class ScheduleParser {
           teacher: rawEntry.teacherName,
           classroom: rawEntry.classroom,
           className: rawEntry.className,
-          studentCount: rawEntry.studentCount
+          studentCount: rawEntry.studentCount,
         };
       }
 
@@ -237,7 +263,7 @@ export class ScheduleParser {
         course: courses[rawEntry.courseId],
         timeSlot,
         dayOfWeek: rawEntry.dayOfWeek,
-        weekNumbers: [schedule.weekNumber] // For now, assume single week
+        weekNumbers: [schedule.weekNumber], // For now, assume single week
       };
 
       scheduleEntries.push(entry);
@@ -248,19 +274,21 @@ export class ScheduleParser {
     const days: DaySchedule[] = [];
 
     for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
-      const dayEntries = scheduleEntries.filter(entry => entry.dayOfWeek === dayOfWeek);
+      const dayEntries = scheduleEntries.filter(
+        (entry) => entry.dayOfWeek === dayOfWeek
+      );
       const dayConflicts = this.detectConflicts(dayEntries);
 
       days.push({
         dayOfWeek,
         date: weekDates[dayOfWeek],
         entries: dayEntries,
-        conflicts: dayConflicts
+        conflicts: dayConflicts,
       });
     }
 
     // Create week schedule
-    const allConflicts = days.flatMap(day => day.conflicts);
+    const allConflicts = days.flatMap((day) => day.conflicts);
     const weekSchedule: WeekSchedule = {
       weekNumber: schedule.weekNumber,
       year: new Date(schedule.beginDate).getFullYear(),
@@ -269,21 +297,24 @@ export class ScheduleParser {
       days,
       metadata: {
         totalCourses: Object.keys(courses).length,
-        totalHours: scheduleEntries.reduce((sum, entry) =>
-          sum + (entry.timeSlot.endPeriod - entry.timeSlot.startPeriod + 1), 0),
+        totalHours: scheduleEntries.reduce(
+          (sum, entry) =>
+            sum + (entry.timeSlot.endPeriod - entry.timeSlot.startPeriod + 1),
+          0
+        ),
         conflicts: allConflicts,
-        lastUpdated: new Date().toISOString()
-      }
+        lastUpdated: new Date().toISOString(),
+      },
     };
 
     // Calculate statistics
     const busyDays = days
-      .filter(day => day.entries.length > 0)
-      .map(day => day.dayOfWeek);
+      .filter((day) => day.entries.length > 0)
+      .map((day) => day.dayOfWeek);
 
     const freeDays = days
-      .filter(day => day.entries.length === 0)
-      .map(day => day.dayOfWeek);
+      .filter((day) => day.entries.length === 0)
+      .map((day) => day.dayOfWeek);
 
     // Create final schedule data
     const scheduleData: ScheduleData = {
@@ -291,7 +322,7 @@ export class ScheduleParser {
         id: `${weekSchedule.year}-${Math.ceil(schedule.weekNumber / 20)}`,
         name: `${weekSchedule.year}学年第${Math.ceil(schedule.weekNumber / 20)}学期`,
         startDate: schedule.beginDate,
-        endDate: schedule.endDate
+        endDate: schedule.endDate,
       },
       weeks: [weekSchedule],
       courses,
@@ -301,11 +332,13 @@ export class ScheduleParser {
         totalCourses: Object.keys(courses).length,
         averageHoursPerWeek: weekSchedule.metadata.totalHours,
         busyDays,
-        freeDays
-      }
+        freeDays,
+      },
     };
 
-    Logger.event(`Transformed schedule: ${scheduleEntries.length} entries, ${allConflicts.length} conflicts`);
+    Logger.event(
+      `Transformed schedule: ${scheduleEntries.length} entries, ${allConflicts.length} conflicts`
+    );
     return scheduleData;
   }
 
@@ -327,7 +360,9 @@ export class ScheduleParser {
     // Check for alternative selectors
     const allTables = document.querySelectorAll("table");
     const allDivs = document.querySelectorAll("div");
-    Logger.debug(`Found ${allTables.length} tables and ${allDivs.length} divs in HTML`);
+    Logger.debug(
+      `Found ${allTables.length} tables and ${allDivs.length} divs in HTML`
+    );
 
     // Extract week info
     const beginTimeInput = document.getElementById("begin_time");
@@ -348,13 +383,19 @@ export class ScheduleParser {
     };
 
     // Get all time slot containers
-    const timeSlotContainers = document.querySelectorAll("ul.timetable-tabletlist");
+    const timeSlotContainers = document.querySelectorAll(
+      "ul.timetable-tabletlist"
+    );
 
-    Logger.event(`Found ${timeSlotContainers.length} time slot containers in HTML`);
+    Logger.event(
+      `Found ${timeSlotContainers.length} time slot containers in HTML`
+    );
 
     timeSlotContainers.forEach((container, containerIndex) => {
       // Get the time slot from the first li element
-      const timeSlotElement = container.querySelector("li.table-list span.table-listsp1");
+      const timeSlotElement = container.querySelector(
+        "li.table-list span.table-listsp1"
+      );
       let currentTimeSlot = "Unknown";
 
       if (timeSlotElement) {
@@ -365,31 +406,38 @@ export class ScheduleParser {
       // Get all day cells (should be 7 for Monday-Sunday)
       const dayCells = container.querySelectorAll("li.table-list2");
 
-      Logger.event(`Time slot ${containerIndex + 1}: "${currentTimeSlot}" with ${dayCells.length} day cells`);
+      Logger.event(
+        `Time slot ${containerIndex + 1}: "${currentTimeSlot}" with ${dayCells.length} day cells`
+      );
 
       dayCells.forEach((cell, dayIndex) => {
         const courseTitle = cell.querySelector(".table-t");
         if (courseTitle) {
-          const courseName = courseTitle.textContent?.replace("课程：", "").trim() || "";
+          const courseName =
+            courseTitle.textContent?.replace("课程：", "").trim() || "";
 
           // Get teacher info (first .table-b element)
           const teacherSpans = cell.querySelectorAll(".table-b");
-          const teacherName = teacherSpans[0]?.textContent?.replace("教师：", "").trim() || "";
+          const teacherName =
+            teacherSpans[0]?.textContent?.replace("教师：", "").trim() || "";
 
           // Get class info (second .table-b element)
-          const className = teacherSpans[1]?.textContent?.replace("班级：", "").trim() || "";
+          const className =
+            teacherSpans[1]?.textContent?.replace("班级：", "").trim() || "";
 
           // Get student count
           const studentSpan = cell.querySelector(".table-m");
-          const studentText = studentSpan?.textContent
-            ?.replace("学生：", "")
-            .replace("人", "")
-            .trim() || "0";
+          const studentText =
+            studentSpan?.textContent
+              ?.replace("学生：", "")
+              .replace("人", "")
+              .trim() || "0";
           const studentCount = parseInt(studentText) || 0;
 
           // Get classroom
           const classroomSpan = cell.querySelector(".table-j");
-          const classroom = classroomSpan?.textContent?.replace("教室：", "").trim() || "";
+          const classroom =
+            classroomSpan?.textContent?.replace("教室：", "").trim() || "";
 
           // Extract course ID from onclick attribute
           let courseId = "";
@@ -413,7 +461,9 @@ export class ScheduleParser {
               dayOfWeek: dayIndex,
             };
             entries.push(entry);
-            Logger.event(`Added course: ${courseName} at ${currentTimeSlot} on day ${dayIndex}`);
+            Logger.event(
+              `Added course: ${courseName} at ${currentTimeSlot} on day ${dayIndex}`
+            );
           }
         }
       });
@@ -424,10 +474,12 @@ export class ScheduleParser {
       const beginDateObj = new Date(beginDate);
       const endDateObj = new Date(beginDateObj);
       endDateObj.setDate(beginDateObj.getDate() + 6);
-      endDate = endDateObj.toISOString().split('T')[0];
+      endDate = endDateObj.toISOString().split("T")[0];
     }
 
-    Logger.event(`Parsing completed: Found ${entries.length} total course entries`);
+    Logger.event(
+      `Parsing completed: Found ${entries.length} total course entries`
+    );
 
     return {
       schedule: {

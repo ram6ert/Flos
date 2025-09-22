@@ -1,8 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import {
-  HomeworkDetails,
-  HomeworkAttachment,
-} from "../shared-types";
+import { HomeworkDetails, HomeworkAttachment } from "../shared-types";
 
 interface Homework {
   id: number;
@@ -130,7 +127,6 @@ const HomeworkList: React.FC = () => {
     if (isSubmitted) return "#007bff"; // blue
     return "#dc3545"; // red for pending
   };
-
 
   const formatDeadline = (dateString: string) => {
     const date = new Date(dateString);

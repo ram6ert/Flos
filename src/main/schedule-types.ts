@@ -87,7 +87,7 @@ export const DEFAULT_TIME_SLOTS: { [key: string]: TimeSlot } = {
     endPeriod: 1,
     startTime: "08:00",
     endTime: "09:50",
-    label: "08:00-09:50"
+    label: "08:00-09:50",
   },
   "2": {
     id: "2",
@@ -95,7 +95,7 @@ export const DEFAULT_TIME_SLOTS: { [key: string]: TimeSlot } = {
     endPeriod: 2,
     startTime: "10:10",
     endTime: "12:00",
-    label: "10:10-12:00"
+    label: "10:10-12:00",
   },
   "3": {
     id: "3",
@@ -103,7 +103,7 @@ export const DEFAULT_TIME_SLOTS: { [key: string]: TimeSlot } = {
     endPeriod: 3,
     startTime: "10:30",
     endTime: "12:20",
-    label: "10:30-12:20"
+    label: "10:30-12:20",
   },
   "4": {
     id: "4",
@@ -111,7 +111,7 @@ export const DEFAULT_TIME_SLOTS: { [key: string]: TimeSlot } = {
     endPeriod: 4,
     startTime: "12:10",
     endTime: "14:00",
-    label: "12:10-14:00"
+    label: "12:10-14:00",
   },
   "5": {
     id: "5",
@@ -119,7 +119,7 @@ export const DEFAULT_TIME_SLOTS: { [key: string]: TimeSlot } = {
     endPeriod: 5,
     startTime: "14:10",
     endTime: "16:00",
-    label: "14:10-16:00"
+    label: "14:10-16:00",
   },
   "6": {
     id: "6",
@@ -127,7 +127,7 @@ export const DEFAULT_TIME_SLOTS: { [key: string]: TimeSlot } = {
     endPeriod: 6,
     startTime: "16:20",
     endTime: "18:10",
-    label: "16:20-18:10"
+    label: "16:20-18:10",
   },
   "7": {
     id: "7",
@@ -135,7 +135,7 @@ export const DEFAULT_TIME_SLOTS: { [key: string]: TimeSlot } = {
     endPeriod: 7,
     startTime: "19:00",
     endTime: "20:50",
-    label: "19:00-20:50"
+    label: "19:00-20:50",
   },
   "8": {
     id: "8",
@@ -143,6 +143,6 @@ export const DEFAULT_TIME_SLOTS: { [key: string]: TimeSlot } = {
     endPeriod: 8,
     startTime: "21:00",
     endTime: "21:50",
-    label: "21:00-21:50"
-  }
+    label: "21:00-21:50",
+  },
 };
