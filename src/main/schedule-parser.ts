@@ -182,7 +182,7 @@ export class ScheduleParser {
     // Find conflicts
     timeSlotMap.forEach((conflictingEntries, key) => {
       if (conflictingEntries.length > 1) {
-        const [dayOfWeek, timeSlotId] = key.split("-");
+        const [dayOfWeek, _timeSlotId] = key.split("-");
         conflicts.push({
           timeSlot: conflictingEntries[0].timeSlot,
           conflictingEntries,

@@ -172,7 +172,7 @@ ipcMain.handle("get-current-session", () => getCurrentSession());
 ipcMain.handle("store-credentials", async (event, credentials) => {
   return await handleStoreCredentials(credentials);
 });
-ipcMain.handle("get-stored-credentials", async (event) => {
+ipcMain.handle("get-stored-credentials", async (_event) => {
   return await handleGetStoredCredentials();
 });
 
@@ -263,7 +263,7 @@ ipcMain.handle(
     }
 
     const cacheKey = "courses";
-    const now = Date.now();
+    const _now = Date.now();
 
     // If skipCache is requested, fetch fresh data immediately
     if (options?.skipCache) {
@@ -571,7 +571,7 @@ ipcMain.handle(
     }
 
     const cacheKey = `documents_${courseCode}`;
-    const now = Date.now();
+    const _now = Date.now();
     const cachedData = getCachedData(cacheKey, CACHE_DURATION);
 
     // Use cached data if available and not expired (unless skipCache is true)
@@ -696,7 +696,7 @@ ipcMain.handle(
       } else {
         // For larger files, use the Electron dialog to save directly to disk
         const { dialog } = await import("electron");
-        const path = await import("path");
+        const _path = await import("path");
 
         const result = await dialog.showSaveDialog({
           defaultPath: fileName,
