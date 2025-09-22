@@ -137,9 +137,6 @@ app.on("window-all-closed", () => {
   }
 });
 
-// Initialize cache on startup
-loadCacheFromFile();
-
 // IPC handlers for captcha and authentication
 ipcMain.handle("fetch-captcha", handleFetchCaptcha);
 
@@ -165,7 +162,13 @@ ipcMain.handle("logout", async () => {
 });
 
 ipcMain.handle("is-logged-in", handleIsLoggedIn);
-ipcMain.handle("validate-stored-session", handleValidateStoredSession);
+ipcMain.handle("validate-stored-session", async () => {
+  const isValid = await handleValidateStoredSession();
+  if (currentSession) {
+    loadCacheFromFile(currentSession.username);
+  }
+  return isValid;
+});
 ipcMain.handle("get-current-session", () => getCurrentSession());
 
 // Credential storage handlers
@@ -762,7 +765,7 @@ ipcMain.handle(
     // If skipCache is requested, fetch fresh data immediately
     if (options?.skipCache) {
       return requestQueue.add(async () => {
-        const scheduleData = await fetchScheduleData("2021112401", true);
+        const scheduleData = await fetchScheduleData(true);
         // Update cache with fresh data
         setCachedData(cacheKey, scheduleData);
         saveCacheToFile(currentSession?.username);
@@ -777,7 +780,7 @@ ipcMain.handle(
     if (!cachedData) {
       refreshCacheInBackground(cacheKey, async () => {
         return requestQueue.add(async () => {
-          return await fetchScheduleData("2021112401", false);
+          return await fetchScheduleData(false);
         });
       });
     }
@@ -788,7 +791,7 @@ ipcMain.handle(
     } else {
       // No cache, wait for fresh data
       return requestQueue.add(async () => {
-        const scheduleData = await fetchScheduleData("2021112401", false);
+        const scheduleData = await fetchScheduleData(false);
         setCachedData(cacheKey, scheduleData);
         saveCacheToFile(currentSession?.username);
         return scheduleData;
@@ -803,7 +806,7 @@ ipcMain.handle("refresh-schedule", async () => {
   }
 
   return requestQueue.add(async () => {
-    const scheduleData = await fetchScheduleData("2021112401", true);
+    const scheduleData = await fetchScheduleData(true);
     setCachedData("schedule", scheduleData);
     saveCacheToFile(currentSession?.username);
     return scheduleData;
