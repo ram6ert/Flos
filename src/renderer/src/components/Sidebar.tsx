@@ -1,6 +1,6 @@
-import React from 'react';
+import React from "react";
 
-type ActiveView = 'courses' | 'homework' | 'documents' | 'schedule';
+type ActiveView = "courses" | "homework" | "documents" | "schedule";
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -9,10 +9,10 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
   const menuItems = [
-    { id: 'courses', label: 'Courses', icon: '📚' },
-    { id: 'homework', label: 'Homework', icon: '📝' },
-    { id: 'documents', label: 'Documents', icon: '📄' },
-    { id: 'schedule', label: 'Schedule', icon: '📅' },
+    { id: "courses", label: "Courses", icon: "📚" },
+    { id: "homework", label: "Homework", icon: "📝" },
+    { id: "documents", label: "Documents", icon: "📄" },
+    { id: "schedule", label: "Schedule", icon: "📅" },
   ];
 
   return (
@@ -20,10 +20,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
       {menuItems.map((item) => (
         <div
           key={item.id}
-          className={`nav-item ${activeView === item.id ? 'active' : ''}`}
+          className={`nav-item ${activeView === item.id ? "active" : ""}`}
           onClick={() => onViewChange(item.id as ActiveView)}
         >
-          <span style={{ marginRight: '0.5rem' }}>{item.icon}</span>
+          <span style={{ marginRight: "0.5rem" }}>{item.icon}</span>
           {item.label}
         </div>
       ))}

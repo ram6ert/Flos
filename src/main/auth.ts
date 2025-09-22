@@ -159,7 +159,10 @@ export const handleLogin = async (
             ? JSON.parse(messageResponse.data)
             : messageResponse.data;
         sessionId = messageData.sessionId;
-        Logger.debug("Fetched sessionId during login:", Logger.maskSensitive(sessionId || ""));
+        Logger.debug(
+          "Fetched sessionId during login:",
+          Logger.maskSensitive(sessionId || "")
+        );
         Logger.event("Session ID obtained");
       }
     } catch (error) {
@@ -201,7 +204,10 @@ export const handleStoreCredentials = async (credentials: {
     };
 
     await fs.promises.writeFile(credentialsPath, JSON.stringify(data, null, 2));
-    Logger.event("Credentials stored", data.jsessionId ? "with JSESSIONID" : "without JSESSIONID");
+    Logger.event(
+      "Credentials stored",
+      data.jsessionId ? "with JSESSIONID" : "without JSESSIONID"
+    );
     return true;
   } catch (error) {
     Logger.error("Failed to store credentials", error);

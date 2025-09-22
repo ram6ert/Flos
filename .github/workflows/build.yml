@@ -2,9 +2,9 @@ name: Build Smart Course Platform
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 permissions:
   contents: write
@@ -19,59 +19,59 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'yarn'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "yarn"
 
-    - name: Install dependencies
-      run: yarn install --frozen-lockfile
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
 
-    - name: Build application
-      run: yarn build
-      env:
-        NODE_ENV: production
+      - name: Build application
+        run: yarn build
+        env:
+          NODE_ENV: production
 
-    - name: Build distributables
-      run: yarn build:dist
-      env:
-        NODE_ENV: production
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build distributables
+        run: yarn build:dist
+        env:
+          NODE_ENV: production
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload artifacts (Windows)
-      if: matrix.os == 'windows-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: smart-course-platform-windows
-        path: |
-          release/*.exe
-          release/*.msi
-        retention-days: 30
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-course-platform-windows
+          path: |
+            release/*.exe
+            release/*.msi
+          retention-days: 30
 
-    - name: Upload artifacts (macOS)
-      if: matrix.os == 'macos-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: smart-course-platform-macos
-        path: |
-          release/*.dmg
-          release/*.zip
-        retention-days: 30
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-course-platform-macos
+          path: |
+            release/*.dmg
+            release/*.zip
+          retention-days: 30
 
-    - name: Upload artifacts (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: smart-course-platform-linux
-        path: |
-          release/*.AppImage
-          release/*.deb
-          release/*.rpm
-        retention-days: 30
+      - name: Upload artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-course-platform-linux
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+          retention-days: 30
 
   release:
     needs: build
@@ -79,53 +79,53 @@ jobs:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Get version from package.json
-      id: version
-      run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      - name: Get version from package.json
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-    - name: List artifacts for debugging
-      run: find artifacts -type f -name "*" | head -20
+      - name: List artifacts for debugging
+        run: find artifacts -type f -name "*" | head -20
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ steps.version.outputs.version }}
-        name: BAKA Course Platform v${{ steps.version.outputs.version }}
-        body: |
-          ## BAKA Course Platform v${{ steps.version.outputs.version }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: BAKA Course Platform v${{ steps.version.outputs.version }}
+          body: |
+            ## BAKA Course Platform v${{ steps.version.outputs.version }}
 
-          ### Features
-          - 📚 Course management and viewing
-          - 📝 Homework tracking and submission
-          - 📄 Document access and download
-          - 📅 Weekly schedule view with GBK encoding support
+            ### Features
+            - 📚 Course management and viewing
+            - 📝 Homework tracking and submission
+            - 📄 Document access and download
+            - 📅 Weekly schedule view with GBK encoding support
 
-          ### Downloads
-          - **Windows**: `.exe` and `.msi` installers
-          - **macOS**: `.dmg` disk image and `.zip` archive
-          - **Linux**: `.AppImage`, `.deb`, and `.rpm` packages
+            ### Downloads
+            - **Windows**: `.exe` and `.msi` installers
+            - **macOS**: `.dmg` disk image and `.zip` archive
+            - **Linux**: `.AppImage`, `.deb`, and `.rpm` packages
 
-          ### Installation
-          1. Download the appropriate file for your operating system
-          2. Run the installer or extract the archive
-          3. Launch BAKA Course Platform
+            ### Installation
+            1. Download the appropriate file for your operating system
+            2. Run the installer or extract the archive
+            3. Launch BAKA Course Platform
 
-          ---
-          🤖 Built automatically with GitHub Actions
-        files: |
-          artifacts/smart-course-platform-windows/*
-          artifacts/smart-course-platform-macos/*
-          artifacts/smart-course-platform-linux/*
-        generate_release_notes: true
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            ---
+            🤖 Built automatically with GitHub Actions
+          files: |
+            artifacts/smart-course-platform-windows/*
+            artifacts/smart-course-platform-macos/*
+            artifacts/smart-course-platform-linux/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
