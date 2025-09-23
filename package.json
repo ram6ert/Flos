@@ -9,7 +9,7 @@
     "dev:electron": "cross-env NODE_ENV=development electron .",
     "build": "cross-env NODE_ENV=production yarn build:vite && yarn build:electron",
     "build:vite": "cross-env NODE_ENV=production vite build",
-    "build:electron": "esbuild src/main/index.ts --bundle --platform=node --target=node16 --format=cjs --outfile=dist/main/index.min.js --external:electron --sourcemap && esbuild src/main/preload.ts --bundle --target=chrome58 --outfile=dist/main/preload.js --external:electron --sourcemap",
+    "build:electron": "esbuild src/main/index.ts --bundle --platform=node --target=node16 --format=cjs --outfile=dist/main/index.min.js --external:electron --sourcemap && esbuild src/main/preload.ts --bundle --minify --target=chrome58 --outfile=dist/main/preload.js --external:electron --sourcemap",
     "build:dist": "cross-env NODE_ENV=production yarn build && electron-builder",
     "build:win": "cross-env NODE_ENV=production yarn build && electron-builder --win",
     "build:mac": "cross-env NODE_ENV=production yarn build && electron-builder --mac",
