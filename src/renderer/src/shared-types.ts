@@ -37,20 +37,6 @@ export interface CourseListResponse {
   totalPage: number;
 }
 
-export interface Homework {
-  id: number;
-  course_id: number;
-  course_name: string;
-  title: string;
-  content: string;
-  end_time: string;
-  score: string;
-  subStatus: string;
-  stu_score: string;
-  subTime: string | null;
-  submitCount: number;
-  allCount: number;
-}
 
 export interface HomeworkDetails {
   id: number;
@@ -102,16 +88,6 @@ export interface HomeworkDetailsResponse {
   message: string;
 }
 
-export interface HomeworkListResponse {
-  courseNoteList: Homework[];
-  page: number;
-  size: number;
-  currentRow: number;
-  total: number;
-  totalPage: number;
-  STATUS: string;
-  message: string;
-}
 
 export interface CourseDocument {
   rpId: string;

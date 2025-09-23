@@ -303,16 +303,51 @@ export async function fetchCourseList() {
   throw new Error("Failed to get course list");
 }
 
+// Helper function to convert numeric type to English enum
+const convertHomeworkType = (numericType: number): 'homework' | 'report' | 'experiment' | 'quiz' | 'assessment' => {
+  switch (numericType) {
+    case 0: return 'homework';
+    case 1: return 'report';
+    case 2: return 'experiment';
+    case 3: return 'quiz';
+    case 4: return 'assessment';
+    default: return 'homework';
+  }
+};
+
+// Sanitization function to transform server response to clean structure
+const sanitizeHomeworkItem = (hw: any): any => {
+  return {
+    id: hw.id,
+    courseId: hw.course_id,
+    courseName: hw.course_name || hw.courseName,
+    title: hw.title,
+    content: hw.content,
+    dueDate: new Date(hw.end_time).toISOString(), // Serialize to ISO string for IPC
+    maxScore: parseFloat(hw.score) || 0,
+    submissionStatus: hw.subStatus === "已提交" ? 'submitted' :
+                     hw.stu_score !== null && hw.stu_score !== undefined && hw.stu_score !== "未公布成绩" ? 'graded' :
+                     'not_submitted',
+    studentScore: hw.stu_score && hw.stu_score !== "未公布成绩" && hw.stu_score !== "暂未公布" ?
+                  parseFloat(hw.stu_score) : null,
+    submitDate: hw.subTime ? new Date(hw.subTime).toISOString() : null, // Serialize to ISO string for IPC
+    submittedCount: hw.submitCount,
+    totalStudents: hw.allCount,
+    type: convertHomeworkType(hw.homeworkType || 0),
+  };
+};
+
 // Helper function to fetch homework data
 export async function fetchHomeworkData(courseId?: string) {
+  const homeworkTypes = [
+    { subType: 0, name: "普通作业" },
+    { subType: 1, name: "课程报告" },
+    { subType: 2, name: "实验作业" },
+    { subType: 3, name: "平时测验" },
+    { subType: 4, name: "结课考核" },
+  ];
   if (courseId) {
     // Get homework for specific course
-    const homeworkTypes = [
-      { subType: 0, name: "普通作业" },
-      { subType: 1, name: "课程报告" },
-      { subType: 2, name: "实验作业" },
-    ];
-
     const allHomework = [];
     for (const type of homeworkTypes) {
       const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
@@ -320,10 +355,12 @@ export async function fetchHomeworkData(courseId?: string) {
       try {
         const data = await authenticatedRequest(url, true); // Use dynamic session ID
         if (data.courseNoteList && data.courseNoteList.length > 0) {
-          const homework = data.courseNoteList.map((hw: any) => ({
-            ...hw,
-            homeworkType: type.name,
-          }));
+          const homework = data.courseNoteList.map((hw: any) =>
+            sanitizeHomeworkItem({
+              ...hw,
+              homeworkType: type.subType,
+            })
+          );
           allHomework.push(...homework);
         }
       } catch (error) {
@@ -354,23 +391,19 @@ export async function fetchHomeworkData(courseId?: string) {
     const allHomework = [];
     for (const course of courseList) {
       // Get homework for this course using the same method as above
-      const homeworkTypes = [
-        { subType: 0, name: "普通作业" },
-        { subType: 1, name: "课程报告" },
-        { subType: 2, name: "实验作业" },
-      ];
-
       for (const type of homeworkTypes) {
         const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
 
         try {
           const data = await authenticatedRequest(url, true); // Use dynamic session ID
           if (data.courseNoteList && data.courseNoteList.length > 0) {
-            const homework = data.courseNoteList.map((hw: any) => ({
-              ...hw,
-              courseName: course.name,
-              homeworkType: type.name,
-            }));
+            const homework = data.courseNoteList.map((hw: any) =>
+              sanitizeHomeworkItem({
+                ...hw,
+                courseName: course.name,
+                homeworkType: type.subType,
+              })
+            );
             allHomework.push(...homework);
           }
         } catch (error) {

@@ -20,17 +20,18 @@ import {
 
 interface Homework {
   id: number;
-  course_id: number;
-  course_name: string;
+  courseId: number;
+  courseName: string;
   title: string;
   content: string;
-  end_time: string;
-  score: string;
-  subStatus: string;
-  stu_score: string;
-  subTime: string | null;
-  submitCount: number;
-  allCount: number;
+  dueDate: string; // ISO string from main process
+  maxScore: number;
+  submissionStatus: 'submitted' | 'not_submitted' | 'graded';
+  studentScore: number | null;
+  submitDate: string | null; // ISO string from main process
+  submittedCount: number;
+  totalStudents: number;
+  type: 'homework' | 'report' | 'experiment' | 'quiz' | 'assessment';
 }
 
 interface HomeworkResponse {
@@ -38,6 +39,7 @@ interface HomeworkResponse {
   fromCache: boolean;
   age: number;
 }
+
 
 const HomeworkList: React.FC = () => {
   const { t } = useTranslation();
@@ -145,34 +147,25 @@ const HomeworkList: React.FC = () => {
   }, []);
 
   const getStatusColor = (hw: Homework) => {
-    const isGraded =
-      hw.stu_score !== null &&
-      hw.stu_score !== undefined &&
-      hw.stu_score !== "未公布成绩";
-    const isSubmitted = hw.subStatus === "已提交";
-
-    if (isGraded) return "#28a745"; // green
-    if (isSubmitted) return "#007bff"; // blue
+    if (hw.submissionStatus === 'graded') return "#28a745"; // green
+    if (hw.submissionStatus === 'submitted') return "#007bff"; // blue
     return "#dc3545"; // red for pending
   };
 
   const formatDeadline = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("zh-CN");
+    return new Date(dateString).toLocaleString("zh-CN");
   };
 
   const isOverdue = (hw: Homework) => {
-    const deadline = new Date(hw.end_time);
     const now = new Date();
-    return deadline < now && hw.subStatus !== "已提交";
+    return new Date(hw.dueDate) < now && hw.submissionStatus !== 'submitted';
   };
 
   const getRemainingTime = (hw: Homework) => {
-    const deadline = new Date(hw.end_time);
     const now = new Date();
-    const timeDiff = deadline.getTime() - now.getTime();
+    const timeDiff = new Date(hw.dueDate).getTime() - now.getTime();
 
-    if (hw.subStatus === "已提交") {
+    if (hw.submissionStatus === 'submitted') {
       return { text: t("submitted"), color: "#28a745", isOverdue: false };
     }
 
@@ -228,27 +221,40 @@ const HomeworkList: React.FC = () => {
     }
   };
 
-  const translateStatus = (chineseStatus: string) => {
-    switch (chineseStatus) {
-      case "已提交":
+  const translateStatus = (status: 'submitted' | 'not_submitted' | 'graded') => {
+    switch (status) {
+      case 'submitted':
         return t("submitted");
-      case "未提交":
+      case 'not_submitted':
         return t("notSubmitted");
-      case "已批改":
+      case 'graded':
         return t("graded");
       default:
-        return chineseStatus;
+        return status;
     }
   };
 
-  const translateScore = (chineseScore: string) => {
-    switch (chineseScore) {
-      case "未公布成绩":
-        return t("gradeNotPublished");
-      case "暂未公布":
-        return t("notPublishedYet");
+  const formatScore = (score: number | null) => {
+    if (score === null) {
+      return t("gradeNotPublished");
+    }
+    return score.toString();
+  };
+
+  const getHomeworkTypeText = (type: 'homework' | 'report' | 'experiment' | 'quiz' | 'assessment') => {
+    switch (type) {
+      case 'homework':
+        return t("normalHomework");
+      case 'report':
+        return t("courseReport");
+      case 'experiment':
+        return t("experimentHomework");
+      case 'quiz':
+        return t("regularQuiz");
+      case 'assessment':
+        return t("finalAssessment");
       default:
-        return chineseScore;
+        return t("unknownType");
     }
   };
 
@@ -310,7 +316,7 @@ const HomeworkList: React.FC = () => {
       const newExpanded = new Set(expandedHomework);
       newExpanded.add(hw.id);
       setExpandedHomework(newExpanded);
-      await fetchHomeworkDetails(hw.id, hw.course_id);
+      await fetchHomeworkDetails(hw.id, hw.courseId);
     }
   };
 
@@ -446,26 +452,24 @@ const HomeworkList: React.FC = () => {
   };
 
   const [sortBy, setSortBy] = useState<
-    "due_date" | "course" | "status" | "remaining_time"
+    "due_date" | "course" | "status" | "remaining_time" | "type"
   >("remaining_time");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const filteredAndSortedHomework = useMemo(() => {
     return homework
       .filter((hw) => {
-        const isGraded = hw.stu_score !== "未公布成绩" && hw.stu_score !== "";
-        const isSubmitted = hw.subStatus === "已提交";
         const hwIsOverdue = isOverdue(hw);
 
         switch (filter) {
           case "pending":
-            return !isSubmitted && !isGraded && !hwIsOverdue;
+            return hw.submissionStatus === 'not_submitted' && !hwIsOverdue;
           case "submitted":
-            return isSubmitted && !isGraded;
+            return hw.submissionStatus === 'submitted';
           case "graded":
-            return isGraded;
+            return hw.submissionStatus === 'graded';
           case "overdue":
-            return hwIsOverdue && !isSubmitted;
+            return hwIsOverdue && hw.submissionStatus !== 'submitted';
           default:
             return true;
         }
@@ -475,24 +479,23 @@ const HomeworkList: React.FC = () => {
 
         switch (sortBy) {
           case "due_date":
-            comparison =
-              new Date(a.end_time).getTime() - new Date(b.end_time).getTime();
+            comparison = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
             break;
           case "course":
-            comparison = a.course_name.localeCompare(b.course_name);
+            comparison = a.courseName.localeCompare(b.courseName);
             break;
           case "status":
-            comparison = a.subStatus.localeCompare(b.subStatus);
+            comparison = a.submissionStatus.localeCompare(b.submissionStatus);
             break;
           case "remaining_time":
             const nowTime = new Date().getTime();
-            const timeA = new Date(a.end_time).getTime() - nowTime;
-            const timeB = new Date(b.end_time).getTime() - nowTime;
+            const timeA = new Date(a.dueDate).getTime() - nowTime;
+            const timeB = new Date(b.dueDate).getTime() - nowTime;
 
-            const isOverdueA = timeA < 0 && a.subStatus !== "已提交";
-            const isOverdueB = timeB < 0 && b.subStatus !== "已提交";
-            const isSubmittedA = a.subStatus === "已提交";
-            const isSubmittedB = b.subStatus === "已提交";
+            const isOverdueA = timeA < 0 && a.submissionStatus !== 'submitted';
+            const isOverdueB = timeB < 0 && b.submissionStatus !== 'submitted';
+            const isSubmittedA = a.submissionStatus === 'submitted';
+            const isSubmittedB = b.submissionStatus === 'submitted';
 
             if (isSubmittedA && !isSubmittedB) return 1;
             if (!isSubmittedA && isSubmittedB) return -1;
@@ -501,6 +504,9 @@ const HomeworkList: React.FC = () => {
             if (!isOverdueA && isOverdueB) return 1;
 
             comparison = Math.abs(timeA) - Math.abs(timeB);
+            break;
+          case "type":
+            comparison = a.type.localeCompare(b.type);
             break;
           default:
             comparison = 0;
@@ -587,6 +593,7 @@ const HomeworkList: React.FC = () => {
             <option value="due_date">{t("dueDate")}</option>
             <option value="course">{t("course")}</option>
             <option value="status">{t("status")}</option>
+            <option value="type">{t("type")}</option>
           </select>
 
           <button
@@ -635,37 +642,40 @@ const HomeworkList: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <p className="m-0">
-                    <strong>{t("course")}:</strong> {hw.course_name}
+                    <strong>{t("course")}:</strong> {hw.courseName}
                   </p>
                   <p className="m-0">
-                    <strong>{t("maxScore")}:</strong> {hw.score}
+                    <strong>{t("maxScore")}:</strong> {hw.maxScore}
                   </p>
                   <p className="m-0">
-                    <strong>{t("due")}:</strong> {formatDeadline(hw.end_time)}
+                    <strong>{t("due")}:</strong> {formatDeadline(hw.dueDate)}
                   </p>
                   <p className="m-0">
                     <strong>{t("status")}:</strong>{" "}
                     <span style={{ color: getStatusColor(hw) }}>
-                      {translateStatus(hw.subStatus)}
+                      {translateStatus(hw.submissionStatus)}
                     </span>
+                  </p>
+                  <p className="m-0">
+                    <strong>{t("type")}:</strong> {getHomeworkTypeText(hw.type)}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                   <p className="m-0">
-                    <strong>{t("submitted")}:</strong> {hw.submitCount}/
-                    {hw.allCount} {t("students")}
+                    <strong>{t("submitted")}:</strong> {hw.submittedCount}/
+                    {hw.totalStudents} {t("students")}
                   </p>
                   <p className="m-0">
                     <strong>{t("grade")}:</strong>{" "}
-                    {translateScore(hw.stu_score)}
+                    {formatScore(hw.studentScore)}
                   </p>
                 </div>
 
-                {hw.subTime && (
+                {hw.submitDate && (
                   <p className="mt-2 text-xs text-gray-500">
                     <strong>{t("submittedAt")}:</strong>{" "}
-                    {formatDeadline(hw.subTime)}
+                    {formatDeadline(hw.submitDate)}
                   </p>
                 )}
 
