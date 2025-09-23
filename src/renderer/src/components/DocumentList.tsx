@@ -176,11 +176,15 @@ const DocumentList: React.FC<DocumentListProps> = ({
     }
 
     if (!selectedCourse) {
-      return <p className="text-gray-600">Select a course to view documents.</p>;
+      return (
+        <p className="text-gray-600">Select a course to view documents.</p>
+      );
     }
 
     if (realDocuments.length === 0) {
-      return <p className="text-gray-600">No documents available for this course.</p>;
+      return (
+        <p className="text-gray-600">No documents available for this course.</p>
+      );
     }
 
     return (
@@ -252,9 +256,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
             <select
               value={selectedCourse?.id || ""}
               onChange={(e) => {
-                const course = courses.find(
-                  (c) => c.id === e.target.value
-                );
+                const course = courses.find((c) => c.id === e.target.value);
                 if (course) onCourseSelect(course);
               }}
               className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

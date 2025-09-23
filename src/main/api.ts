@@ -84,7 +84,7 @@ export async function fetchHomeworkDetails(
       picList: data.picList?.map(sanitizeHomeworkAttachment) || [],
       answerPicList: data.answerPicList?.map(sanitizeHomeworkAttachment) || [],
       STATUS: data.STATUS,
-      message: data.message
+      message: data.message,
     };
   }
 
@@ -316,14 +316,22 @@ export async function fetchCourseList() {
 }
 
 // Helper function to convert numeric type to English enum
-const convertHomeworkType = (numericType: number): 'homework' | 'report' | 'experiment' | 'quiz' | 'assessment' => {
+const convertHomeworkType = (
+  numericType: number
+): "homework" | "report" | "experiment" | "quiz" | "assessment" => {
   switch (numericType) {
-    case 0: return 'homework';
-    case 1: return 'report';
-    case 2: return 'experiment';
-    case 3: return 'quiz';
-    case 4: return 'assessment';
-    default: return 'homework';
+    case 0:
+      return "homework";
+    case 1:
+      return "report";
+    case 2:
+      return "experiment";
+    case 3:
+      return "quiz";
+    case 4:
+      return "assessment";
+    default:
+      return "homework";
   }
 };
 
@@ -337,11 +345,20 @@ const sanitizeHomeworkItem = (hw: any): any => {
     content: hw.content,
     dueDate: new Date(hw.end_time).toISOString(), // Serialize to ISO string for IPC
     maxScore: parseFloat(hw.score) || 0,
-    submissionStatus: hw.subStatus === "已提交" ? 'submitted' :
-                     hw.stu_score !== null && hw.stu_score !== undefined && hw.stu_score !== "未公布成绩" ? 'graded' :
-                     'not_submitted',
-    studentScore: hw.stu_score && hw.stu_score !== "未公布成绩" && hw.stu_score !== "暂未公布" ?
-                  parseFloat(hw.stu_score) : null,
+    submissionStatus:
+      hw.subStatus === "已提交"
+        ? "submitted"
+        : hw.stu_score !== null &&
+            hw.stu_score !== undefined &&
+            hw.stu_score !== "未公布成绩"
+          ? "graded"
+          : "not_submitted",
+    studentScore:
+      hw.stu_score &&
+      hw.stu_score !== "未公布成绩" &&
+      hw.stu_score !== "暂未公布"
+        ? parseFloat(hw.stu_score)
+        : null,
     submitDate: hw.subTime ? new Date(hw.subTime).toISOString() : null, // Serialize to ISO string for IPC
     submittedCount: hw.submitCount,
     totalStudents: hw.allCount,
@@ -364,7 +381,8 @@ const sanitizeHomeworkDetails = (details: any): any => {
     maxScore: parseFloat(details.score) || 0,
     moduleId: details.moudel_id,
     isOpen: Boolean(details.isOpen),
-    isAnswerPublished: details.is_publish_answer === "1" || details.is_publish_answer === 1,
+    isAnswerPublished:
+      details.is_publish_answer === "1" || details.is_publish_answer === 1,
     status: details.status,
     referenceAnswer: details.ref_answer,
     reviewMethod: details.review_method,
@@ -372,16 +390,19 @@ const sanitizeHomeworkDetails = (details: any): any => {
     fileName: details.file_name,
     convertUrl: details.convert_url,
     fileSize: details.pic_size,
-    makeupTime: details.makeup_time ? new Date(details.makeup_time).toISOString() : null,
+    makeupTime: details.makeup_time
+      ? new Date(details.makeup_time).toISOString()
+      : null,
     isRepeatAllowed: Boolean(details.is_repeat),
     makeupFlag: details.makeup_flag,
     selectedIds: details.xzIds,
-    isGroupAssignment: details.is_group_stu === "1" || details.is_group_stu === 1,
+    isGroupAssignment:
+      details.is_group_stu === "1" || details.is_group_stu === 1,
     teacherWeight: details.teacher_weight,
     studentWeight: details.stu_weight,
     studentCompletion: Boolean(details.stu_completion),
     evaluationNumber: details.evaluation_num,
-    attachments: details.attachments?.map(sanitizeHomeworkAttachment) || []
+    attachments: details.attachments?.map(sanitizeHomeworkAttachment) || [],
   };
 };
 
@@ -393,7 +414,7 @@ const sanitizeHomeworkAttachment = (attachment: any): any => {
     fileName: attachment.file_name,
     convertUrl: attachment.convert_url,
     fileSize: attachment.pic_size,
-    type: attachment.type
+    type: attachment.type,
   };
 };
 
@@ -484,22 +505,30 @@ export async function fetchHomeworkData(courseId?: string) {
 // Sanitization function for course documents
 const sanitizeCourseDocument = (doc: any): any => {
   // Map audit status numbers to readable strings
-  const getAuditStatus = (status: number): 'pending' | 'approved' | 'rejected' => {
+  const getAuditStatus = (
+    status: number
+  ): "pending" | "approved" | "rejected" => {
     switch (status) {
-      case 1: return 'approved';
-      case 2: return 'rejected';
+      case 1:
+        return "approved";
+      case 2:
+        return "rejected";
       case 0:
-      default: return 'pending';
+      default:
+        return "pending";
     }
   };
 
   // Map share type numbers to readable strings
-  const getShareType = (type: number): 'private' | 'public' | 'course' => {
+  const getShareType = (type: number): "private" | "public" | "course" => {
     switch (type) {
-      case 1: return 'public';
-      case 2: return 'course';
+      case 1:
+        return "public";
+      case 2:
+        return "course";
       case 0:
-      default: return 'private';
+      default:
+        return "private";
     }
   };
 
@@ -520,19 +549,24 @@ const sanitizeCourseDocument = (doc: any): any => {
     documentType: doc.docType,
     fileExtension: doc.extName,
     shareType: getShareType(doc.share_type),
-    studentDownloadCount: doc.stu_download
+    studentDownloadCount: doc.stu_download,
   };
 };
 
 // Sanitization function for courses
 const sanitizeCourse = (course: any): any => {
   // Map course type numbers to readable strings
-  const getCourseType = (type: number): 'required' | 'elective' | 'practice' => {
+  const getCourseType = (
+    type: number
+  ): "required" | "elective" | "practice" => {
     switch (type) {
-      case 1: return 'elective';
-      case 2: return 'practice';
+      case 1:
+        return "elective";
+      case 2:
+        return "practice";
       case 0:
-      default: return 'required';
+      default:
+        return "required";
     }
   };
 
@@ -546,11 +580,13 @@ const sanitizeCourse = (course: any): any => {
     beginDate: new Date(course.begin_date).toISOString(),
     endDate: new Date(course.end_date).toISOString(),
     type: getCourseType(course.type),
-    selectiveCourseId: course.selective_course_id ? String(course.selective_course_id) : null,
+    selectiveCourseId: course.selective_course_id
+      ? String(course.selective_course_id)
+      : null,
     facilityId: course.fz_id,
     semesterCode: course.xq_code,
     boy: course.boy,
-    schedule: course.schedule // Keep schedule as-is for now since it's already clean
+    schedule: course.schedule, // Keep schedule as-is for now since it's already clean
   };
 };
 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
@@ -10,12 +10,43 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
   const { t } = useTranslation();
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+
   const menuItems = [
     { id: "courses", label: t("courses"), icon: "📚" },
     { id: "homework", label: t("homework"), icon: "📝" },
     { id: "documents", label: t("documents"), icon: "📄" },
     { id: "flow-schedule", label: t("schedule"), icon: "🌊" },
   ];
+
+  const handleCheckUpdates = async () => {
+    try {
+      setIsCheckingUpdates(true);
+
+      const api = window.electronAPI;
+
+      if (!api?.checkForUpdates) {
+        console.warn("Update API unavailable in current context");
+        return;
+      }
+
+      const result = await api.checkForUpdates();
+
+      if (result.hasUpdate && result.updateInfo) {
+        console.log(
+          `New version found: ${result.updateInfo.version} (current: ${result.currentVersion})`
+        );
+      } else if (result.error) {
+        console.error("Update check failed:", result.error);
+      } else {
+        console.log(`Already using latest version (${result.currentVersion})`);
+      }
+    } catch (error) {
+      console.error("Error occurred while checking for updates:", error);
+    } finally {
+      setIsCheckingUpdates(false);
+    }
+  };
 
   return (
     <nav className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
@@ -33,6 +64,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
           {item.label}
         </div>
       ))}
+
+      <div className="p-4 border-t border-gray-200">
+        <button
+          onClick={handleCheckUpdates}
+          disabled={isCheckingUpdates}
+          className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <span className={`mr-2 ${isCheckingUpdates ? "animate-spin" : ""}`}>
+            {isCheckingUpdates ? "⏳" : ""}
+          </span>
+          {isCheckingUpdates ? t("checkingUpdates") : t("checkUpdates")}
+        </button>
+      </div>
     </nav>
   );
 };

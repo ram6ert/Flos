@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { UpdateInfo } from "./updater";
 import { LoginCredentials, LoginResponse } from "../shared/types";
 
 export interface ElectronAPI {
@@ -82,6 +83,26 @@ export interface ElectronAPI {
   ) => void;
   onSessionExpired: (callback: () => void) => void;
   removeAllListeners: (channel: string) => void;
+  // update related APIs
+  checkForUpdates: () => Promise<{
+    hasUpdate: boolean;
+    currentVersion: string;
+    latestVersion?: string;
+    updateInfo?: UpdateInfo;
+    error?: string;
+  }>;
+  downloadUpdate: (updateInfo: UpdateInfo) => Promise<{
+    success: boolean;
+    filePath?: string;
+    error?: string;
+  }>;
+  installUpdate: (filePath: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  showUpdateDialog: (updateInfo: UpdateInfo) => Promise<boolean>;
+  onUpdateStatus: (callback: (event: any, data: any) => void) => void;
+  onUpdateDownload: (callback: (event: any, data: any) => void) => void;
 }
 
 const electronAPI: ElectronAPI = {
@@ -125,6 +146,16 @@ const electronAPI: ElectronAPI = {
   onCacheUpdate: (callback) => ipcRenderer.on("cache-updated", callback),
   onSessionExpired: (callback) => ipcRenderer.on("session-expired", callback),
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+  // update related APIs
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  downloadUpdate: (updateInfo: UpdateInfo) =>
+    ipcRenderer.invoke("download-update", updateInfo),
+  installUpdate: (filePath: string) =>
+    ipcRenderer.invoke("install-update", filePath),
+  showUpdateDialog: (updateInfo: UpdateInfo) =>
+    ipcRenderer.invoke("show-update-dialog", updateInfo),
+  onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
+  onUpdateDownload: (callback) => ipcRenderer.on("update-download", callback),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

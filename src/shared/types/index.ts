@@ -1,14 +1,14 @@
 // Authentication types
-export * from './auth';
+export * from "./auth";
 
 // Course types
-export * from './course';
+export * from "./course";
 
 // Document types
-export * from './document';
+export * from "./document";
 
 // Homework types
-export * from './homework';
+export * from "./homework";
 
 // Schedule types
-export * from './schedule';
+export * from "./schedule";

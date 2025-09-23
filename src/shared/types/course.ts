@@ -7,7 +7,7 @@ export interface Course {
   teacherName: string; // teacher_name from server
   beginDate: string; // begin_date from server, transformed to ISO string
   endDate: string; // end_date from server, transformed to ISO string
-  type: 'required' | 'elective' | 'practice'; // type from server (number to enum)
+  type: "required" | "elective" | "practice"; // type from server (number to enum)
   selectiveCourseId: string | null; // selective_course_id from server, transformed from number to string
   facilityId: string; // fz_id from server
   semesterCode: string; // xq_code from server

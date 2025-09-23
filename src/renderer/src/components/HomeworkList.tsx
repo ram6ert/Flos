@@ -51,60 +51,63 @@ const HomeworkList: React.FC = () => {
 
   const isFetchingRef = useRef(false);
 
-  const fetchHomework = useCallback(async (forceRefresh = false) => {
-    // Prevent duplicate requests
-    if (isFetchingRef.current) {
-      console.log(
-        "Homework fetch already in progress, skipping duplicate request"
-      );
-      return;
-    }
-
-    try {
-      isFetchingRef.current = true;
-      if (forceRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError("");
-
-      const response: HomeworkResponse = forceRefresh
-        ? await window.electronAPI.refreshHomework()
-        : await window.electronAPI.getHomework();
-
-      if (response.data && Array.isArray(response.data)) {
-        setHomework(response.data);
-
-        const ageMinutes = Math.floor(response.age / (1000 * 60));
-        setCacheInfo(
-          response.fromCache
-            ? t("showingCachedData", { minutes: ageMinutes })
-            : t("showingFreshData")
+  const fetchHomework = useCallback(
+    async (forceRefresh = false) => {
+      // Prevent duplicate requests
+      if (isFetchingRef.current) {
+        console.log(
+          "Homework fetch already in progress, skipping duplicate request"
         );
-      } else {
-        setHomework([]);
-        setCacheInfo(t("noHomeworkDataAvailable"));
+        return;
       }
-    } catch (error) {
-      console.error("Failed to fetch homework:", error);
-      if (error instanceof Error) {
-        if (error.message.includes("404") || error.message.includes("502")) {
-          setError(t("authenticationRequired"));
-        } else if (error.message.includes("Session expired")) {
-          setError(t("sessionExpired"));
+
+      try {
+        isFetchingRef.current = true;
+        if (forceRefresh) {
+          setRefreshing(true);
         } else {
-          setError(t("failedToFetchHomework"));
+          setLoading(true);
         }
-      } else {
-        setError(t("unexpectedError"));
+        setError("");
+
+        const response: HomeworkResponse = forceRefresh
+          ? await window.electronAPI.refreshHomework()
+          : await window.electronAPI.getHomework();
+
+        if (response.data && Array.isArray(response.data)) {
+          setHomework(response.data);
+
+          const ageMinutes = Math.floor(response.age / (1000 * 60));
+          setCacheInfo(
+            response.fromCache
+              ? t("showingCachedData", { minutes: ageMinutes })
+              : t("showingFreshData")
+          );
+        } else {
+          setHomework([]);
+          setCacheInfo(t("noHomeworkDataAvailable"));
+        }
+      } catch (error) {
+        console.error("Failed to fetch homework:", error);
+        if (error instanceof Error) {
+          if (error.message.includes("404") || error.message.includes("502")) {
+            setError(t("authenticationRequired"));
+          } else if (error.message.includes("Session expired")) {
+            setError(t("sessionExpired"));
+          } else {
+            setError(t("failedToFetchHomework"));
+          }
+        } else {
+          setError(t("unexpectedError"));
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        isFetchingRef.current = false;
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      isFetchingRef.current = false;
-    }
-  }, [t]);
+    },
+    [t]
+  );
 
   useEffect(() => {
     fetchHomework();
