@@ -37,6 +37,15 @@ const App: React.FC = () => {
     downloadedMB: string;
     totalMB: string;
   } | null>(null);
+
+  // Helper function to translate error codes
+  const getErrorMessage = (error: string, errorCode?: string): string => {
+    if (errorCode && t(errorCode) !== errorCode) {
+      return t(errorCode);
+    }
+    return error;
+  };
+
   useEffect(() => {
     checkLoginStatus();
   }, []);
@@ -86,99 +95,88 @@ const App: React.FC = () => {
       setActiveView("courses");
     };
 
-    // Listen for update notifications
-    const handleUpdateAvailable = (_event: any, data: any) => {
-      console.log("Update available:", data);
-      setUpdateInfo(data);
-      setShowUpdateNotification(true);
-    };
+    // Listen for update status changes
+    const handleUpdateStatus = (_event: any, data: any) => {
+      console.log("Update status:", data);
 
-    // Listen for update check completion
-    const handleUpdateCheckComplete = (_event: any, data: any) => {
-      console.log("Update check complete:", data);
-      setUpdateStatus({
-        type: "success",
-        title: "检查更新完成",
-        message: `当前版本: v${data.currentVersion}${data.latestVersion ? `，最新版本: v${data.latestVersion}` : ""}`
-      });
-    };
+      switch (data.type) {
+        case "checking":
+          setUpdateStatus({
+            type: "info",
+            title: t("checkingForUpdates"),
+            message: `${t("currentVersion")}: v${data.currentVersion}, ${t("checkingForUpdates").toLowerCase()}...`
+          });
+          break;
 
-    // Listen for update check errors
-    const handleUpdateCheckError = (_event: any, data: any) => {
-      console.log("Update check error:", data);
-      setUpdateStatus({
-        type: "error",
-        title: "检查更新失败",
-        message: data.error || "检查更新时发生未知错误"
-      });
-    };
+        case "available":
+          setUpdateInfo(data);
+          setShowUpdateNotification(true);
+          break;
 
-    // Listen for update checking status
-    const handleUpdateChecking = (_event: any, data: any) => {
-      console.log("Checking for updates:", data);
-      setUpdateStatus({
-        type: "info",
-        title: "正在检查更新",
-        message: `当前版本: v${data.currentVersion}，正在检查最新版本...`
-      });
+        case "up-to-date":
+          setUpdateStatus({
+            type: "success",
+            title: t("updateCheckComplete"),
+            message: `${t("currentVersion")}: v${data.currentVersion}${data.latestVersion ? `, ${t("latestVersion")}: v${data.latestVersion}` : ""}`
+          });
+          break;
+
+        case "error":
+          setUpdateStatus({
+            type: "error",
+            title: t("updateCheckFailed"),
+            message: getErrorMessage(data.error || t("unknownUpdateError"), data.errorCode)
+          });
+          break;
+      }
     };
 
     // Listen for download events
-    const handleDownloadStarted = (_event: any, data: any) => {
-      console.log("Download started:", data);
-      setDownloadProgress({
-        percent: 0,
-        downloadedMB: "0",
-        totalMB: (data.fileSize / 1024 / 1024).toFixed(1)
-      });
-    };
+    const handleUpdateDownload = (_event: any, data: any) => {
+      console.log("Update download:", data);
 
-    const handleDownloadProgress = (_event: any, data: any) => {
-      console.log("Download progress:", data);
-      setDownloadProgress({
-        percent: data.percent,
-        downloadedMB: data.downloadedMB,
-        totalMB: data.totalMB
-      });
-    };
+      switch (data.type) {
+        case "started":
+          setDownloadProgress({
+            percent: 0,
+            downloadedMB: "0",
+            totalMB: (data.fileSize / 1024 / 1024).toFixed(1)
+          });
+          break;
 
-    const handleDownloadCompleted = (_event: any, data: any) => {
-      console.log("Download completed:", data);
-      setDownloadProgress(null);
-    };
+        case "progress":
+          setDownloadProgress({
+            percent: data.percent,
+            downloadedMB: data.downloadedMB,
+            totalMB: data.totalMB
+          });
+          break;
 
-    const handleDownloadError = (_event: any, data: any) => {
-      console.log("Download error:", data);
-      setDownloadProgress(null);
-      setUpdateStatus({
-        type: "error",
-        title: "下载失败",
-        message: data.error || "下载过程中发生未知错误"
-      });
+        case "completed":
+          setDownloadProgress(null);
+          break;
+
+        case "error":
+          setDownloadProgress(null);
+          setUpdateStatus({
+            type: "error",
+            title: t("downloadFailed"),
+            message: getErrorMessage(data.error || t("unknownUpdateError"), data.errorCode)
+          });
+          break;
+      }
     };
 
     api.onCacheUpdate?.(handleCacheUpdate);
     api.onSessionExpired?.(handleSessionExpired);
-    api.onUpdateAvailable?.(handleUpdateAvailable);
-    api.onUpdateCheckComplete?.(handleUpdateCheckComplete);
-    api.onUpdateCheckError?.(handleUpdateCheckError);
-    api.onUpdateChecking?.(handleUpdateChecking);
-    api.onDownloadStarted?.(handleDownloadStarted);
-    api.onDownloadProgress?.(handleDownloadProgress);
-    api.onDownloadCompleted?.(handleDownloadCompleted);
-    api.onDownloadError?.(handleDownloadError);
+    api.onUpdateStatus?.(handleUpdateStatus);
+    api.onUpdateDownload?.(handleUpdateDownload);
 
     return () => {
       api.removeAllListeners?.("cache-updated");
       api.removeAllListeners?.("session-expired");
-      api.removeAllListeners?.("update-available");
-      api.removeAllListeners?.("update-check-complete");
-      api.removeAllListeners?.("update-check-error");
-      api.removeAllListeners?.("update-checking");
-      api.removeAllListeners?.("download-started");
-      api.removeAllListeners?.("download-progress");
-      api.removeAllListeners?.("download-completed");
-      api.removeAllListeners?.("download-error");
+      api.removeAllListeners?.("update-status");
+      api.removeAllListeners?.("update-download");
     };
   }, []);
 

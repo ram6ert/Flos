@@ -31,16 +31,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
       }
 
       const result = await api.checkForUpdates();
-      
+
       if (result.hasUpdate && result.updateInfo) {
-        console.log(`发现新版本: ${result.updateInfo.version} (当前: ${result.currentVersion})`);
+        console.log(
+          `New version found: ${result.updateInfo.version} (current: ${result.currentVersion})`
+        );
       } else if (result.error) {
-        console.error("检查更新失败:", result.error);
+        console.error("Update check failed:", result.error);
       } else {
-        console.log(`当前已是最新版本 (${result.currentVersion})`);
+        console.log(`Already using latest version (${result.currentVersion})`);
       }
     } catch (error) {
-      console.error("检查更新时发生错误:", error);
+      console.error("Error occurred while checking for updates:", error);
     } finally {
       setIsCheckingUpdates(false);
     }
@@ -72,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
           <span className={`mr-2 ${isCheckingUpdates ? "animate-spin" : ""}`}>
             {isCheckingUpdates ? "⏳" : ""}
           </span>
-          {isCheckingUpdates ? t("checkingUpdates", "检查中...") : t("checkUpdates", "检查更新")}
+          {isCheckingUpdates ? t("checkingUpdates") : t("checkUpdates")}
         </button>
       </div>
     </nav>
@@ -80,4 +82,3 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
 };
 
 export default Sidebar;
-

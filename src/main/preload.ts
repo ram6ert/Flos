@@ -101,14 +101,8 @@ export interface ElectronAPI {
     error?: string;
   }>;
   showUpdateDialog: (updateInfo: UpdateInfo) => Promise<boolean>;
-  onUpdateAvailable: (callback: (event: any, data: { updateInfo: UpdateInfo; currentVersion: string; latestVersion?: string }) => void) => void;
-  onUpdateCheckComplete: (callback: (event: any, data: { currentVersion: string; latestVersion?: string; isLatest: boolean }) => void) => void;
-  onUpdateCheckError: (callback: (event: any, data: { error: string; currentVersion: string }) => void) => void;
-  onUpdateChecking: (callback: (event: any, data: { currentVersion: string }) => void) => void;
-  onDownloadStarted: (callback: (event: any, data: { fileName: string; fileSize: number }) => void) => void;
-  onDownloadProgress: (callback: (event: any, data: { percent: number; downloaded: number; total: number; downloadedMB: string; totalMB: string }) => void) => void;
-  onDownloadCompleted: (callback: (event: any, data: { filePath: string; fileName: string }) => void) => void;
-  onDownloadError: (callback: (event: any, data: { error: string }) => void) => void;
+  onUpdateStatus: (callback: (event: any, data: any) => void) => void;
+  onUpdateDownload: (callback: (event: any, data: any) => void) => void;
 }
 
 const electronAPI: ElectronAPI = {
@@ -157,14 +151,8 @@ const electronAPI: ElectronAPI = {
   downloadUpdate: (updateInfo: UpdateInfo) => ipcRenderer.invoke("download-update", updateInfo),
   installUpdate: (filePath: string) => ipcRenderer.invoke("install-update", filePath),
   showUpdateDialog: (updateInfo: UpdateInfo) => ipcRenderer.invoke("show-update-dialog", updateInfo),
-  onUpdateAvailable: (callback) => ipcRenderer.on("update-available", callback),
-  onUpdateCheckComplete: (callback) => ipcRenderer.on("update-check-complete", callback),
-  onUpdateCheckError: (callback) => ipcRenderer.on("update-check-error", callback),
-  onUpdateChecking: (callback) => ipcRenderer.on("update-checking", callback),
-  onDownloadStarted: (callback) => ipcRenderer.on("download-started", callback),
-  onDownloadProgress: (callback) => ipcRenderer.on("download-progress", callback),
-  onDownloadCompleted: (callback) => ipcRenderer.on("download-completed", callback),
-  onDownloadError: (callback) => ipcRenderer.on("download-error", callback),
+  onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
+  onUpdateDownload: (callback) => ipcRenderer.on("update-download", callback),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

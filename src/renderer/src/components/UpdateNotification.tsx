@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface UpdateInfo {
   version: string;
@@ -26,7 +27,16 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   onUpdate,
   downloadProgress,
 }) => {
+  const { t } = useTranslation();
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Helper function to translate error codes
+  const getErrorMessage = (error: string, errorCode?: string): string => {
+    if (errorCode && t(errorCode) !== errorCode) {
+      return t(errorCode);
+    }
+    return error;
+  };
   const [isInstalling, setIsInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadStatus, setDownloadStatus] = useState<string>("");
@@ -36,27 +46,27 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   };
 
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString("zh-CN");
+    return new Date(dateString).toLocaleString();
   };
 
   const handleDownloadAndInstall = async () => {
     try {
       setIsDownloading(true);
       setError(null);
-      setDownloadStatus("准备下载...");
+      setDownloadStatus(t("downloadingUpdate"));
       onUpdate();
 
       // 下载更新
       const api = window.electronAPI;
 
       if (!api?.downloadUpdate || !api.installUpdate) {
-        throw new Error("更新功能当前不可用");
+        throw new Error("Update functionality is currently unavailable");
       }
 
       const downloadResult = await api.downloadUpdate(updateInfo);
       
       if (!downloadResult.success) {
-        setError(downloadResult.error || "下载失败");
+        setError(getErrorMessage(downloadResult.error || t("downloadFailed"), (downloadResult as any).errorCode));
         setIsDownloading(false);
         setDownloadStatus("");
         return;
@@ -64,21 +74,21 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
 
       setIsDownloading(false);
       setIsInstalling(true);
-      setDownloadStatus("准备安装...");
+      setDownloadStatus(t("installingUpdate"));
 
       // 安装更新
       const installResult = await api.installUpdate(downloadResult.filePath!);
       
       if (!installResult.success) {
-        setError(installResult.error || "安装失败");
+        setError(getErrorMessage(installResult.error || t("installationFailed"), (installResult as any).errorCode));
         setIsInstalling(false);
         setDownloadStatus("");
         return;
       }
 
-      // 安装成功，应用将自动退出
+      // Installation successful, app will exit automatically
     } catch (err) {
-      setError(err instanceof Error ? err.message : "更新过程中发生未知错误");
+      setError(err instanceof Error ? err.message : t("unknownUpdateError"));
       setIsDownloading(false);
       setIsInstalling(false);
       setDownloadStatus("");
@@ -90,7 +100,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   };
 
   const handleSkip = () => {
-    // 这里可以添加跳过此版本的逻辑
+    // Add logic to skip this version here
     onClose();
   };
 
@@ -100,7 +110,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center">
             <span className="text-blue-500 mr-2 text-xl">🔔</span>
-            <h3 className="text-lg font-semibold text-gray-900">发现新版本</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{t("updateAvailable")}</h3>
           </div>
           <button
             onClick={onClose}
@@ -112,17 +122,17 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
 
         <div className="mb-4">
           <p className="text-sm text-gray-600 mb-2">
-            新版本 <span className="font-semibold text-blue-600">v{updateInfo.version}</span> 已发布
+            {t("newVersionFound", { version: updateInfo.version })}
           </p>
           
           <div className="text-xs text-gray-500 space-y-1">
-            <p>文件大小: {formatFileSize(updateInfo.fileSize)}</p>
-            <p>发布时间: {formatDate(updateInfo.publishedAt)}</p>
+            <p>{t("fileSize")}: {formatFileSize(updateInfo.fileSize)}</p>
+            <p>{t("publishedAt")}: {formatDate(updateInfo.publishedAt)}</p>
           </div>
 
           {updateInfo.releaseNotes && (
             <div className="mt-3">
-              <p className="text-sm font-medium text-gray-700 mb-1">更新说明:</p>
+              <p className="text-sm font-medium text-gray-700 mb-1">{t("updateNotes")}:</p>
               <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded max-h-20 overflow-y-auto">
                 {updateInfo.releaseNotes}
               </div>
@@ -139,12 +149,12 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
           </div>
         )}
 
-        {/* 下载进度条 */}
+        {/* Download progress bar */}
         {isDownloading && downloadProgress && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">
-                {downloadStatus || "下载中..."}
+                {downloadStatus || t("downloadingUpdate")}
               </span>
               <span className="text-sm text-gray-500">
                 {downloadProgress.percent}%
@@ -157,7 +167,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
               ></div>
             </div>
             <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>{downloadProgress.downloadedMB} MB / {downloadProgress.totalMB} MB</span>
+              <span>{downloadProgress.downloadedMB} {t("mb")} / {downloadProgress.totalMB} {t("mb")}</span>
             </div>
           </div>
         )}
@@ -171,16 +181,16 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
             {isDownloading ? (
               <>
                 <span className="mr-2 animate-spin">⏳</span>
-                下载中...
+                {t("downloadingUpdate")}
               </>
             ) : isInstalling ? (
               <>
                 <span className="mr-2 animate-spin">⏳</span>
-                安装中...
+                {t("installingUpdate")}
               </>
             ) : (
               <>
-                立即更新
+                {t("updateNow")}
               </>
             )}
           </button>
@@ -190,7 +200,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
             disabled={isDownloading || isInstalling}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            稍后
+            {t("remindLater")}
           </button>
           
           <button
@@ -198,7 +208,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
             disabled={isDownloading || isInstalling}
             className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            跳过
+            {t("skipVersion")}
           </button>
         </div>
       </div>

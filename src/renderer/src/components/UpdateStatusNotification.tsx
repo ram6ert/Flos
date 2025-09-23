@@ -53,7 +53,7 @@ const UpdateStatusNotification: React.FC<UpdateStatusNotificationProps> = ({
   };
 
   return (
-    <div className="fixed top-4 right-4 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+    <div className="fixed overflow-hidden top-4 right-4 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
       <div className={`p-4 border-l-4 ${getBgColor()}`}>
         <div className="flex items-start justify-between">
           <div className="flex items-start">
@@ -62,9 +62,7 @@ const UpdateStatusNotification: React.FC<UpdateStatusNotificationProps> = ({
               <h3 className={`text-sm font-semibold ${getTextColor()}`}>
                 {title}
               </h3>
-              <p className={`text-sm mt-1 ${getTextColor()}`}>
-                {message}
-              </p>
+              <p className={`text-sm mt-1 ${getTextColor()}`}>{message}</p>
             </div>
           </div>
           <button
@@ -80,4 +78,3 @@ const UpdateStatusNotification: React.FC<UpdateStatusNotificationProps> = ({
 };
 
 export default UpdateStatusNotification;
-
