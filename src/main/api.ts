@@ -479,6 +479,124 @@ export async function fetchHomeworkData(courseId?: string) {
   }
 }
 
+// Sanitization function for course documents
+const sanitizeCourseDocument = (doc: any): any => {
+  // Map audit status numbers to readable strings
+  const getAuditStatus = (status: number): 'pending' | 'approved' | 'rejected' => {
+    switch (status) {
+      case 1: return 'approved';
+      case 2: return 'rejected';
+      case 0:
+      default: return 'pending';
+    }
+  };
+
+  // Map share type numbers to readable strings
+  const getShareType = (type: number): 'private' | 'public' | 'course' => {
+    switch (type) {
+      case 1: return 'public';
+      case 2: return 'course';
+      case 0:
+      default: return 'private';
+    }
+  };
+
+  return {
+    id: String(doc.rpId),
+    auditStatus: getAuditStatus(doc.auditStatus),
+    name: doc.rpName,
+    size: doc.rpSize,
+    playUrl: doc.play_url,
+    resourceUrl: doc.res_url,
+    isPublic: Boolean(doc.isPublic),
+    uploadTime: new Date(doc.inputTime).toISOString(),
+    clickCount: doc.clicks,
+    downloadCount: doc.downloadNum,
+    resourceId: doc.resId,
+    teacherId: doc.teacherId,
+    teacherName: doc.teacherName,
+    documentType: doc.docType,
+    fileExtension: doc.extName,
+    shareType: getShareType(doc.share_type),
+    studentDownloadCount: doc.stu_download
+  };
+};
+
+// Sanitization function for courses
+const sanitizeCourse = (course: any): any => {
+  // Map course type numbers to readable strings
+  const getCourseType = (type: number): 'required' | 'elective' | 'practice' => {
+    switch (type) {
+      case 1: return 'elective';
+      case 2: return 'practice';
+      case 0:
+      default: return 'required';
+    }
+  };
+
+  return {
+    id: String(course.id),
+    name: course.name,
+    courseNumber: course.course_num,
+    picture: course.pic,
+    teacherId: String(course.teacher_id),
+    teacherName: course.teacher_name,
+    beginDate: new Date(course.begin_date).toISOString(),
+    endDate: new Date(course.end_date).toISOString(),
+    type: getCourseType(course.type),
+    selectiveCourseId: course.selective_course_id ? String(course.selective_course_id) : null,
+    facilityId: course.fz_id,
+    semesterCode: course.xq_code,
+    boy: course.boy,
+    schedule: course.schedule // Keep schedule as-is for now since it's already clean
+  };
+};
+
+// Helper function to fetch course documents with sanitization
+export async function fetchCourseDocuments(courseCode: string) {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  // Get semester info first to get xqCode
+  const semesterUrl = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+  const semesterData = await authenticatedRequest(semesterUrl);
+
+  if (!semesterData.result || semesterData.result.length === 0) {
+    throw new Error("Failed to get semester info");
+  }
+
+  const xqCode = semesterData.result[0].xqCode;
+
+  // Get course list to find the full course details (prefer cache)
+  let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
+  if (!courseList) {
+    courseList = await fetchCourseList();
+    setCachedData("courses", courseList);
+  }
+
+  const course = courseList.find((c: any) => c.course_num === courseCode);
+  if (!course) {
+    throw new Error(`Course not found: ${courseCode}`);
+  }
+
+  // Construct xkhId using course information
+  const xkhId = course.fz_id || `${xqCode}-${courseCode}`;
+
+  // Construct the course documents URL
+  const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=1&up_id=0&searchName=`;
+
+  const data = await authenticatedRequest(url, true); // Use session ID
+
+  if (data && Array.isArray(data.resList)) {
+    // Sanitize all documents
+    const sanitizedDocuments = data.resList.map(sanitizeCourseDocument);
+    return sanitizedDocuments;
+  }
+
+  return []; // No documents
+}
+
 // Helper function to fetch and parse schedule data
 export async function fetchScheduleData(
   forceRefresh: boolean = false

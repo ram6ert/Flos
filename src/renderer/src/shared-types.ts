@@ -40,31 +40,6 @@ export interface CourseListResponse {
 
 
 
-export interface CourseDocument {
-  rpId: string;
-  auditStatus: number;
-  rpName: string;
-  rpSize: string;
-  play_url: string | null;
-  res_url: string;
-  isPublic: number;
-  inputTime: string;
-  clicks: number;
-  downloadNum: number;
-  resId: number;
-  teacherId: string;
-  teacherName: string;
-  docType: string;
-  extName: string;
-  share_type: number;
-  stu_download: number;
-}
-
-export interface CourseDocumentsResponse {
-  resList: CourseDocument[];
-  bagList: string;
-  STATUS: string;
-}
 
 export interface Announcement {
   id: string;
