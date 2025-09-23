@@ -6,7 +6,11 @@ import React, {
   useRef,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { HomeworkDetails, HomeworkAttachment } from "../shared-types";
+import {
+  Homework,
+  HomeworkDetails,
+  HomeworkAttachment,
+} from "../types/homework";
 import {
   Container,
   PageHeader,
@@ -18,28 +22,11 @@ import {
   cn,
 } from "./common/StyledComponents";
 
-interface Homework {
-  id: number;
-  courseId: number;
-  courseName: string;
-  title: string;
-  content: string;
-  dueDate: string; // ISO string from main process
-  maxScore: number;
-  submissionStatus: 'submitted' | 'not_submitted' | 'graded';
-  studentScore: number | null;
-  submitDate: string | null; // ISO string from main process
-  submittedCount: number;
-  totalStudents: number;
-  type: 'homework' | 'report' | 'experiment' | 'quiz' | 'assessment';
-}
-
 interface HomeworkResponse {
   data: Homework[];
   fromCache: boolean;
   age: number;
 }
-
 
 const HomeworkList: React.FC = () => {
   const { t } = useTranslation();
@@ -147,8 +134,8 @@ const HomeworkList: React.FC = () => {
   }, []);
 
   const getStatusColor = (hw: Homework) => {
-    if (hw.submissionStatus === 'graded') return "#28a745"; // green
-    if (hw.submissionStatus === 'submitted') return "#007bff"; // blue
+    if (hw.submissionStatus === "graded") return "#28a745"; // green
+    if (hw.submissionStatus === "submitted") return "#007bff"; // blue
     return "#dc3545"; // red for pending
   };
 
@@ -158,14 +145,14 @@ const HomeworkList: React.FC = () => {
 
   const isOverdue = (hw: Homework) => {
     const now = new Date();
-    return new Date(hw.dueDate) < now && hw.submissionStatus !== 'submitted';
+    return new Date(hw.dueDate) < now && hw.submissionStatus !== "submitted";
   };
 
   const getRemainingTime = (hw: Homework) => {
     const now = new Date();
     const timeDiff = new Date(hw.dueDate).getTime() - now.getTime();
 
-    if (hw.submissionStatus === 'submitted') {
+    if (hw.submissionStatus === "submitted") {
       return { text: t("submitted"), color: "#28a745", isOverdue: false };
     }
 
@@ -221,13 +208,15 @@ const HomeworkList: React.FC = () => {
     }
   };
 
-  const translateStatus = (status: 'submitted' | 'not_submitted' | 'graded') => {
+  const translateStatus = (
+    status: "submitted" | "not_submitted" | "graded"
+  ) => {
     switch (status) {
-      case 'submitted':
+      case "submitted":
         return t("submitted");
-      case 'not_submitted':
+      case "not_submitted":
         return t("notSubmitted");
-      case 'graded':
+      case "graded":
         return t("graded");
       default:
         return status;
@@ -241,17 +230,19 @@ const HomeworkList: React.FC = () => {
     return score.toString();
   };
 
-  const getHomeworkTypeText = (type: 'homework' | 'report' | 'experiment' | 'quiz' | 'assessment') => {
+  const getHomeworkTypeText = (
+    type: "homework" | "report" | "experiment" | "quiz" | "assessment"
+  ) => {
     switch (type) {
-      case 'homework':
+      case "homework":
         return t("normalHomework");
-      case 'report':
+      case "report":
         return t("courseReport");
-      case 'experiment':
+      case "experiment":
         return t("experimentHomework");
-      case 'quiz':
+      case "quiz":
         return t("regularQuiz");
-      case 'assessment':
+      case "assessment":
         return t("finalAssessment");
       default:
         return t("unknownType");
@@ -325,7 +316,7 @@ const HomeworkList: React.FC = () => {
     try {
       const result = await window.electronAPI.downloadHomeworkAttachment(
         attachment.url,
-        `${attachment.file_name}.${getFileExtension(attachment.url)}`
+        `${attachment.fileName}.${getFileExtension(attachment.url)}`
       );
 
       if (result.success) {
@@ -343,7 +334,7 @@ const HomeworkList: React.FC = () => {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `${attachment.file_name}.${getFileExtension(attachment.url)}`;
+          a.download = `${attachment.fileName}.${getFileExtension(attachment.url)}`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
@@ -384,7 +375,10 @@ const HomeworkList: React.FC = () => {
       .replace(/<meta[^>]*>/gi, "");
 
     // Replace img tags with placeholder text
-    sanitized = sanitized.replace(/<img[^>]*>/gi, "**[Image removed for security]**");
+    sanitized = sanitized.replace(
+      /<img[^>]*>/gi,
+      "**[Image removed for security]**"
+    );
 
     // Preserve formatting by converting common HTML tags to text equivalents
     sanitized = sanitized
@@ -463,13 +457,13 @@ const HomeworkList: React.FC = () => {
 
         switch (filter) {
           case "pending":
-            return hw.submissionStatus === 'not_submitted' && !hwIsOverdue;
+            return hw.submissionStatus === "not_submitted" && !hwIsOverdue;
           case "submitted":
-            return hw.submissionStatus === 'submitted';
+            return hw.submissionStatus === "submitted";
           case "graded":
-            return hw.submissionStatus === 'graded';
+            return hw.submissionStatus === "graded";
           case "overdue":
-            return hwIsOverdue && hw.submissionStatus !== 'submitted';
+            return hwIsOverdue && hw.submissionStatus !== "submitted";
           default:
             return true;
         }
@@ -479,7 +473,8 @@ const HomeworkList: React.FC = () => {
 
         switch (sortBy) {
           case "due_date":
-            comparison = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+            comparison =
+              new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
             break;
           case "course":
             comparison = a.courseName.localeCompare(b.courseName);
@@ -492,10 +487,10 @@ const HomeworkList: React.FC = () => {
             const timeA = new Date(a.dueDate).getTime() - nowTime;
             const timeB = new Date(b.dueDate).getTime() - nowTime;
 
-            const isOverdueA = timeA < 0 && a.submissionStatus !== 'submitted';
-            const isOverdueB = timeB < 0 && b.submissionStatus !== 'submitted';
-            const isSubmittedA = a.submissionStatus === 'submitted';
-            const isSubmittedB = b.submissionStatus === 'submitted';
+            const isOverdueA = timeA < 0 && a.submissionStatus !== "submitted";
+            const isOverdueB = timeB < 0 && b.submissionStatus !== "submitted";
+            const isSubmittedA = a.submissionStatus === "submitted";
+            const isSubmittedB = b.submissionStatus === "submitted";
 
             if (isSubmittedA && !isSubmittedB) return 1;
             if (!isSubmittedA && isSubmittedB) return -1;
@@ -716,21 +711,21 @@ const HomeworkList: React.FC = () => {
                           <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                             <p className="m-0">
                               <strong>{t("created")}:</strong>{" "}
-                              {new Date(details.create_date).toLocaleString()}
+                              {new Date(details.createdDate).toLocaleString()}
                             </p>
                             <p className="m-0">
                               <strong>{t("openDate")}:</strong>{" "}
-                              {new Date(details.open_date).toLocaleString()}
+                              {new Date(details.openDate).toLocaleString()}
                             </p>
-                            {details.is_publish_answer === "1" && (
+                            {details.isAnswerPublished && (
                               <p className="m-0">
                                 <strong>{t("answer")}:</strong>{" "}
-                                {details.ref_answer}
+                                {details.referenceAnswer}
                               </p>
                             )}
                             <p className="m-0">
                               <strong>{t("repeatAllowed")}:</strong>{" "}
-                              {details.is_repeat ? t("yes") : t("no")}
+                              {details.isRepeatAllowed ? t("yes") : t("no")}
                             </p>
                           </div>
 
@@ -768,7 +763,7 @@ const HomeworkList: React.FC = () => {
                                       >
                                         <div>
                                           <div className="font-bold mb-1">
-                                            📎 {attachment.file_name}
+                                            📎 {attachment.fileName}
                                             {attachment.type && (
                                               <span
                                                 className={cn(
@@ -787,7 +782,7 @@ const HomeworkList: React.FC = () => {
                                           <div className="text-xs text-gray-500">
                                             {t("size")}:{" "}
                                             {formatFileSize(
-                                              attachment.pic_size
+                                              attachment.fileSize
                                             )}
                                           </div>
                                         </div>
@@ -820,11 +815,11 @@ const HomeworkList: React.FC = () => {
                                   <div className="p-3 bg-white rounded border border-gray-300 flex items-center justify-between">
                                     <div>
                                       <div className="font-bold mb-1">
-                                        📎 {details.file_name}
+                                        📎 {details.fileName}
                                       </div>
                                       <div className="text-xs text-gray-500">
                                         {t("size")}:{" "}
-                                        {formatFileSize(details.pic_size)}
+                                        {formatFileSize(details.fileSize)}
                                       </div>
                                     </div>
                                     <button
@@ -832,9 +827,9 @@ const HomeworkList: React.FC = () => {
                                         handleDownloadAttachment({
                                           id: details.id,
                                           url: details.url,
-                                          file_name: details.file_name,
-                                          convert_url: details.convert_url,
-                                          pic_size: details.pic_size,
+                                          fileName: details.fileName,
+                                          convertUrl: details.convertUrl,
+                                          fileSize: details.fileSize,
                                         })
                                       }
                                       disabled={

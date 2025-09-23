@@ -75,7 +75,17 @@ export async function fetchHomeworkDetails(
     // Add the processed attachments to homework details
     data.homeWork.attachments = attachments;
 
-    return data;
+    // Sanitize the homework details
+    const sanitizedDetails = sanitizeHomeworkDetails(data.homeWork);
+
+    // Sanitize the response structure
+    return {
+      homeWork: sanitizedDetails,
+      picList: data.picList?.map(sanitizeHomeworkAttachment) || [],
+      answerPicList: data.answerPicList?.map(sanitizeHomeworkAttachment) || [],
+      STATUS: data.STATUS,
+      message: data.message
+    };
   }
 
   throw new Error("Failed to fetch homework details");
@@ -334,6 +344,54 @@ const sanitizeHomeworkItem = (hw: any): any => {
     submittedCount: hw.submitCount,
     totalStudents: hw.allCount,
     type: convertHomeworkType(hw.homeworkType || 0),
+  };
+};
+
+// Sanitization function for homework details
+const sanitizeHomeworkDetails = (details: any): any => {
+  return {
+    id: details.id,
+    createdDate: new Date(details.create_date).toISOString(),
+    courseId: details.course_id,
+    courseSchedId: details.course_sched_id,
+    content: details.content,
+    title: details.title,
+    dueDate: new Date(details.end_time).toISOString(),
+    openDate: new Date(details.open_date).toISOString(),
+    isFinalExam: Boolean(details.is_fz),
+    maxScore: parseFloat(details.score) || 0,
+    moduleId: details.moudel_id,
+    isOpen: Boolean(details.isOpen),
+    isAnswerPublished: details.is_publish_answer === "1" || details.is_publish_answer === 1,
+    status: details.status,
+    referenceAnswer: details.ref_answer,
+    reviewMethod: details.review_method,
+    url: details.url,
+    fileName: details.file_name,
+    convertUrl: details.convert_url,
+    fileSize: details.pic_size,
+    makeupTime: details.makeup_time ? new Date(details.makeup_time).toISOString() : null,
+    isRepeatAllowed: Boolean(details.is_repeat),
+    makeupFlag: details.makeup_flag,
+    selectedIds: details.xzIds,
+    isGroupAssignment: details.is_group_stu === "1" || details.is_group_stu === 1,
+    teacherWeight: details.teacher_weight,
+    studentWeight: details.stu_weight,
+    studentCompletion: Boolean(details.stu_completion),
+    evaluationNumber: details.evaluation_num,
+    attachments: details.attachments?.map(sanitizeHomeworkAttachment) || []
+  };
+};
+
+// Sanitization function for homework attachments
+const sanitizeHomeworkAttachment = (attachment: any): any => {
+  return {
+    id: attachment.id,
+    url: attachment.url,
+    fileName: attachment.file_name,
+    convertUrl: attachment.convert_url,
+    fileSize: attachment.pic_size,
+    type: attachment.type
   };
 };
 
