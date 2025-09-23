@@ -1,5 +1,5 @@
 import React from "react";
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 import { Course } from "../shared-types";
 import {
   Container,
@@ -90,7 +90,7 @@ const CourseList: React.FC<CourseListProps> = ({
   return (
     <Container padding="lg">
       <PageHeader
-        title={t('myCourses')}
+        title={t("myCourses")}
         actions={
           onRefresh && (
             <Button
@@ -99,14 +99,14 @@ const CourseList: React.FC<CourseListProps> = ({
               variant="primary"
               size="sm"
             >
-              {isRefreshing ? t('refreshing') : t('refresh')}
+              {isRefreshing ? t("refreshing") : t("refresh")}
             </Button>
           )
         }
       />
 
       {courses.length === 0 ? (
-        <p className="text-gray-600">{t('noCourses')}</p>
+        <p className="text-gray-600">{t("noCourses")}</p>
       ) : (
         <Grid>
           {courses.map((course) => (
@@ -134,15 +134,15 @@ const CourseList: React.FC<CourseListProps> = ({
                 </h3>
 
                 <p className="m-0 mb-2 text-gray-700 text-sm">
-                  <strong>{t('courseNumber')}:</strong> {course.course_num}
+                  <strong>{t("courseNumber")}:</strong> {course.course_num}
                 </p>
 
                 <p className="m-0 mb-2 text-gray-700 text-sm">
-                  <strong>{t('instructor')}:</strong> {course.teacher_name}
+                  <strong>{t("instructor")}:</strong> {course.teacher_name}
                 </p>
 
                 <p className="m-0 text-gray-600 text-xs">
-                  <strong>{t('semester')}:</strong>{" "}
+                  <strong>{t("semester")}:</strong>{" "}
                   {formatSemesterDates(course.begin_date, course.end_date)}
                 </p>
               </div>

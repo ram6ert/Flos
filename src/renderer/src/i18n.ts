@@ -105,12 +105,15 @@ const resources = {
       showingCachedData: "Showing cached data ({{minutes}} minutes old)",
       showingFreshData: "Showing fresh data",
       noHomeworkDataAvailable: "No homework data available",
-      authenticationRequired: "Please log in to view homework data. Authentication required.",
+      authenticationRequired:
+        "Please log in to view homework data. Authentication required.",
       sessionExpired: "Your session has expired. Please log in again.",
-      failedToFetchHomework: "Failed to fetch homework data. Please try again later.",
+      failedToFetchHomework:
+        "Failed to fetch homework data. Please try again later.",
       unexpectedError: "An unexpected error occurred while fetching homework.",
       dataUpdatedInBackground: "Data updated in background",
-      failedToLoadHomeworkDetails: "Failed to load homework details. Please try again.",
+      failedToLoadHomeworkDetails:
+        "Failed to load homework details. Please try again.",
       overdueDaysHours: "Overdue {{days}}d {{hours}}h",
       overdueHours: "Overdue {{hours}}h",
       daysHoursLeft: "{{days}}d {{hours}}h left",

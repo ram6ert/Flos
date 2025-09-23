@@ -1,5 +1,11 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { useTranslation } from 'react-i18next';
+import React, {
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
+import { useTranslation } from "react-i18next";
 import { HomeworkDetails, HomeworkAttachment } from "../shared-types";
 import {
   Container,
@@ -59,7 +65,9 @@ const HomeworkList: React.FC = () => {
   const fetchHomework = useCallback(async (forceRefresh = false) => {
     // Prevent duplicate requests
     if (isFetchingRef.current) {
-      console.log("Homework fetch already in progress, skipping duplicate request");
+      console.log(
+        "Homework fetch already in progress, skipping duplicate request"
+      );
       return;
     }
 
@@ -82,25 +90,25 @@ const HomeworkList: React.FC = () => {
         const ageMinutes = Math.floor(response.age / (1000 * 60));
         setCacheInfo(
           response.fromCache
-            ? t('showingCachedData', { minutes: ageMinutes })
-            : t('showingFreshData')
+            ? t("showingCachedData", { minutes: ageMinutes })
+            : t("showingFreshData")
         );
       } else {
         setHomework([]);
-        setCacheInfo(t('noHomeworkDataAvailable'));
+        setCacheInfo(t("noHomeworkDataAvailable"));
       }
     } catch (error) {
       console.error("Failed to fetch homework:", error);
       if (error instanceof Error) {
         if (error.message.includes("404") || error.message.includes("502")) {
-          setError(t('authenticationRequired'));
+          setError(t("authenticationRequired"));
         } else if (error.message.includes("Session expired")) {
-          setError(t('sessionExpired'));
+          setError(t("sessionExpired"));
         } else {
-          setError(t('failedToFetchHomework'));
+          setError(t("failedToFetchHomework"));
         }
       } else {
-        setError(t('unexpectedError'));
+        setError(t("unexpectedError"));
       }
     } finally {
       setLoading(false);
@@ -124,7 +132,7 @@ const HomeworkList: React.FC = () => {
       ) {
         if (payload.data && Array.isArray(payload.data)) {
           setHomework(payload.data);
-          setCacheInfo(t('dataUpdatedInBackground'));
+          setCacheInfo(t("dataUpdatedInBackground"));
         }
       }
     };
@@ -165,7 +173,7 @@ const HomeworkList: React.FC = () => {
     const timeDiff = deadline.getTime() - now.getTime();
 
     if (hw.subStatus === "已提交") {
-      return { text: t('submitted'), color: "#28a745", isOverdue: false };
+      return { text: t("submitted"), color: "#28a745", isOverdue: false };
     }
 
     if (timeDiff < 0) {
@@ -177,13 +185,16 @@ const HomeworkList: React.FC = () => {
       );
       if (overdueDays > 0) {
         return {
-          text: t('overdueDaysHours', { days: overdueDays, hours: overdueHours }),
+          text: t("overdueDaysHours", {
+            days: overdueDays,
+            hours: overdueHours,
+          }),
           color: "#dc3545",
           isOverdue: true,
         };
       } else {
         return {
-          text: t('overdueHours', { hours: overdueHours }),
+          text: t("overdueHours", { hours: overdueHours }),
           color: "#dc3545",
           isOverdue: true,
         };
@@ -198,29 +209,33 @@ const HomeworkList: React.FC = () => {
 
     if (days > 0) {
       return {
-        text: t('daysHoursLeft', { days, hours }),
+        text: t("daysHoursLeft", { days, hours }),
         color: "#007bff",
         isOverdue: false,
       };
     } else if (hours > 0) {
       return {
-        text: t('hoursMinutesLeft', { hours, minutes }),
+        text: t("hoursMinutesLeft", { hours, minutes }),
         color: "#ffc107",
         isOverdue: false,
       };
     } else {
-      return { text: t('minutesLeft', { minutes }), color: "#dc3545", isOverdue: false };
+      return {
+        text: t("minutesLeft", { minutes }),
+        color: "#dc3545",
+        isOverdue: false,
+      };
     }
   };
 
   const translateStatus = (chineseStatus: string) => {
     switch (chineseStatus) {
       case "已提交":
-        return t('submitted');
+        return t("submitted");
       case "未提交":
-        return t('notSubmitted');
+        return t("notSubmitted");
       case "已批改":
-        return t('graded');
+        return t("graded");
       default:
         return chineseStatus;
     }
@@ -229,15 +244,17 @@ const HomeworkList: React.FC = () => {
   const translateScore = (chineseScore: string) => {
     switch (chineseScore) {
       case "未公布成绩":
-        return t('gradeNotPublished');
+        return t("gradeNotPublished");
       case "暂未公布":
-        return t('notPublishedYet');
+        return t("notPublishedYet");
       default:
         return chineseScore;
     }
   };
 
-  const [fetchingDetails, setFetchingDetails] = useState<Set<number>>(new Set());
+  const [fetchingDetails, setFetchingDetails] = useState<Set<number>>(
+    new Set()
+  );
 
   const fetchHomeworkDetails = async (
     homeworkId: number,
@@ -246,7 +263,9 @@ const HomeworkList: React.FC = () => {
   ) => {
     // Prevent duplicate detail fetches
     if (fetchingDetails.has(homeworkId)) {
-      console.log(`Homework details fetch already in progress for ID ${homeworkId}, skipping duplicate request`);
+      console.log(
+        `Homework details fetch already in progress for ID ${homeworkId}, skipping duplicate request`
+      );
       return;
     }
 
@@ -268,7 +287,7 @@ const HomeworkList: React.FC = () => {
       setHomeworkDetails(newDetails);
     } catch (error) {
       console.error("Failed to fetch homework details:", error);
-      setError(t('failedToLoadHomeworkDetails'));
+      setError(t("failedToLoadHomeworkDetails"));
     } finally {
       setDetailsLoading(false);
       const newFetching = new Set(fetchingDetails);
@@ -456,7 +475,7 @@ const HomeworkList: React.FC = () => {
   if (loading) {
     return (
       <Container padding="lg">
-        <Loading message={t('loadingHomework')} />
+        <Loading message={t("loadingHomework")} />
       </Container>
     );
   }
@@ -465,11 +484,11 @@ const HomeworkList: React.FC = () => {
     return (
       <Container padding="lg">
         <ErrorDisplay
-          title={t('unableToLoadHomework')}
+          title={t("unableToLoadHomework")}
           message={error}
           onRetry={() => fetchHomework(true)}
           retryLabel={
-            refreshing ? t('refreshing') : loading ? t('loading') : t('retry')
+            refreshing ? t("refreshing") : loading ? t("loading") : t("retry")
           }
         />
       </Container>
@@ -479,7 +498,7 @@ const HomeworkList: React.FC = () => {
   return (
     <Container padding="lg">
       <PageHeader
-        title={`${t('homework')} (${filteredAndSortedHomework.length})`}
+        title={`${t("homework")} (${filteredAndSortedHomework.length})`}
         actions={
           <Button
             onClick={() => fetchHomework(true)}
@@ -487,7 +506,11 @@ const HomeworkList: React.FC = () => {
             variant="primary"
             size="sm"
           >
-            {refreshing ? t('refreshing') : loading ? t('loading') : t('refresh')}
+            {refreshing
+              ? t("refreshing")
+              : loading
+                ? t("loading")
+                : t("refresh")}
           </Button>
         }
       />
@@ -496,7 +519,7 @@ const HomeworkList: React.FC = () => {
 
       <div className="mb-6">
         <div className="mb-4">
-          <strong className="mr-3">{t('filter')}: </strong>
+          <strong className="mr-3">{t("filter")}: </strong>
           {["all", "pending", "submitted", "graded", "overdue"].map(
             (filterType) => (
               <button
@@ -509,23 +532,23 @@ const HomeworkList: React.FC = () => {
                     : "bg-gray-50 text-gray-700 hover:bg-gray-100"
                 )}
               >
-{t(filterType)}
+                {t(filterType)}
               </button>
             )
           )}
         </div>
 
         <div className="flex items-center gap-3">
-          <strong>{t('sortBy')}: </strong>
+          <strong>{t("sortBy")}: </strong>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
             className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="remaining_time">{t('remainingTime')}</option>
-            <option value="due_date">{t('dueDate')}</option>
-            <option value="course">{t('course')}</option>
-            <option value="status">{t('status')}</option>
+            <option value="remaining_time">{t("remainingTime")}</option>
+            <option value="due_date">{t("dueDate")}</option>
+            <option value="course">{t("course")}</option>
+            <option value="status">{t("status")}</option>
           </select>
 
           <button
@@ -538,9 +561,7 @@ const HomeworkList: React.FC = () => {
       </div>
 
       {filteredAndSortedHomework.length === 0 ? (
-        <p className="text-gray-600">
-          {t('noHomeworkFound')}
-        </p>
+        <p className="text-gray-600">{t("noHomeworkFound")}</p>
       ) : (
         <div className="flex flex-col gap-3">
           {filteredAndSortedHomework.map((hw) => {
@@ -576,16 +597,16 @@ const HomeworkList: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <p className="m-0">
-                    <strong>{t('course')}:</strong> {hw.course_name}
+                    <strong>{t("course")}:</strong> {hw.course_name}
                   </p>
                   <p className="m-0">
-                    <strong>{t('maxScore')}:</strong> {hw.score}
+                    <strong>{t("maxScore")}:</strong> {hw.score}
                   </p>
                   <p className="m-0">
-                    <strong>{t('due')}:</strong> {formatDeadline(hw.end_time)}
+                    <strong>{t("due")}:</strong> {formatDeadline(hw.end_time)}
                   </p>
                   <p className="m-0">
-                    <strong>{t('status')}:</strong>{" "}
+                    <strong>{t("status")}:</strong>{" "}
                     <span style={{ color: getStatusColor(hw) }}>
                       {translateStatus(hw.subStatus)}
                     </span>
@@ -594,17 +615,19 @@ const HomeworkList: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                   <p className="m-0">
-                    <strong>{t('submitted')}:</strong> {hw.submitCount}/{hw.allCount}{" "}
-                    {t('students')}
+                    <strong>{t("submitted")}:</strong> {hw.submitCount}/
+                    {hw.allCount} {t("students")}
                   </p>
                   <p className="m-0">
-                    <strong>{t('grade')}:</strong> {translateScore(hw.stu_score)}
+                    <strong>{t("grade")}:</strong>{" "}
+                    {translateScore(hw.stu_score)}
                   </p>
                 </div>
 
                 {hw.subTime && (
                   <p className="mt-2 text-xs text-gray-500">
-                    <strong>{t('submittedAt')}:</strong> {formatDeadline(hw.subTime)}
+                    <strong>{t("submittedAt")}:</strong>{" "}
+                    {formatDeadline(hw.subTime)}
                   </p>
                 )}
 
@@ -618,14 +641,16 @@ const HomeworkList: React.FC = () => {
                       expandedHomework.has(hw.id)
                         ? "bg-red-600 hover:bg-red-700"
                         : "bg-blue-600 hover:bg-blue-700",
-                      (detailsLoading && expandedHomework.has(hw.id)) && "opacity-50 cursor-not-allowed"
+                      detailsLoading &&
+                        expandedHomework.has(hw.id) &&
+                        "opacity-50 cursor-not-allowed"
                     )}
                   >
                     {detailsLoading && expandedHomework.has(hw.id)
-                      ? t('loading')
+                      ? t("loading")
                       : expandedHomework.has(hw.id)
-                        ? t('hideDetails')
-                        : t('viewDetails')}
+                        ? t("hideDetails")
+                        : t("viewDetails")}
                   </button>
                 </div>
 
@@ -633,7 +658,7 @@ const HomeworkList: React.FC = () => {
                 {expandedHomework.has(hw.id) && homeworkDetails.get(hw.id) && (
                   <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-300">
                     <h4 className="mb-3 text-gray-700">
-                      {t('homeworkDetails')}
+                      {t("homeworkDetails")}
                     </h4>
 
                     {(() => {
@@ -642,21 +667,22 @@ const HomeworkList: React.FC = () => {
                         <>
                           <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                             <p className="m-0">
-                              <strong>{t('created')}:</strong>{" "}
+                              <strong>{t("created")}:</strong>{" "}
                               {new Date(details.create_date).toLocaleString()}
                             </p>
                             <p className="m-0">
-                              <strong>{t('openDate')}:</strong>{" "}
+                              <strong>{t("openDate")}:</strong>{" "}
                               {new Date(details.open_date).toLocaleString()}
                             </p>
                             {details.is_publish_answer === "1" && (
                               <p className="m-0">
-                                <strong>{t('answer')}:</strong> {details.ref_answer}
+                                <strong>{t("answer")}:</strong>{" "}
+                                {details.ref_answer}
                               </p>
                             )}
                             <p className="m-0">
-                              <strong>{t('repeatAllowed')}:</strong>{" "}
-                              {details.is_repeat ? t('yes') : t('no')}
+                              <strong>{t("repeatAllowed")}:</strong>{" "}
+                              {details.is_repeat ? t("yes") : t("no")}
                             </p>
                           </div>
 
@@ -665,7 +691,7 @@ const HomeworkList: React.FC = () => {
                             sanitizeContent(details.content) && (
                               <div className="mb-4">
                                 <h5 className="mb-2 text-gray-700">
-                                  {t('fullDescription')}:
+                                  {t("fullDescription")}:
                                 </h5>
                                 <div className="p-3 bg-white rounded border border-gray-300 text-sm leading-6">
                                   {renderContentWithBold(
@@ -676,52 +702,71 @@ const HomeworkList: React.FC = () => {
                             )}
 
                           {/* Attachments */}
-                          {(details.attachments && details.attachments.length > 0) || details.url ? (
+                          {(details.attachments &&
+                            details.attachments.length > 0) ||
+                          details.url ? (
                             <div className="mb-4">
                               <h5 className="mb-3 text-gray-700">
-                                {t('attachments')}:
+                                {t("attachments")}:
                               </h5>
                               <div className="flex flex-col gap-2">
-                                {details.attachments && details.attachments.length > 0 ? (
-                                  details.attachments.map((attachment, index) => (
-                                    <div
-                                      key={`${attachment.id}-${index}`}
-                                      className="p-3 bg-white rounded border border-gray-300 flex items-center justify-between"
-                                    >
-                                      <div>
-                                        <div className="font-bold mb-1">
-                                          📎 {attachment.file_name}
-                                          {attachment.type && (
-                                            <span
-                                              className={cn(
-                                                "ml-2 text-xs px-1.5 py-0.5 text-white rounded",
-                                                attachment.type === 'answer' ? "bg-cyan-600" : "bg-gray-600"
-                                              )}
-                                            >
-                                              {attachment.type === 'answer' ? t('answer') : t('homework')}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                          {t('size')}: {formatFileSize(attachment.pic_size)}
-                                        </div>
-                                      </div>
-                                      <button
-                                        onClick={() => handleDownloadAttachment(attachment)}
-                                        disabled={downloadingAttachment === attachment.url}
-                                        className={cn(
-                                          "px-3 py-1.5 text-white border-none rounded text-xs transition-colors",
-                                          downloadingAttachment === attachment.url
-                                            ? "bg-gray-400 cursor-not-allowed"
-                                            : "bg-green-600 hover:bg-green-700 cursor-pointer"
-                                        )}
+                                {details.attachments &&
+                                details.attachments.length > 0 ? (
+                                  details.attachments.map(
+                                    (attachment, index) => (
+                                      <div
+                                        key={`${attachment.id}-${index}`}
+                                        className="p-3 bg-white rounded border border-gray-300 flex items-center justify-between"
                                       >
-                                        {downloadingAttachment === attachment.url
-                                          ? t('downloading')
-                                          : t('download')}
-                                      </button>
-                                    </div>
-                                  ))
+                                        <div>
+                                          <div className="font-bold mb-1">
+                                            📎 {attachment.file_name}
+                                            {attachment.type && (
+                                              <span
+                                                className={cn(
+                                                  "ml-2 text-xs px-1.5 py-0.5 text-white rounded",
+                                                  attachment.type === "answer"
+                                                    ? "bg-cyan-600"
+                                                    : "bg-gray-600"
+                                                )}
+                                              >
+                                                {attachment.type === "answer"
+                                                  ? t("answer")
+                                                  : t("homework")}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-xs text-gray-500">
+                                            {t("size")}:{" "}
+                                            {formatFileSize(
+                                              attachment.pic_size
+                                            )}
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={() =>
+                                            handleDownloadAttachment(attachment)
+                                          }
+                                          disabled={
+                                            downloadingAttachment ===
+                                            attachment.url
+                                          }
+                                          className={cn(
+                                            "px-3 py-1.5 text-white border-none rounded text-xs transition-colors",
+                                            downloadingAttachment ===
+                                              attachment.url
+                                              ? "bg-gray-400 cursor-not-allowed"
+                                              : "bg-green-600 hover:bg-green-700 cursor-pointer"
+                                          )}
+                                        >
+                                          {downloadingAttachment ===
+                                          attachment.url
+                                            ? t("downloading")
+                                            : t("download")}
+                                        </button>
+                                      </div>
+                                    )
+                                  )
                                 ) : details.url ? (
                                   // Fallback for legacy single attachment format
                                   <div className="p-3 bg-white rounded border border-gray-300 flex items-center justify-between">
@@ -730,7 +775,8 @@ const HomeworkList: React.FC = () => {
                                         📎 {details.file_name}
                                       </div>
                                       <div className="text-xs text-gray-500">
-                                        {t('size')}: {formatFileSize(details.pic_size)}
+                                        {t("size")}:{" "}
+                                        {formatFileSize(details.pic_size)}
                                       </div>
                                     </div>
                                     <button
@@ -743,7 +789,9 @@ const HomeworkList: React.FC = () => {
                                           pic_size: details.pic_size,
                                         })
                                       }
-                                      disabled={downloadingAttachment === details.url}
+                                      disabled={
+                                        downloadingAttachment === details.url
+                                      }
                                       className={cn(
                                         "px-3 py-1.5 text-white border-none rounded text-xs transition-colors",
                                         downloadingAttachment === details.url
@@ -753,7 +801,7 @@ const HomeworkList: React.FC = () => {
                                     >
                                       {downloadingAttachment === details.url
                                         ? "Downloading..."
-                                        : t('download')}
+                                        : t("download")}
                                     </button>
                                   </div>
                                 ) : null}

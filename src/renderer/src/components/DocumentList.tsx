@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 import { Course, CourseDocument } from "../shared-types";
 import {
   Container,
@@ -143,7 +143,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   if (loading) {
     return (
       <Container padding="lg">
-        <Loading message={t('loading')} />
+        <Loading message={t("loading")} />
       </Container>
     );
   }
@@ -152,10 +152,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
     return (
       <Container padding="lg">
         <ErrorDisplay
-          title={t('unableToLoadDocuments')}
+          title={t("unableToLoadDocuments")}
           message={error}
           onRetry={() => fetchDocuments(true)}
-          retryLabel={t('retry')}
+          retryLabel={t("retry")}
         />
       </Container>
     );
@@ -164,7 +164,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   return (
     <Container padding="lg">
       <PageHeader
-        title={`${t('documents')}${
+        title={`${t("documents")}${
           selectedCourse
             ? ` - ${selectedCourse.name} (${realDocuments.length})`
             : ""
@@ -195,7 +195,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 variant="primary"
                 size="sm"
               >
-                {loading ? t('refreshing') : t('refresh')}
+                {loading ? t("refreshing") : t("refresh")}
               </Button>
             )}
           </div>
@@ -263,8 +263,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
                       size="sm"
                     >
                       {downloadingDoc === doc.rpId
-                        ? t('downloading')
-                        : t('download')}
+                        ? t("downloading")
+                        : t("download")}
                     </Button>
                   </div>
                 </div>

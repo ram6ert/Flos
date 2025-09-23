@@ -91,7 +91,7 @@ export interface HomeworkAttachment {
   file_name: string;
   convert_url: string;
   pic_size: number;
-  type?: 'homework' | 'answer';
+  type?: "homework" | "answer";
 }
 
 export interface HomeworkDetailsResponse {
