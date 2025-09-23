@@ -201,12 +201,10 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
           >
             {isDownloading ? (
               <>
-                <span className="mr-2 animate-spin">⏳</span>
                 {t("downloadingUpdate")}
               </>
             ) : isInstalling ? (
               <>
-                <span className="mr-2 animate-spin">⏳</span>
                 {t("installingUpdate")}
               </>
             ) : (
