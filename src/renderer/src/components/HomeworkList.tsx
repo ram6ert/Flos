@@ -746,7 +746,7 @@ const HomeworkList: React.FC = () => {
                             )}
 
                           {/* Attachments */}
-                          {details.url && (
+                          {(details.attachments && details.attachments.length > 0) || details.url ? (
                             <div style={{ marginBottom: "16px" }}>
                               <h5
                                 style={{
@@ -756,71 +756,145 @@ const HomeworkList: React.FC = () => {
                               >
                                 Attachments:
                               </h5>
-                              <div
-                                style={{
-                                  padding: "12px",
-                                  backgroundColor: "#ffffff",
-                                  borderRadius: "4px",
-                                  border: "1px solid #dee2e6",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                }}
-                              >
-                                <div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                {details.attachments && details.attachments.length > 0 ? (
+                                  details.attachments.map((attachment, index) => (
+                                    <div
+                                      key={`${attachment.id}-${index}`}
+                                      style={{
+                                        padding: "12px",
+                                        backgroundColor: "#ffffff",
+                                        borderRadius: "4px",
+                                        border: "1px solid #dee2e6",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                      }}
+                                    >
+                                      <div>
+                                        <div
+                                          style={{
+                                            fontWeight: "bold",
+                                            marginBottom: "4px",
+                                          }}
+                                        >
+                                          📎 {attachment.file_name}
+                                          {attachment.type && (
+                                            <span
+                                              style={{
+                                                marginLeft: "8px",
+                                                fontSize: "10px",
+                                                padding: "2px 6px",
+                                                backgroundColor: attachment.type === 'answer' ? "#17a2b8" : "#6c757d",
+                                                color: "white",
+                                                borderRadius: "3px",
+                                              }}
+                                            >
+                                              {attachment.type === 'answer' ? 'Answer' : 'Homework'}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div
+                                          style={{
+                                            fontSize: "12px",
+                                            color: "#6c757d",
+                                          }}
+                                        >
+                                          Size: {formatFileSize(attachment.pic_size)}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => handleDownloadAttachment(attachment)}
+                                        disabled={downloadingAttachment === attachment.url}
+                                        style={{
+                                          padding: "6px 12px",
+                                          backgroundColor:
+                                            downloadingAttachment === attachment.url
+                                              ? "#ccc"
+                                              : "#28a745",
+                                          color: "white",
+                                          border: "none",
+                                          borderRadius: "4px",
+                                          cursor:
+                                            downloadingAttachment === attachment.url
+                                              ? "not-allowed"
+                                              : "pointer",
+                                          fontSize: "12px",
+                                        }}
+                                      >
+                                        {downloadingAttachment === attachment.url
+                                          ? "Downloading..."
+                                          : t('download')}
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : details.url ? (
+                                  // Fallback for legacy single attachment format
                                   <div
                                     style={{
-                                      fontWeight: "bold",
-                                      marginBottom: "4px",
+                                      padding: "12px",
+                                      backgroundColor: "#ffffff",
+                                      borderRadius: "4px",
+                                      border: "1px solid #dee2e6",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
                                     }}
                                   >
-                                    📎 {details.file_name}
+                                    <div>
+                                      <div
+                                        style={{
+                                          fontWeight: "bold",
+                                          marginBottom: "4px",
+                                        }}
+                                      >
+                                        📎 {details.file_name}
+                                      </div>
+                                      <div
+                                        style={{
+                                          fontSize: "12px",
+                                          color: "#6c757d",
+                                        }}
+                                      >
+                                        Size: {formatFileSize(details.pic_size)}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() =>
+                                        handleDownloadAttachment({
+                                          id: details.id,
+                                          url: details.url,
+                                          file_name: details.file_name,
+                                          convert_url: details.convert_url,
+                                          pic_size: details.pic_size,
+                                        })
+                                      }
+                                      disabled={downloadingAttachment === details.url}
+                                      style={{
+                                        padding: "6px 12px",
+                                        backgroundColor:
+                                          downloadingAttachment === details.url
+                                            ? "#ccc"
+                                            : "#28a745",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        cursor:
+                                          downloadingAttachment === details.url
+                                            ? "not-allowed"
+                                            : "pointer",
+                                        fontSize: "12px",
+                                      }}
+                                    >
+                                      {downloadingAttachment === details.url
+                                        ? "Downloading..."
+                                        : t('download')}
+                                    </button>
                                   </div>
-                                  <div
-                                    style={{
-                                      fontSize: "12px",
-                                      color: "#6c757d",
-                                    }}
-                                  >
-                                    Size: {formatFileSize(details.pic_size)}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() =>
-                                    handleDownloadAttachment({
-                                      id: details.id,
-                                      url: details.url,
-                                      file_name: details.file_name,
-                                      convert_url: details.convert_url,
-                                      pic_size: details.pic_size,
-                                    })
-                                  }
-                                  disabled={
-                                    downloadingAttachment === details.url
-                                  }
-                                  style={{
-                                    padding: "6px 12px",
-                                    backgroundColor:
-                                      downloadingAttachment === details.url
-                                        ? "#ccc"
-                                        : "#28a745",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: "4px",
-                                    cursor:
-                                      downloadingAttachment === details.url
-                                        ? "not-allowed"
-                                        : "pointer",
-                                    fontSize: "12px",
-                                  }}
-                                >
-                                  {downloadingAttachment === details.url
-                                    ? "Downloading..."
-                                    : t('download')}
-                                </button>
+                                ) : null}
                               </div>
                             </div>
-                          )}
+                          ) : null}
                         </>
                       );
                     })()}
