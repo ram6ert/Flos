@@ -174,6 +174,23 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     };
   };
 
+  // Check if a course is currently ongoing
+  const isOngoingCourse = (flow: CourseFlow): boolean => {
+    const today = new Date();
+    const todayDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1; // Convert to our format
+
+    // Only check courses on today
+    if (flow.dayIndex !== todayDayIndex) {
+      return false;
+    }
+
+    const currentMinutes = today.getHours() * 60 + today.getMinutes();
+    const courseStart = flow.startMinutes;
+    const courseEnd = flow.startMinutes + flow.durationMinutes;
+
+    return currentMinutes >= courseStart && currentMinutes <= courseEnd;
+  };
+
   // Generate current time indicator
   const generateCurrentTimeIndicator = () => {
     const currentMinutes =
@@ -360,38 +377,55 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
                   >
                     {getCoursesForDay(day.index).map((flow, index) => {
                       const color = blockColors[index % blockColors.length];
+                      const isOngoing = isOngoingCourse(flow);
                       return (
                         <div
                           key={`${flow.course.id}-${index}`}
                           className={cn(
-                            "absolute left-1 right-1 bg-white/95 rounded-md p-2 cursor-pointer transition shadow",
-                            "hover:translate-x-2 hover:shadow-lg hover:bg-blue-50/90",
+                            "absolute left-1 right-1 rounded-md p-2 cursor-pointer transition shadow",
+                            "hover:translate-x-2 hover:shadow-lg",
                             "backdrop-blur-sm",
                             "hover:z-50",
+                            isOngoing
+                              ? "bg-red-100/95 border-2 border-red-500 shadow-lg shadow-red-200 animate-pulse hover:bg-red-200/90"
+                              : "bg-white/95 hover:bg-blue-50/90",
                             color.border
                           )}
                           style={getFlowStyle(flow)}
-                          title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}`}
+                          title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}${isOngoing ? '\n🔴 Currently ongoing!' : ''}`}
                         >
                           <div className="h-full flex flex-col justify-between">
-                            <div className="font-semibold text-[13px] text-gray-900 mb-1 leading-snug line-clamp-2">
+                            <div className={cn(
+                              "font-semibold text-[13px] mb-1 leading-snug line-clamp-2",
+                              isOngoing ? "text-red-900" : "text-gray-900"
+                            )}>
+                              {isOngoing && "🔴 "}
                               {flow.course.course.name}
                             </div>
                             <div
                               className={cn(
                                 "text-[11px] font-semibold mb-1 px-1.5 py-0.5 rounded text-center",
-                                color.chip
+                                isOngoing
+                                  ? "bg-red-200 text-red-800 border border-red-300"
+                                  : color.chip
                               )}
                             >
                               {formatTimeFromMinutes(flow.startMinutes)}-
                               {formatTimeFromMinutes(
                                 flow.startMinutes + flow.durationMinutes
                               )}
+                              {isOngoing && " 🔴"}
                             </div>
-                            <div className="text-[10px] text-gray-600 truncate">
+                            <div className={cn(
+                              "text-[10px] truncate",
+                              isOngoing ? "text-red-700" : "text-gray-600"
+                            )}>
                               👨‍🏫 {flow.course.course.teacher}
                             </div>
-                            <div className="text-[10px] text-gray-600 truncate">
+                            <div className={cn(
+                              "text-[10px] truncate",
+                              isOngoing ? "text-red-700" : "text-gray-600"
+                            )}>
                               📍 {flow.course.course.classroom}
                             </div>
                           </div>

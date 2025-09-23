@@ -29,11 +29,6 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Build application
-        run: yarn build
-        env:
-          NODE_ENV: production
-
       - name: Build distributables
         run: yarn build:dist
         env:
