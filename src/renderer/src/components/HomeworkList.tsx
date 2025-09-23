@@ -10,7 +10,7 @@ import {
   Homework,
   HomeworkDetails,
   HomeworkAttachment,
-} from "../types/homework";
+} from "../../../shared/types";
 import {
   Container,
   PageHeader,

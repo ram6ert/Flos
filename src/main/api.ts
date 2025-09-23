@@ -14,7 +14,7 @@ import {
 } from "./cache";
 import * as iconv from "iconv-lite";
 import { ScheduleParser } from "./schedule-parser";
-import { ScheduleData } from "./schedule-types";
+import { ScheduleData } from "../shared/types";
 import { Logger } from "./logger";
 
 // Helper function to fetch homework details

@@ -1,5 +1,3 @@
-// Clean course-related type definitions
-
 export interface Course {
   id: string; // transformed from number to string
   name: string;
@@ -32,9 +30,9 @@ export interface CourseListResponse {
   courses: Course[]; // courseList from server, sanitized
   status: string; // STATUS from server
   message: string;
-  rows: number;
-  page: number;
+  totalRows: number; // rows from server
+  currentPage: number; // page from server
   currentRows: number;
-  total: number;
-  totalPage: number;
+  totalItems: number; // total from server
+  totalPages: number; // totalPage from server
 }

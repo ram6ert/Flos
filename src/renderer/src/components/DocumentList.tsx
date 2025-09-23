@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Course } from "../types/course";
-import { CourseDocument } from "../types/documents";
+import { Course } from "../../../shared/types";
+import { CourseDocument } from "../../../shared/types";
 import {
   Container,
   PageHeader,

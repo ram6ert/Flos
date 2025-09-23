@@ -5,7 +5,7 @@ import { app } from "electron";
 import axios from "axios";
 import * as iconv from "iconv-lite";
 import { API_CONFIG } from "./constants";
-import { LoginCredentials, LoginResponse } from "./types";
+import { LoginCredentials, LoginResponse } from "../shared/types";
 import { Logger } from "./logger";
 
 // Session management - store credentials for re-authentication

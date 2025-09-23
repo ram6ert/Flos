@@ -1,5 +1,3 @@
-// Clean homework-related type definitions
-
 export interface Homework {
   id: number;
   courseId: number;

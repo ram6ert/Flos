@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Course } from "../types/course";
+import { Course } from "../../../shared/types";
 import {
   Container,
   PageHeader,

@@ -1,5 +1,3 @@
-// Improved schedule data structures
-
 export interface TimeSlot {
   id: string; // e.g., "1-2" for periods 1-2
   startPeriod: number; // 1-based period number

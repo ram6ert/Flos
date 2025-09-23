@@ -1,5 +1,3 @@
-// Clean document-related type definitions
-
 export interface CourseDocument {
   id: string; // rpId from server, transformed from number to string
   auditStatus: 'pending' | 'approved' | 'rejected'; // transformed from number

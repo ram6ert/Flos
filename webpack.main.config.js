@@ -2,7 +2,7 @@ const path = require("path");
 const TerserPlugin = require("terser-webpack-plugin");
 
 module.exports = {
-  entry: "./dist/main/index.js",
+  entry: "./dist/main/main/index.js",
   target: "electron-main",
   mode: "production",
   output: {
@@ -25,6 +25,9 @@ module.exports = {
   },
   resolve: {
     extensions: [".js"],
+    alias: {
+      "../shared/types": path.resolve(__dirname, "dist/main/shared/types"),
+    },
   },
   externals: {
     electron: "commonjs electron",

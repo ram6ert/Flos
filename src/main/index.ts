@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import axios from "axios";
-import { LoginCredentials, LoginResponse } from "./types";
+import { LoginCredentials, LoginResponse } from "../shared/types";
 import { API_CONFIG } from "./constants";
 import {
   currentSession,
@@ -50,7 +50,7 @@ function createWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "main", "preload.js"),
     },
     titleBarStyle: "default",
     show: false,

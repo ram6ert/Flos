@@ -4,7 +4,7 @@
     "module": "CommonJS",
     "lib": ["ES2020"],
     "outDir": "dist/main",
-    "rootDir": "src/main",
+    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -16,6 +16,6 @@
     "inlineSourceMap": false,
     "inlineSources": false
   },
-  "include": ["src/main/**/*"],
-  "exclude": ["node_modules", "dist", "src/renderer", "src/shared"]
+  "include": ["src/main/**/*", "src/shared/**/*"],
+  "exclude": ["node_modules", "dist", "src/renderer"]
 }

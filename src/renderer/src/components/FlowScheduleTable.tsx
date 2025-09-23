@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ScheduleData, ScheduleEntry } from "../../../main/schedule-types";
+import { ScheduleData, ScheduleEntry } from "../../../shared/types";
 import {
   Container,
   PageHeader,
