@@ -122,27 +122,33 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     // 查找适合当前平台的下载文件
     const platform = os.platform();
     const arch = getPlatformArch();
-    const extension = getPlatformFileExtension();
-    
+    const expectedExtension = getPlatformFileExtension();
+
     let asset = null;
-    
+
     // 根据平台和架构查找对应的资源文件
     if (platform === "darwin") {
       // macOS: 查找.dmg文件
-      asset = release.assets.find((a: any) => 
-        a.name.includes(".dmg") && 
-        (arch === "arm64" ? a.name.includes("arm64") : a.name.includes("x64"))
-      );
+      asset = release.assets.find((a: any) => {
+        const name = a.name.toLowerCase();
+        if (!name.endsWith(expectedExtension.toLowerCase())) {
+          return false;
+        }
+        return arch === "arm64" ? name.includes("arm64") : name.includes("x64");
+      });
     } else if (platform === "win32") {
       // Windows: 查找.exe文件
-      asset = release.assets.find((a: any) => 
-        a.name.includes(".exe") && 
-        (arch === "x64" ? a.name.includes("x64") : a.name.includes("ia32"))
-      );
+      asset = release.assets.find((a: any) => {
+        const name = a.name.toLowerCase();
+        if (!name.endsWith(expectedExtension.toLowerCase())) {
+          return false;
+        }
+        return arch === "x64" ? name.includes("x64") : name.includes("ia32");
+      });
     } else if (platform === "linux") {
       // Linux: 查找.AppImage文件
-      asset = release.assets.find((a: any) => 
-        a.name.includes(".AppImage")
+      asset = release.assets.find((a: any) =>
+        a.name.toLowerCase().endsWith(expectedExtension.toLowerCase())
       );
     }
 

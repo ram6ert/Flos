@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 interface UpdateInfo {
   version: string;
@@ -44,9 +44,16 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
       setIsDownloading(true);
       setError(null);
       setDownloadStatus("准备下载...");
+      onUpdate();
 
       // 下载更新
-      const downloadResult = await window.electronAPI.downloadUpdate(updateInfo);
+      const api = window.electronAPI;
+
+      if (!api?.downloadUpdate || !api.installUpdate) {
+        throw new Error("更新功能当前不可用");
+      }
+
+      const downloadResult = await api.downloadUpdate(updateInfo);
       
       if (!downloadResult.success) {
         setError(downloadResult.error || "下载失败");
@@ -60,7 +67,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
       setDownloadStatus("准备安装...");
 
       // 安装更新
-      const installResult = await window.electronAPI.installUpdate(downloadResult.filePath!);
+      const installResult = await api.installUpdate(downloadResult.filePath!);
       
       if (!installResult.success) {
         setError(installResult.error || "安装失败");
