@@ -1,19 +1,19 @@
 // Clean course-related type definitions
 
 export interface Course {
-  id: number;
+  id: string; // transformed from number to string
   name: string;
   courseNumber: string; // course_num from server
   picture: string; // pic from server
-  teacherId: number; // teacher_id from server
+  teacherId: string; // teacher_id from server, transformed from number to string
   teacherName: string; // teacher_name from server
-  startDate: string; // begin_date from server, ISO string
-  endDate: string; // end_date from server, ISO string
-  type: number;
-  selectiveCourseId: number | null; // selective_course_id from server
-  departmentId: string; // fz_id from server
+  beginDate: string; // begin_date from server, transformed to ISO string
+  endDate: string; // end_date from server, transformed to ISO string
+  type: 'required' | 'elective' | 'practice'; // type from server (number to enum)
+  selectiveCourseId: string | null; // selective_course_id from server, transformed from number to string
+  facilityId: string; // fz_id from server
   semesterCode: string; // xq_code from server
-  boy: string; // unclear field, keeping as-is
+  boy: string; // boy from server (unclear purpose, keeping as-is)
   schedule?: CourseScheduleInfo;
 }
 
