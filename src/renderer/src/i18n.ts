@@ -117,6 +117,24 @@ const resources = {
       hoursMinutesLeft: "{{hours}}h {{minutes}}m left",
       minutesLeft: "{{minutes}}m left",
       all: "All",
+
+      // Days of the week - short forms
+      mon: "Mon",
+      tue: "Tue",
+      wed: "Wed",
+      thu: "Thu",
+      fri: "Fri",
+      sat: "Sat",
+      sun: "Sun",
+
+      // Days of the week - full forms
+      monday: "Monday",
+      tuesday: "Tuesday",
+      wednesday: "Wednesday",
+      thursday: "Thursday",
+      friday: "Friday",
+      saturday: "Saturday",
+      sunday: "Sunday",
     },
   },
   zh: {
@@ -233,6 +251,24 @@ const resources = {
       hoursMinutesLeft: "剩余{{hours}}小时{{minutes}}分钟",
       minutesLeft: "剩余{{minutes}}分钟",
       all: "全部",
+
+      // Days of the week - short forms
+      mon: "周一",
+      tue: "周二",
+      wed: "周三",
+      thu: "周四",
+      fri: "周五",
+      sat: "周六",
+      sun: "周日",
+
+      // Days of the week - full forms
+      monday: "星期一",
+      tuesday: "星期二",
+      wednesday: "星期三",
+      thursday: "星期四",
+      friday: "星期五",
+      saturday: "星期六",
+      sunday: "星期日",
     },
   },
 };
