@@ -32,6 +32,7 @@ import {
   authenticatedRequest,
   fetchCourseList,
   fetchHomeworkData,
+  fetchHomeworkStreaming,
   fetchCourseDocuments,
   fetchHomeworkDetails,
   fetchScheduleData,
@@ -387,6 +388,60 @@ ipcMain.handle("refresh-homework", async (event, courseId?: string) => {
     saveCacheToFile(currentSession?.username);
     return { data, fromCache: false, age: 0 };
   });
+});
+
+// Streaming homework handlers
+ipcMain.handle("stream-homework", async (event, courseId?: string) => {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
+
+  // Check cache first - if we have recent data, return it immediately
+  const cachedData = getCachedData(cacheKey, CACHE_DURATION);
+  if (cachedData) {
+    // Send cached data immediately
+    event.sender.send("homework-stream-chunk", {
+      homework: cachedData,
+      courseId: courseId || null,
+      courseName: "Cached Data",
+      type: "cached",
+      isComplete: true,
+      fromCache: true
+    });
+
+    return { data: cachedData, fromCache: true, age: 0 };
+  }
+
+  // No cache or expired - start streaming
+  try {
+    const generator = fetchHomeworkStreaming(courseId, (progress) => {
+      // Send progress updates
+      event.sender.send("homework-stream-progress", progress);
+    });
+
+    for await (const chunk of generator) {
+      // Send each chunk as it arrives
+      event.sender.send("homework-stream-chunk", {
+        ...chunk,
+        fromCache: false
+      });
+    }
+
+    // Send completion signal
+    event.sender.send("homework-stream-complete", { courseId });
+
+    // Return final cached data
+    const finalData = getCachedData(cacheKey, CACHE_DURATION);
+    return { data: finalData || [], fromCache: false, age: 0 };
+
+  } catch (error) {
+    event.sender.send("homework-stream-error", {
+      error: error instanceof Error ? error.message : "Streaming failed"
+    });
+    throw error;
+  }
 });
 
 // Fetch homework details

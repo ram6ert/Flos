@@ -33,6 +33,12 @@ const HomeworkList: React.FC = () => {
   const [homework, setHomework] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [streamProgress, setStreamProgress] = useState<{
+    completed: number;
+    total: number;
+    currentCourse?: string;
+  } | null>(null);
   const [filter, setFilter] = useState<
     "all" | "pending" | "submitted" | "graded" | "overdue"
   >("all");
@@ -50,11 +56,12 @@ const HomeworkList: React.FC = () => {
   >(null);
 
   const isFetchingRef = useRef(false);
+  const streamingRef = useRef(false);
 
   const fetchHomework = useCallback(
     async (forceRefresh = false) => {
       // Prevent duplicate requests
-      if (isFetchingRef.current) {
+      if (isFetchingRef.current || streamingRef.current) {
         console.log(
           "Homework fetch already in progress, skipping duplicate request"
         );
@@ -62,48 +69,101 @@ const HomeworkList: React.FC = () => {
       }
 
       try {
-        isFetchingRef.current = true;
         if (forceRefresh) {
+          // For force refresh, use the old non-streaming method
+          isFetchingRef.current = true;
           setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-        setError("");
+          setError("");
 
-        const response: HomeworkResponse = forceRefresh
-          ? await window.electronAPI.refreshHomework()
-          : await window.electronAPI.getHomework();
+          const response: HomeworkResponse =
+            await window.electronAPI.refreshHomework();
 
-        if (response.data && Array.isArray(response.data)) {
-          setHomework(response.data);
+          if (response.data && Array.isArray(response.data)) {
+            setHomework(response.data);
 
-          const ageMinutes = Math.floor(response.age / (1000 * 60));
-          setCacheInfo(
-            response.fromCache
-              ? t("showingCachedData", { minutes: ageMinutes })
-              : t("showingFreshData")
-          );
-        } else {
-          setHomework([]);
-          setCacheInfo(t("noHomeworkDataAvailable"));
-        }
-      } catch (error) {
-        console.error("Failed to fetch homework:", error);
-        if (error instanceof Error) {
-          if (error.message.includes("404") || error.message.includes("502")) {
-            setError(t("authenticationRequired"));
-          } else if (error.message.includes("Session expired")) {
-            setError(t("sessionExpired"));
+            const ageMinutes = Math.floor(response.age / (1000 * 60));
+            setCacheInfo(
+              response.fromCache
+                ? t("showingCachedData", { minutes: ageMinutes })
+                : t("showingFreshData")
+            );
           } else {
-            setError(t("failedToFetchHomework"));
+            setHomework([]);
+            setCacheInfo(t("noHomeworkDataAvailable"));
           }
         } else {
-          setError(t("unexpectedError"));
+          // Use streaming for normal loads
+          streamingRef.current = true;
+          setStreaming(true);
+          setLoading(true);
+          setError("");
+          setStreamProgress(null);
+
+          // Start streaming
+          const response: HomeworkResponse =
+            await window.electronAPI.streamHomework();
+
+          // Handle final response (may be cached data)
+          if (response.fromCache) {
+            const ageMinutes = Math.floor(response.age / (1000 * 60));
+            setCacheInfo(t("showingCachedData", { minutes: ageMinutes }));
+          }
+        }
+
+        try {
+          isFetchingRef.current = true;
+          if (forceRefresh) {
+            setRefreshing(true);
+          } else {
+            setLoading(true);
+          }
+          setError("");
+
+          const response: HomeworkResponse = forceRefresh
+            ? await window.electronAPI.refreshHomework()
+            : await window.electronAPI.getHomework();
+
+          if (response.data && Array.isArray(response.data)) {
+            setHomework(response.data);
+
+            const ageMinutes = Math.floor(response.age / (1000 * 60));
+            setCacheInfo(
+              response.fromCache
+                ? t("showingCachedData", { minutes: ageMinutes })
+                : t("showingFreshData")
+            );
+          } else {
+            setHomework([]);
+            setCacheInfo(t("noHomeworkDataAvailable"));
+          }
+        } catch (error) {
+          console.error("Failed to fetch homework:", error);
+          if (error instanceof Error) {
+            if (
+              error.message.includes("404") ||
+              error.message.includes("502")
+            ) {
+              setError(t("authenticationRequired"));
+            } else if (error.message.includes("Session expired")) {
+              setError(t("sessionExpired"));
+            } else {
+              setError(t("failedToFetchHomework"));
+            }
+          } else {
+            setError(t("unexpectedError"));
+          }
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+          isFetchingRef.current = false;
         }
       } finally {
         setLoading(false);
         setRefreshing(false);
+        setStreaming(false);
+        setStreamProgress(null);
         isFetchingRef.current = false;
+        streamingRef.current = false;
       }
     },
     [t]
@@ -129,10 +189,83 @@ const HomeworkList: React.FC = () => {
       }
     };
 
+    const handleStreamChunk = (
+      _event: any,
+      chunk: {
+        homework: any[];
+        courseId?: string;
+        courseName?: string;
+        type: string;
+        isComplete: boolean;
+        fromCache: boolean;
+      }
+    ) => {
+      if (chunk.fromCache && chunk.isComplete) {
+        // Cached data - replace all homework
+        setHomework(chunk.homework);
+        setCacheInfo(t("showingCachedData"));
+        setLoading(false);
+      } else {
+        // Streaming data - append new homework
+        setHomework((prev) => {
+          const existingIds = new Set(prev.map((hw) => hw.id));
+          const newHomework = chunk.homework.filter(
+            (hw) => !existingIds.has(hw.id)
+          );
+          return [...prev, ...newHomework];
+        });
+
+        // Update cache info to show we're receiving fresh data
+        if (!chunk.fromCache) {
+          setCacheInfo(t("showingFreshData"));
+        }
+      }
+    };
+
+    const handleStreamProgress = (
+      _event: any,
+      progress: {
+        completed: number;
+        total: number;
+        currentCourse?: string;
+      }
+    ) => {
+      setStreamProgress(progress);
+    };
+
+    const handleStreamComplete = (
+      _event: any,
+      _payload: { courseId?: string }
+    ) => {
+      setStreaming(false);
+      setLoading(false);
+      setStreamProgress(null);
+      streamingRef.current = false;
+      setCacheInfo(t("showingFreshData"));
+    };
+
+    const handleStreamError = (_event: any, error: { error: string }) => {
+      console.error("Streaming error:", error.error);
+      setError(error.error);
+      setStreaming(false);
+      setLoading(false);
+      setStreamProgress(null);
+      streamingRef.current = false;
+    };
+
+    // Set up event listeners
     window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
+    window.electronAPI.onHomeworkStreamChunk?.(handleStreamChunk);
+    window.electronAPI.onHomeworkStreamProgress?.(handleStreamProgress);
+    window.electronAPI.onHomeworkStreamComplete?.(handleStreamComplete);
+    window.electronAPI.onHomeworkStreamError?.(handleStreamError);
 
     return () => {
       window.electronAPI.removeAllListeners?.("cache-updated");
+      window.electronAPI.removeAllListeners?.("homework-stream-chunk");
+      window.electronAPI.removeAllListeners?.("homework-stream-progress");
+      window.electronAPI.removeAllListeners?.("homework-stream-complete");
+      window.electronAPI.removeAllListeners?.("homework-stream-error");
     };
   }, [t]);
 
@@ -514,7 +647,7 @@ const HomeworkList: React.FC = () => {
       });
   }, [homework, filter, sortBy, sortOrder]);
 
-  if (loading) {
+  if (loading && !streaming) {
     return (
       <Container padding="lg">
         <Loading message={t("loadingHomework")} />
@@ -544,20 +677,53 @@ const HomeworkList: React.FC = () => {
         actions={
           <Button
             onClick={() => fetchHomework(true)}
-            disabled={loading || refreshing}
+            disabled={loading || refreshing || streaming}
             variant="primary"
             size="sm"
           >
             {refreshing
               ? t("refreshing")
-              : loading
-                ? t("loading")
-                : t("refresh")}
+              : streaming
+                ? t("streaming")
+                : loading
+                  ? t("loading")
+                  : t("refresh")}
           </Button>
         }
       />
 
       {cacheInfo && <InfoBanner variant="info">{cacheInfo}</InfoBanner>}
+
+      {/* Streaming Progress */}
+      {streaming && streamProgress && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-blue-800">
+              {t("loadingHomework")} ({streamProgress.completed}/
+              {streamProgress.total})
+            </span>
+            <span className="text-xs text-blue-600">
+              {Math.round(
+                (streamProgress.completed / streamProgress.total) * 100
+              )}
+              %
+            </span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+              style={{
+                width: `${(streamProgress.completed / streamProgress.total) * 100}%`,
+              }}
+            />
+          </div>
+          {streamProgress.currentCourse && (
+            <div className="text-xs text-blue-700 mt-1">
+              {t("currentlyFetching")}: {streamProgress.currentCourse}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-6">
         <div className="mb-4">

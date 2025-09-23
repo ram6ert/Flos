@@ -502,6 +502,196 @@ export async function fetchHomeworkData(courseId?: string) {
   }
 }
 
+// Track ongoing streaming operations to prevent race conditions
+const ongoingStreamingOps = new Map<string, Promise<any>>();
+
+// Streaming homework fetcher that yields results progressively
+export async function* fetchHomeworkStreaming(
+  courseId?: string,
+  onProgress?: (progress: { completed: number; total: number; currentCourse?: string }) => void
+) {
+  const streamingKey = courseId ? `homework_${courseId}` : "all_homework";
+
+  // Check if there's already an ongoing streaming operation for this key
+  if (ongoingStreamingOps.has(streamingKey)) {
+    Logger.debug(`Streaming operation already in progress for ${streamingKey}, waiting...`);
+    await ongoingStreamingOps.get(streamingKey);
+    return; // Exit early if operation was already in progress
+  }
+
+  const allHomework: any[] = []; // Accumulate all homework for complete cache update
+
+  try {
+    // Mark this streaming operation as in progress
+    const streamingPromise = Promise.resolve();
+    ongoingStreamingOps.set(streamingKey, streamingPromise);
+
+    const homeworkTypes = [
+      { subType: 0, name: "普通作业", priority: 1 },
+      { subType: 3, name: "平时测验", priority: 0 }, // High priority for quizzes
+      { subType: 4, name: "结课考核", priority: 0 }, // High priority for assessments
+      { subType: 1, name: "课程报告", priority: 2 },
+      { subType: 2, name: "实验作业", priority: 2 },
+    ];
+
+    if (courseId) {
+      // Get homework for specific course
+      const totalTasks = homeworkTypes.length;
+      let completed = 0;
+
+      // Sort by priority (urgent types first)
+      const sortedTypes = [...homeworkTypes].sort((a, b) => a.priority - b.priority);
+
+      for (const type of sortedTypes) {
+        if (onProgress) {
+          onProgress({ completed, total: totalTasks, currentCourse: courseId });
+        }
+
+        const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
+
+        try {
+          const data = await authenticatedRequest(url, true);
+          if (data.courseNoteList && data.courseNoteList.length > 0) {
+            const homework = data.courseNoteList.map((hw: any) =>
+              sanitizeHomeworkItem({
+                ...hw,
+                homeworkType: type.subType,
+              })
+            );
+
+            // Add to accumulated homework for cache
+            allHomework.push(...homework);
+
+            yield {
+              homework,
+              courseId,
+              courseName: null,
+              type: type.name,
+              isComplete: false,
+            };
+          }
+        } catch (error) {
+          Logger.error(`Failed to get ${type.name} for course`, error);
+        }
+
+        completed++;
+        // Shorter delay for single course
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.floor(Math.random() * 301) + 50)
+        );
+      }
+    } else {
+      // Get all homework for all courses with intelligent batching
+      let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
+
+      if (!courseList) {
+        Logger.event("Fetching fresh course list for homework streaming");
+        courseList = await fetchCourseList();
+        setCachedData("courses", courseList);
+      } else {
+        Logger.event("Using cached course list for homework streaming");
+      }
+
+      Logger.debug(`Found ${courseList.length} courses for streaming homework fetching`);
+
+      // Prioritize courses by recency (recent courses first)
+      const sortedCourses = [...courseList].sort((a: any, b: any) => {
+        const dateA = new Date(a.endDate || a.beginDate).getTime();
+        const dateB = new Date(b.endDate || b.beginDate).getTime();
+        return dateB - dateA; // Recent first
+      });
+
+      // Create batches of course-type combinations
+      const batches: { course: any; type: any }[] = [];
+      for (const course of sortedCourses) {
+        const sortedTypes = [...homeworkTypes].sort((a, b) => a.priority - b.priority);
+        for (const type of sortedTypes) {
+          batches.push({ course, type });
+        }
+      }
+
+      const totalTasks = batches.length;
+      let completed = 0;
+
+      // Process batches with controlled concurrency
+      const batchSize = 6; // Process 6 course-type combinations concurrently
+
+      for (let i = 0; i < batches.length; i += batchSize) {
+        const currentBatch = batches.slice(i, i + batchSize);
+
+        // Process batch in parallel
+        const batchPromises = currentBatch.map(async ({ course, type }) => {
+          if (onProgress) {
+            onProgress({
+              completed,
+              total: totalTasks,
+              currentCourse: course.name
+            });
+          }
+
+          const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
+
+          try {
+            const data = await requestQueue.add(() => authenticatedRequest(url, true));
+            if (data.courseNoteList && data.courseNoteList.length > 0) {
+              const homework = data.courseNoteList.map((hw: any) =>
+                sanitizeHomeworkItem({
+                  ...hw,
+                  courseName: course.name,
+                  homeworkType: type.subType,
+                })
+              );
+              return {
+                homework,
+                courseId: course.id,
+                courseName: course.name,
+                type: type.name,
+                isComplete: false,
+              };
+            }
+          } catch (error) {
+            Logger.error(`Failed to get ${type.name} for course ${course.name}`, error);
+          }
+          return null;
+        });
+
+        // Wait for current batch to complete and yield results
+        const batchResults = await Promise.all(batchPromises);
+
+        for (const result of batchResults) {
+          if (result && result.homework.length > 0) {
+            // Add to accumulated homework for cache
+            allHomework.push(...result.homework);
+
+            yield result;
+          }
+          completed++;
+        }
+
+        // Small delay between batches to prevent overwhelming the server
+        if (i + batchSize < batches.length) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      // Indicate completion for all courses
+      if (onProgress) {
+        onProgress({ completed: totalTasks, total: totalTasks });
+      }
+    }
+
+  } finally {
+    // Clean up and update cache with complete data
+    ongoingStreamingOps.delete(streamingKey);
+
+    // Update cache with complete homework data to maintain cache integrity
+    if (allHomework.length > 0) {
+      setCachedData(streamingKey, allHomework);
+      Logger.debug(`Updated cache for ${streamingKey} with ${allHomework.length} homework items`);
+    }
+  }
+}
+
 // Sanitization function for course documents
 const sanitizeCourseDocument = (doc: any): any => {
   // Map audit status numbers to readable strings
