@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Course } from "../../../shared/types";
 import { CourseDocument, DocumentStreamChunk, DocumentStreamProgress } from "../../../shared/types";
+import { LoadingState, LoadingStateData } from "../types/ui";
 import {
   Container,
   PageHeader,
@@ -26,12 +27,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
 }) => {
   const { t } = useTranslation();
   const [realDocuments, setRealDocuments] = useState<CourseDocument[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [loadingState, setLoadingState] = useState<LoadingStateData>({
+    state: LoadingState.IDLE,
+  });
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [streamingProgress, setStreamingProgress] = useState<DocumentStreamProgress | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
   const currentRequestRef = useRef<string | null>(null);
   const streamingAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -53,9 +53,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       streamingAbortControllerRef.current = abortController;
 
       try {
-        setLoading(true);
-        setError("");
-        setStreamingProgress(null);
+        setLoadingState({ state: LoadingState.LOADING });
 
         if (forceRefresh) {
           // Use normal API for refresh (faster and simpler)
@@ -70,10 +68,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
           }
 
           setRealDocuments(response.data);
-          setLoading(false);
+          setLoadingState({ state: LoadingState.SUCCESS });
         } else {
           // Use streaming for initial load (shows progress)
-          setIsStreaming(true);
           setRealDocuments([]); // Clear existing documents for streaming
 
           // Set up event listeners for streaming with race condition protection
@@ -96,15 +93,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
             if (chunk.fromCache) {
               // If cached data, replace all documents
               setRealDocuments(chunk.documents);
-              setIsStreaming(false);
-              setLoading(false);
-              setStreamingProgress(null);
+              setLoadingState({ state: LoadingState.SUCCESS });
               cleanupListeners();
             } else if (chunk.isComplete || chunk.type === "complete") {
               // Final completion signal - don't add documents but finish streaming
-              setIsStreaming(false);
-              setLoading(false);
-              setStreamingProgress(null);
+              setLoadingState({ state: LoadingState.SUCCESS });
               cleanupListeners();
             } else {
               // If streaming data, append to existing documents
@@ -124,7 +117,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
             if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
               return;
             }
-            setStreamingProgress(progress);
+            setLoadingState({
+              state: LoadingState.LOADING,
+              progress: {
+                completed: progress.completed,
+                total: progress.total,
+                currentItem: progress.currentCourse,
+              },
+            });
           });
 
           window.electronAPI.onDocumentStreamComplete((_event, _payload) => {
@@ -132,9 +132,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
             if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
               return;
             }
-            setIsStreaming(false);
-            setStreamingProgress(null);
-            setLoading(false);
+            setLoadingState({ state: LoadingState.SUCCESS });
             cleanupListeners();
           });
 
@@ -144,10 +142,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
               return;
             }
             console.error("Document streaming error:", errorData.error);
-            setError(`Failed to fetch documents: ${errorData.error}`);
-            setIsStreaming(false);
-            setStreamingProgress(null);
-            setLoading(false);
+            setLoadingState({
+              state: LoadingState.ERROR,
+              error: `Failed to fetch documents: ${errorData.error}`
+            });
             cleanupListeners();
           });
 
@@ -160,10 +158,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
           return;
         }
         console.error("Failed to fetch documents:", error);
-        setError("Failed to fetch course documents. Please try again later.");
-        setLoading(false);
-        setIsStreaming(false);
-        setStreamingProgress(null);
+        setLoadingState({
+          state: LoadingState.ERROR,
+          error: "Failed to fetch course documents. Please try again later."
+        });
       }
     },
     [selectedCourse]
@@ -178,10 +176,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
         streamingAbortControllerRef.current.abort();
       }
       setRealDocuments([]);
-      setStreamingProgress(null);
-      setIsStreaming(false);
-      setLoading(false);
-      setError("");
+      setLoadingState({ state: LoadingState.IDLE });
     }
   }, [selectedCourse, fetchDocuments]);
 
@@ -283,18 +278,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   const renderDocumentContent = () => {
-    if (error) {
+    if (loadingState.state === LoadingState.ERROR) {
       return (
         <ErrorDisplay
           title={t("unableToLoadDocuments")}
-          message={error}
+          message={loadingState.error || "Unknown error"}
           onRetry={() => fetchDocuments(true)}
           retryLabel={t("retry")}
         />
       );
     }
 
-    if (loading && !isStreaming) {
+    if (loadingState.state === LoadingState.LOADING && !loadingState.progress) {
       return <Loading message={t("loading")} />;
     }
 
@@ -388,7 +383,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       <PageHeader
         title={`${t("documents")}${
           selectedCourse
-            ? ` - ${selectedCourse.name} (${isStreaming ? "..." : realDocuments.length})`
+            ? ` - ${selectedCourse.name} (${loadingState.state === LoadingState.LOADING ? "..." : realDocuments.length})`
             : ""
         }`}
         actions={
@@ -411,11 +406,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
             {selectedCourse && (
               <Button
                 onClick={() => fetchDocuments(true)}
-                disabled={loading || isStreaming}
+                disabled={loadingState.state === LoadingState.LOADING}
                 variant="primary"
                 size="sm"
               >
-                {isStreaming ? "Streaming..." : loading ? t("refreshing") : t("refresh")}
+                {loadingState.state === LoadingState.LOADING ? t("loading") : t("refresh")}
               </Button>
             )}
           </div>
@@ -434,17 +429,17 @@ const DocumentList: React.FC<DocumentListProps> = ({
         </InfoBanner>
       )}
 
-      {/* Streaming Progress */}
-      {isStreaming && streamingProgress && (
+      {/* Loading Progress */}
+      {loadingState.state === LoadingState.LOADING && loadingState.progress && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-blue-800">
-              {t("loadingDocuments")} ({streamingProgress.completed}/
-              {streamingProgress.total})
+              {t("loadingDocuments")} ({loadingState.progress.completed}/
+              {loadingState.progress.total})
             </span>
             <span className="text-xs text-blue-600">
               {Math.round(
-                (streamingProgress.completed / streamingProgress.total) * 100
+                (loadingState.progress.completed / loadingState.progress.total) * 100
               )}
               %
             </span>
@@ -453,20 +448,20 @@ const DocumentList: React.FC<DocumentListProps> = ({
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
               style={{
-                width: `${(streamingProgress.completed / streamingProgress.total) * 100}%`,
+                width: `${(loadingState.progress.completed / loadingState.progress.total) * 100}%`,
               }}
             />
           </div>
-          {streamingProgress.currentCourse && (
+          {loadingState.progress.currentItem && (
             <div className="text-xs text-blue-700 mt-1">
-              {t("currentlyFetching")}: {streamingProgress.currentCourse}
+              {t("currentlyFetching")}: {loadingState.progress.currentItem}
             </div>
           )}
         </div>
       )}
 
-      {/* Show initial loading when starting to stream */}
-      {isStreaming && !streamingProgress && (
+      {/* Show initial loading when starting to load */}
+      {loadingState.state === LoadingState.LOADING && !loadingState.progress && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-center justify-center">
             <span className="text-sm font-medium text-blue-800">

@@ -11,6 +11,7 @@ import {
   HomeworkDetails,
   HomeworkAttachment,
 } from "../../../shared/types";
+import { LoadingState, LoadingStateData } from "../types/ui";
 import {
   Container,
   PageHeader,
@@ -31,14 +32,9 @@ interface HomeworkResponse {
 const HomeworkList: React.FC = () => {
   const { t } = useTranslation();
   const [homework, setHomework] = useState<Homework[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [streaming, setStreaming] = useState(false);
-  const [streamProgress, setStreamProgress] = useState<{
-    completed: number;
-    total: number;
-    currentCourse?: string;
-  } | null>(null);
+  const [loadingState, setLoadingState] = useState<LoadingStateData>({
+    state: LoadingState.LOADING,
+  });
   const [filter, setFilter] = useState<
     "all" | "pending" | "submitted" | "graded" | "overdue"
   >("all");
@@ -72,8 +68,7 @@ const HomeworkList: React.FC = () => {
         if (forceRefresh) {
           // For force refresh, use the old non-streaming method
           isFetchingRef.current = true;
-          setRefreshing(true);
-          setError("");
+          setLoadingState({ state: LoadingState.LOADING });
 
           const response: HomeworkResponse =
             await window.electronAPI.refreshHomework();
@@ -94,10 +89,7 @@ const HomeworkList: React.FC = () => {
         } else {
           // Use streaming for normal loads
           streamingRef.current = true;
-          setStreaming(true);
-          setLoading(true);
-          setError("");
-          setStreamProgress(null);
+          setLoadingState({ state: LoadingState.LOADING });
 
           // Start streaming
           const response: HomeworkResponse =
@@ -111,10 +103,7 @@ const HomeworkList: React.FC = () => {
         }
 
       } finally {
-        setLoading(false);
-        setRefreshing(false);
-        setStreaming(false);
-        setStreamProgress(null);
+        setLoadingState({ state: LoadingState.SUCCESS });
         isFetchingRef.current = false;
         streamingRef.current = false;
       }
@@ -154,7 +143,7 @@ const HomeworkList: React.FC = () => {
         // Cached data - replace all homework
         setHomework(chunk.homework);
         setCacheInfo(t("showingCachedData"));
-        setLoading(false);
+        setLoadingState({ state: LoadingState.SUCCESS });
       } else {
         // Streaming data - append new homework
         setHomework((prev) => {
@@ -180,26 +169,28 @@ const HomeworkList: React.FC = () => {
         currentCourse?: string;
       }
     ) => {
-      setStreamProgress(progress);
+      setLoadingState({
+        state: LoadingState.LOADING,
+        progress: {
+          completed: progress.completed,
+          total: progress.total,
+          currentItem: progress.currentCourse,
+        },
+      });
     };
 
     const handleStreamComplete = (
       _event: any,
       _payload: { courseId?: string }
     ) => {
-      setStreaming(false);
-      setLoading(false);
-      setStreamProgress(null);
+      setLoadingState({ state: LoadingState.SUCCESS });
       streamingRef.current = false;
       setCacheInfo(t("showingFreshData"));
     };
 
     const handleStreamError = (_event: any, error: { error: string }) => {
       console.error("Streaming error:", error.error);
-      setError(error.error);
-      setStreaming(false);
-      setLoading(false);
-      setStreamProgress(null);
+      setLoadingState({ state: LoadingState.ERROR, error: error.error });
       streamingRef.current = false;
     };
 
@@ -370,7 +361,10 @@ const HomeworkList: React.FC = () => {
       setHomeworkDetails(newDetails);
     } catch (error) {
       console.error("Failed to fetch homework details:", error);
-      setError(t("failedToLoadHomeworkDetails"));
+      setLoadingState({
+        state: LoadingState.ERROR,
+        error: t("failedToLoadHomeworkDetails")
+      });
     } finally {
       setDetailsLoading(false);
       const newFetching = new Set(fetchingDetails);
@@ -597,7 +591,7 @@ const HomeworkList: React.FC = () => {
       });
   }, [homework, filter, sortBy, sortOrder]);
 
-  if (loading && !streaming) {
+  if (loadingState.state === LoadingState.LOADING && !loadingState.progress) {
     return (
       <Container padding="lg">
         <Loading message={t("loadingHomework")} />
@@ -605,16 +599,14 @@ const HomeworkList: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (loadingState.state === LoadingState.ERROR) {
     return (
       <Container padding="lg">
         <ErrorDisplay
           title={t("unableToLoadHomework")}
-          message={error}
+          message={loadingState.error || "Unknown error"}
           onRetry={() => fetchHomework(true)}
-          retryLabel={
-            refreshing ? t("refreshing") : loading ? t("loading") : t("retry")
-          }
+          retryLabel={loadingState.state === LoadingState.LOADING ? t("loading") : t("retry")}
         />
       </Container>
     );
@@ -627,32 +619,28 @@ const HomeworkList: React.FC = () => {
         actions={
           <Button
             onClick={() => fetchHomework(true)}
-            disabled={loading || refreshing || streaming}
+            disabled={loadingState.state === LoadingState.LOADING}
             variant="primary"
             size="sm"
           >
-            {refreshing || streaming
-              ? t("refreshing")
-              : loading
-                ? t("loading")
-                : t("refresh")}
+            {loadingState.state === LoadingState.LOADING ? t("loading") : t("refresh")}
           </Button>
         }
       />
 
       {cacheInfo && <InfoBanner variant="info">{cacheInfo}</InfoBanner>}
 
-      {/* Streaming Progress */}
-      {streaming && streamProgress && (
+      {/* Loading Progress */}
+      {loadingState.state === LoadingState.LOADING && loadingState.progress && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-blue-800">
-              {t("loadingHomework")} ({streamProgress.completed}/
-              {streamProgress.total})
+              {t("loadingHomework")} ({loadingState.progress.completed}/
+              {loadingState.progress.total})
             </span>
             <span className="text-xs text-blue-600">
               {Math.round(
-                (streamProgress.completed / streamProgress.total) * 100
+                (loadingState.progress.completed / loadingState.progress.total) * 100
               )}
               %
             </span>
@@ -661,13 +649,13 @@ const HomeworkList: React.FC = () => {
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
               style={{
-                width: `${(streamProgress.completed / streamProgress.total) * 100}%`,
+                width: `${(loadingState.progress.completed / loadingState.progress.total) * 100}%`,
               }}
             />
           </div>
-          {streamProgress.currentCourse && (
+          {loadingState.progress.currentItem && (
             <div className="text-xs text-blue-700 mt-1">
-              {t("currentlyFetching")}: {streamProgress.currentCourse}
+              {t("currentlyFetching")}: {loadingState.progress.currentItem}
             </div>
           )}
         </div>
