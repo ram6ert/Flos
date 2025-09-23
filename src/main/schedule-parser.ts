@@ -9,7 +9,7 @@ import {
   TimeSlot,
   ScheduleConflict,
   DEFAULT_TIME_SLOTS,
-} from "./schedule-types";
+} from "../shared/types";
 
 // Raw schedule entry from server HTML parsing
 interface RawScheduleEntry {

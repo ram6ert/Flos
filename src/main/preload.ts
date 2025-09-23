@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { LoginCredentials, LoginResponse } from "./types";
 import { UpdateInfo } from "./updater";
+import { LoginCredentials, LoginResponse } from "../shared/types";
 
 export interface ElectronAPI {
   getCourses: (options?: {

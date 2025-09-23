@@ -14,7 +14,7 @@ import {
 } from "./cache";
 import * as iconv from "iconv-lite";
 import { ScheduleParser } from "./schedule-parser";
-import { ScheduleData } from "./schedule-types";
+import { ScheduleData } from "../shared/types";
 import { Logger } from "./logger";
 
 // Helper function to fetch homework details
@@ -75,7 +75,17 @@ export async function fetchHomeworkDetails(
     // Add the processed attachments to homework details
     data.homeWork.attachments = attachments;
 
-    return data;
+    // Sanitize the homework details
+    const sanitizedDetails = sanitizeHomeworkDetails(data.homeWork);
+
+    // Sanitize the response structure
+    return {
+      homeWork: sanitizedDetails,
+      picList: data.picList?.map(sanitizeHomeworkAttachment) || [],
+      answerPicList: data.answerPicList?.map(sanitizeHomeworkAttachment) || [],
+      STATUS: data.STATUS,
+      message: data.message
+    };
   }
 
   throw new Error("Failed to fetch homework details");
@@ -269,13 +279,13 @@ export async function fetchCourseList() {
         });
       });
 
-      // Enrich course list with schedule info
+      // Enrich course list with schedule info and sanitize
       const enrichedCourses = data.courseList.map((course: any) => {
         const courseKey = course.name.toLowerCase().trim();
         const scheduleInfo = scheduleCourseMap.get(courseKey);
 
         if (scheduleInfo && scheduleInfo.length > 0) {
-          return {
+          const courseWithSchedule = {
             ...course,
             schedule: {
               timeSlots: scheduleInfo,
@@ -283,9 +293,10 @@ export async function fetchCourseList() {
               studentCount: scheduleInfo[0].studentCount,
             },
           };
+          return sanitizeCourse(courseWithSchedule);
         }
 
-        return course;
+        return sanitizeCourse(course);
       });
 
       Logger.event(
@@ -297,22 +308,106 @@ export async function fetchCourseList() {
         "Failed to enrich courses with schedule data, returning basic course list",
         scheduleError
       );
-      return data.courseList;
+      // Still sanitize the basic course list
+      return data.courseList.map(sanitizeCourse);
     }
   }
   throw new Error("Failed to get course list");
 }
 
+// Helper function to convert numeric type to English enum
+const convertHomeworkType = (numericType: number): 'homework' | 'report' | 'experiment' | 'quiz' | 'assessment' => {
+  switch (numericType) {
+    case 0: return 'homework';
+    case 1: return 'report';
+    case 2: return 'experiment';
+    case 3: return 'quiz';
+    case 4: return 'assessment';
+    default: return 'homework';
+  }
+};
+
+// Sanitization function to transform server response to clean structure
+const sanitizeHomeworkItem = (hw: any): any => {
+  return {
+    id: hw.id,
+    courseId: hw.course_id,
+    courseName: hw.course_name || hw.courseName,
+    title: hw.title,
+    content: hw.content,
+    dueDate: new Date(hw.end_time).toISOString(), // Serialize to ISO string for IPC
+    maxScore: parseFloat(hw.score) || 0,
+    submissionStatus: hw.subStatus === "已提交" ? 'submitted' :
+                     hw.stu_score !== null && hw.stu_score !== undefined && hw.stu_score !== "未公布成绩" ? 'graded' :
+                     'not_submitted',
+    studentScore: hw.stu_score && hw.stu_score !== "未公布成绩" && hw.stu_score !== "暂未公布" ?
+                  parseFloat(hw.stu_score) : null,
+    submitDate: hw.subTime ? new Date(hw.subTime).toISOString() : null, // Serialize to ISO string for IPC
+    submittedCount: hw.submitCount,
+    totalStudents: hw.allCount,
+    type: convertHomeworkType(hw.homeworkType || 0),
+  };
+};
+
+// Sanitization function for homework details
+const sanitizeHomeworkDetails = (details: any): any => {
+  return {
+    id: details.id,
+    createdDate: new Date(details.create_date).toISOString(),
+    courseId: details.course_id,
+    courseSchedId: details.course_sched_id,
+    content: details.content,
+    title: details.title,
+    dueDate: new Date(details.end_time).toISOString(),
+    openDate: new Date(details.open_date).toISOString(),
+    isFinalExam: Boolean(details.is_fz),
+    maxScore: parseFloat(details.score) || 0,
+    moduleId: details.moudel_id,
+    isOpen: Boolean(details.isOpen),
+    isAnswerPublished: details.is_publish_answer === "1" || details.is_publish_answer === 1,
+    status: details.status,
+    referenceAnswer: details.ref_answer,
+    reviewMethod: details.review_method,
+    url: details.url,
+    fileName: details.file_name,
+    convertUrl: details.convert_url,
+    fileSize: details.pic_size,
+    makeupTime: details.makeup_time ? new Date(details.makeup_time).toISOString() : null,
+    isRepeatAllowed: Boolean(details.is_repeat),
+    makeupFlag: details.makeup_flag,
+    selectedIds: details.xzIds,
+    isGroupAssignment: details.is_group_stu === "1" || details.is_group_stu === 1,
+    teacherWeight: details.teacher_weight,
+    studentWeight: details.stu_weight,
+    studentCompletion: Boolean(details.stu_completion),
+    evaluationNumber: details.evaluation_num,
+    attachments: details.attachments?.map(sanitizeHomeworkAttachment) || []
+  };
+};
+
+// Sanitization function for homework attachments
+const sanitizeHomeworkAttachment = (attachment: any): any => {
+  return {
+    id: attachment.id,
+    url: attachment.url,
+    fileName: attachment.file_name,
+    convertUrl: attachment.convert_url,
+    fileSize: attachment.pic_size,
+    type: attachment.type
+  };
+};
+
 // Helper function to fetch homework data
 export async function fetchHomeworkData(courseId?: string) {
+  const homeworkTypes = [
+    { subType: 0, name: "普通作业" },
+    { subType: 1, name: "课程报告" },
+    { subType: 2, name: "实验作业" },
+    { subType: 3, name: "平时测验" },
+    { subType: 4, name: "结课考核" },
+  ];
   if (courseId) {
     // Get homework for specific course
-    const homeworkTypes = [
-      { subType: 0, name: "普通作业" },
-      { subType: 1, name: "课程报告" },
-      { subType: 2, name: "实验作业" },
-    ];
-
     const allHomework = [];
     for (const type of homeworkTypes) {
       const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
@@ -320,10 +415,12 @@ export async function fetchHomeworkData(courseId?: string) {
       try {
         const data = await authenticatedRequest(url, true); // Use dynamic session ID
         if (data.courseNoteList && data.courseNoteList.length > 0) {
-          const homework = data.courseNoteList.map((hw: any) => ({
-            ...hw,
-            homeworkType: type.name,
-          }));
+          const homework = data.courseNoteList.map((hw: any) =>
+            sanitizeHomeworkItem({
+              ...hw,
+              homeworkType: type.subType,
+            })
+          );
           allHomework.push(...homework);
         }
       } catch (error) {
@@ -354,23 +451,19 @@ export async function fetchHomeworkData(courseId?: string) {
     const allHomework = [];
     for (const course of courseList) {
       // Get homework for this course using the same method as above
-      const homeworkTypes = [
-        { subType: 0, name: "普通作业" },
-        { subType: 1, name: "课程报告" },
-        { subType: 2, name: "实验作业" },
-      ];
-
       for (const type of homeworkTypes) {
         const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
 
         try {
           const data = await authenticatedRequest(url, true); // Use dynamic session ID
           if (data.courseNoteList && data.courseNoteList.length > 0) {
-            const homework = data.courseNoteList.map((hw: any) => ({
-              ...hw,
-              courseName: course.name,
-              homeworkType: type.name,
-            }));
+            const homework = data.courseNoteList.map((hw: any) =>
+              sanitizeHomeworkItem({
+                ...hw,
+                courseName: course.name,
+                homeworkType: type.subType,
+              })
+            );
             allHomework.push(...homework);
           }
         } catch (error) {
@@ -386,6 +479,124 @@ export async function fetchHomeworkData(courseId?: string) {
 
     return allHomework;
   }
+}
+
+// Sanitization function for course documents
+const sanitizeCourseDocument = (doc: any): any => {
+  // Map audit status numbers to readable strings
+  const getAuditStatus = (status: number): 'pending' | 'approved' | 'rejected' => {
+    switch (status) {
+      case 1: return 'approved';
+      case 2: return 'rejected';
+      case 0:
+      default: return 'pending';
+    }
+  };
+
+  // Map share type numbers to readable strings
+  const getShareType = (type: number): 'private' | 'public' | 'course' => {
+    switch (type) {
+      case 1: return 'public';
+      case 2: return 'course';
+      case 0:
+      default: return 'private';
+    }
+  };
+
+  return {
+    id: String(doc.rpId),
+    auditStatus: getAuditStatus(doc.auditStatus),
+    name: doc.rpName,
+    size: doc.rpSize,
+    playUrl: doc.play_url,
+    resourceUrl: doc.res_url,
+    isPublic: Boolean(doc.isPublic),
+    uploadTime: new Date(doc.inputTime).toISOString(),
+    clickCount: doc.clicks,
+    downloadCount: doc.downloadNum,
+    resourceId: doc.resId,
+    teacherId: doc.teacherId,
+    teacherName: doc.teacherName,
+    documentType: doc.docType,
+    fileExtension: doc.extName,
+    shareType: getShareType(doc.share_type),
+    studentDownloadCount: doc.stu_download
+  };
+};
+
+// Sanitization function for courses
+const sanitizeCourse = (course: any): any => {
+  // Map course type numbers to readable strings
+  const getCourseType = (type: number): 'required' | 'elective' | 'practice' => {
+    switch (type) {
+      case 1: return 'elective';
+      case 2: return 'practice';
+      case 0:
+      default: return 'required';
+    }
+  };
+
+  return {
+    id: String(course.id),
+    name: course.name,
+    courseNumber: course.course_num,
+    picture: course.pic,
+    teacherId: String(course.teacher_id),
+    teacherName: course.teacher_name,
+    beginDate: new Date(course.begin_date).toISOString(),
+    endDate: new Date(course.end_date).toISOString(),
+    type: getCourseType(course.type),
+    selectiveCourseId: course.selective_course_id ? String(course.selective_course_id) : null,
+    facilityId: course.fz_id,
+    semesterCode: course.xq_code,
+    boy: course.boy,
+    schedule: course.schedule // Keep schedule as-is for now since it's already clean
+  };
+};
+
+// Helper function to fetch course documents with sanitization
+export async function fetchCourseDocuments(courseCode: string) {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  // Get semester info first to get xqCode
+  const semesterUrl = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+  const semesterData = await authenticatedRequest(semesterUrl);
+
+  if (!semesterData.result || semesterData.result.length === 0) {
+    throw new Error("Failed to get semester info");
+  }
+
+  const xqCode = semesterData.result[0].xqCode;
+
+  // Get course list to find the full course details (prefer cache)
+  let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
+  if (!courseList) {
+    courseList = await fetchCourseList();
+    setCachedData("courses", courseList);
+  }
+
+  const course = courseList.find((c: any) => c.courseNumber === courseCode);
+  if (!course) {
+    throw new Error(`Course not found: ${courseCode}`);
+  }
+
+  // Construct xkhId using course information
+  const xkhId = course.facilityId || `${xqCode}-${courseCode}`;
+
+  // Construct the course documents URL
+  const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=1&up_id=0&searchName=`;
+
+  const data = await authenticatedRequest(url, true); // Use session ID
+
+  if (data && Array.isArray(data.resList)) {
+    // Sanitize all documents
+    const sanitizedDocuments = data.resList.map(sanitizeCourseDocument);
+    return sanitizedDocuments;
+  }
+
+  return []; // No documents
 }
 
 // Helper function to fetch and parse schedule data

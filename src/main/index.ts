@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import axios from "axios";
-import { LoginCredentials, LoginResponse } from "./types";
+import { LoginCredentials, LoginResponse } from "../shared/types";
 import { API_CONFIG } from "./constants";
 import {
   currentSession,
@@ -32,6 +32,7 @@ import {
   authenticatedRequest,
   fetchCourseList,
   fetchHomeworkData,
+  fetchCourseDocuments,
   fetchHomeworkDetails,
   fetchScheduleData,
 } from "./api";
@@ -580,7 +581,6 @@ ipcMain.handle(
     }
 
     const cacheKey = `documents_${courseCode}`;
-    const _now = Date.now();
     const cachedData = getCachedData(cacheKey, CACHE_DURATION);
 
     // Use cached data if available and not expired (unless skipCache is true)
@@ -590,53 +590,13 @@ ipcMain.handle(
 
     return requestQueue.add(async () => {
       try {
-        // Get semester info first to get xqCode
-        const semesterUrl = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
-        const semesterData = await authenticatedRequest(semesterUrl);
+        const sanitizedDocuments = await fetchCourseDocuments(courseCode);
 
-        if (!semesterData.result || semesterData.result.length === 0) {
-          throw new Error("Failed to get semester info");
-        }
+        // Update cache with sanitized data
+        setCachedData(cacheKey, sanitizedDocuments);
+        saveCacheToFile(currentSession?.username);
 
-        const xqCode = semesterData.result[0].xqCode;
-
-        // Get course list to find the full course details (prefer cache)
-        let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-        if (!courseList) {
-          courseList = await fetchCourseList();
-          setCachedData("courses", courseList);
-          saveCacheToFile(currentSession?.username);
-        }
-        const course = courseList.find((c: any) => c.course_num === courseCode);
-
-        if (!course) {
-          throw new Error(`Course not found: ${courseCode}`);
-        }
-
-        // Construct xkhId using course information
-        const xkhId = course.fz_id || `${xqCode}-${courseCode}`;
-
-        // Construct the course documents URL
-        const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=1&up_id=0&searchName=`;
-
-        const data = await authenticatedRequest(url, true); // Use session ID
-
-        if (data) {
-          if (Array.isArray(data.resList)) {
-            // Update cache
-            setCachedData(cacheKey, data.resList);
-            saveCacheToFile(currentSession?.username);
-            return { data: data.resList, fromCache: false, age: 0 };
-          } else {
-            return { data: [], fromCache: false, age: 0 }; // No documents
-          }
-        }
-
-        throw new Error(
-          `Invalid response format. Expected 'resList' property but got: ${Object.keys(
-            data || {}
-          ).join(", ")}`
-        );
+        return { data: sanitizedDocuments, fromCache: false, age: 0 };
       } catch (error) {
         console.error("Failed to fetch course documents:", error);
         throw error;
