@@ -301,6 +301,7 @@ interface InputProps {
   type?: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
@@ -310,6 +311,7 @@ export const Input: React.FC<InputProps> = ({
   type = "text",
   value,
   onChange,
+  onBlur,
   placeholder,
   required = false,
   disabled = false,
@@ -319,6 +321,7 @@ export const Input: React.FC<InputProps> = ({
       type={type}
       value={value}
       onChange={onChange}
+      onBlur={onBlur}
       placeholder={placeholder}
       required={required}
       disabled={disabled}

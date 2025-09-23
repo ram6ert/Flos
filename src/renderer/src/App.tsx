@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Course, CourseDocument, UserSession } from "./shared-types";
 import CourseList from "./components/CourseList";
 import HomeworkList from "./components/HomeworkList";
@@ -11,12 +12,15 @@ import { Button, Loading } from "./components/common/StyledComponents";
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
 
 const App: React.FC = () => {
+  const { t } = useTranslation();
   const [activeView, setActiveView] = useState<ActiveView>("courses");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [documents, setDocuments] = useState<CourseDocument[]>([]);
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
+  const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     checkLoginStatus();
@@ -27,6 +31,19 @@ const App: React.FC = () => {
       loadCourses();
     }
   }, [userSession]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowLogoutDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     // Listen for cache updates
@@ -137,8 +154,24 @@ const App: React.FC = () => {
       setDocuments([]);
       setSelectedCourse(null);
       setActiveView("courses");
+      setShowLogoutDropdown(false);
     } catch (error) {
       console.error("Error during logout:", error);
+    }
+  };
+
+  const handleLogoutAndClearCredentials = async () => {
+    try {
+      await window.electronAPI.logout();
+      await window.electronAPI.clearStoredCredentials?.();
+      setUserSession(null);
+      setCourses([]);
+      setDocuments([]);
+      setSelectedCourse(null);
+      setActiveView("courses");
+      setShowLogoutDropdown(false);
+    } catch (error) {
+      console.error("Error during logout and clear credentials:", error);
     }
   };
 
@@ -206,14 +239,34 @@ const App: React.FC = () => {
               Welcome back, {userSession.username}!
             </p>
           </div>
-          <Button
-            onClick={handleLogout}
-            variant="secondary"
-            size="sm"
-            className="bg-white/20 hover:bg-white/30 border-white/30"
-          >
-            Logout
-          </Button>
+          <div className="relative" ref={dropdownRef}>
+            <Button
+              onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
+              variant="secondary"
+              size="sm"
+              className="bg-white/20 hover:bg-white/30 border-white/30"
+            >
+              {t('logout')} ▼
+            </Button>
+            {showLogoutDropdown && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                <div className="py-1">
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    {t('logout')}
+                  </button>
+                  <button
+                    onClick={handleLogoutAndClearCredentials}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    {t('logoutAndClear')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

@@ -40,6 +40,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     loadSavedCredentials();
   }, []);
 
+  // Auto-fill password with default pattern when username field loses focus
+  const handleUsernameBlur = () => {
+    if (username.trim() && !password) {
+      const defaultPassword = `Bjtu@${username.trim()}`;
+      setPassword(defaultPassword);
+      setIsPasswordHashed(false);
+    }
+  };
+
   const loadCaptcha = async () => {
     try {
       const result = await window.electronAPI.fetchCaptcha();
@@ -143,6 +152,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onBlur={handleUsernameBlur}
               required
               placeholder={t("enterStudentId")}
             />
