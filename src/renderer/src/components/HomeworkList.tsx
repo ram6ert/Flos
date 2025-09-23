@@ -82,27 +82,25 @@ const HomeworkList: React.FC = () => {
         const ageMinutes = Math.floor(response.age / (1000 * 60));
         setCacheInfo(
           response.fromCache
-            ? `Showing cached data (${ageMinutes} minutes old)`
-            : "Showing fresh data"
+            ? t('showingCachedData', { minutes: ageMinutes })
+            : t('showingFreshData')
         );
       } else {
         setHomework([]);
-        setCacheInfo("No homework data available");
+        setCacheInfo(t('noHomeworkDataAvailable'));
       }
     } catch (error) {
       console.error("Failed to fetch homework:", error);
       if (error instanceof Error) {
         if (error.message.includes("404") || error.message.includes("502")) {
-          setError(
-            "Please log in to view homework data. Authentication required."
-          );
+          setError(t('authenticationRequired'));
         } else if (error.message.includes("Session expired")) {
-          setError("Your session has expired. Please log in again.");
+          setError(t('sessionExpired'));
         } else {
-          setError("Failed to fetch homework data. Please try again later.");
+          setError(t('failedToFetchHomework'));
         }
       } else {
-        setError("An unexpected error occurred while fetching homework.");
+        setError(t('unexpectedError'));
       }
     } finally {
       setLoading(false);
@@ -126,7 +124,7 @@ const HomeworkList: React.FC = () => {
       ) {
         if (payload.data && Array.isArray(payload.data)) {
           setHomework(payload.data);
-          setCacheInfo("Data updated in background");
+          setCacheInfo(t('dataUpdatedInBackground'));
         }
       }
     };
@@ -179,13 +177,13 @@ const HomeworkList: React.FC = () => {
       );
       if (overdueDays > 0) {
         return {
-          text: `Overdue ${overdueDays}d ${overdueHours}h`,
+          text: t('overdueDaysHours', { days: overdueDays, hours: overdueHours }),
           color: "#dc3545",
           isOverdue: true,
         };
       } else {
         return {
-          text: `Overdue ${overdueHours}h`,
+          text: t('overdueHours', { hours: overdueHours }),
           color: "#dc3545",
           isOverdue: true,
         };
@@ -200,18 +198,18 @@ const HomeworkList: React.FC = () => {
 
     if (days > 0) {
       return {
-        text: `${days}d ${hours}h left`,
+        text: t('daysHoursLeft', { days, hours }),
         color: "#007bff",
         isOverdue: false,
       };
     } else if (hours > 0) {
       return {
-        text: `${hours}h ${minutes}m left`,
+        text: t('hoursMinutesLeft', { hours, minutes }),
         color: "#ffc107",
         isOverdue: false,
       };
     } else {
-      return { text: `${minutes}m left`, color: "#dc3545", isOverdue: false };
+      return { text: t('minutesLeft', { minutes }), color: "#dc3545", isOverdue: false };
     }
   };
 
@@ -270,7 +268,7 @@ const HomeworkList: React.FC = () => {
       setHomeworkDetails(newDetails);
     } catch (error) {
       console.error("Failed to fetch homework details:", error);
-      setError("Failed to load homework details. Please try again.");
+      setError(t('failedToLoadHomeworkDetails'));
     } finally {
       setDetailsLoading(false);
       const newFetching = new Set(fetchingDetails);
@@ -381,7 +379,7 @@ const HomeworkList: React.FC = () => {
       if (part.startsWith("**") && part.endsWith("**")) {
         const boldText = part.slice(2, -2);
         return (
-          <strong key={index} style={{ color: "#dc3545" }}>
+          <strong key={index} className="text-red-600">
             {boldText}
           </strong>
         );
@@ -458,7 +456,7 @@ const HomeworkList: React.FC = () => {
   if (loading) {
     return (
       <Container padding="lg">
-        <Loading message="Loading homework..." />
+        <Loading message={t('loadingHomework')} />
       </Container>
     );
   }
@@ -498,7 +496,7 @@ const HomeworkList: React.FC = () => {
 
       <div className="mb-6">
         <div className="mb-4">
-          <strong className="mr-3">Filter: </strong>
+          <strong className="mr-3">{t('filter')}: </strong>
           {["all", "pending", "submitted", "graded", "overdue"].map(
             (filterType) => (
               <button
@@ -511,23 +509,23 @@ const HomeworkList: React.FC = () => {
                     : "bg-gray-50 text-gray-700 hover:bg-gray-100"
                 )}
               >
-                {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+{t(filterType)}
               </button>
             )
           )}
         </div>
 
         <div className="flex items-center gap-3">
-          <strong>Sort by: </strong>
+          <strong>{t('sortBy')}: </strong>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
             className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="remaining_time">Remaining Time</option>
-            <option value="due_date">Due Date</option>
-            <option value="course">Course</option>
-            <option value="status">Status</option>
+            <option value="remaining_time">{t('remainingTime')}</option>
+            <option value="due_date">{t('dueDate')}</option>
+            <option value="course">{t('course')}</option>
+            <option value="status">{t('status')}</option>
           </select>
 
           <button
@@ -541,7 +539,7 @@ const HomeworkList: React.FC = () => {
 
       {filteredAndSortedHomework.length === 0 ? (
         <p className="text-gray-600">
-          No homework found for the selected filter.
+          {t('noHomeworkFound')}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -571,98 +569,60 @@ const HomeworkList: React.FC = () => {
                 </div>
 
                 {sanitizeContent(hw.content) && (
-                  <p
-                    style={{
-                      margin: "0 0 12px 0",
-                      color: "#555",
-                      fontSize: "14px",
-                      lineHeight: "1.4",
-                    }}
-                  >
+                  <p className="mb-3 text-gray-600 text-sm leading-relaxed">
                     {renderContentWithBold(sanitizeContent(hw.content))}
                   </p>
                 )}
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "8px",
-                    fontSize: "13px",
-                  }}
-                >
-                  <p style={{ margin: "0" }}>
-                    <strong>Course:</strong> {hw.course_name}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <p className="m-0">
+                    <strong>{t('course')}:</strong> {hw.course_name}
                   </p>
-                  <p style={{ margin: "0" }}>
-                    <strong>Max Score:</strong> {hw.score}
+                  <p className="m-0">
+                    <strong>{t('maxScore')}:</strong> {hw.score}
                   </p>
-                  <p style={{ margin: "0" }}>
-                    <strong>Due:</strong> {formatDeadline(hw.end_time)}
+                  <p className="m-0">
+                    <strong>{t('due')}:</strong> {formatDeadline(hw.end_time)}
                   </p>
-                  <p style={{ margin: "0" }}>
-                    <strong>Status:</strong>{" "}
+                  <p className="m-0">
+                    <strong>{t('status')}:</strong>{" "}
                     <span style={{ color: getStatusColor(hw) }}>
                       {translateStatus(hw.subStatus)}
                     </span>
                   </p>
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "8px",
-                    fontSize: "13px",
-                    marginTop: "8px",
-                  }}
-                >
-                  <p style={{ margin: "0" }}>
-                    <strong>Submitted:</strong> {hw.submitCount}/{hw.allCount}{" "}
-                    students
+                <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                  <p className="m-0">
+                    <strong>{t('submitted')}:</strong> {hw.submitCount}/{hw.allCount}{" "}
+                    {t('students')}
                   </p>
-                  <p style={{ margin: "0" }}>
-                    <strong>Grade:</strong> {translateScore(hw.stu_score)}
+                  <p className="m-0">
+                    <strong>{t('grade')}:</strong> {translateScore(hw.stu_score)}
                   </p>
                 </div>
 
                 {hw.subTime && (
-                  <p
-                    style={{
-                      margin: "8px 0 0 0",
-                      fontSize: "12px",
-                      color: "#666",
-                    }}
-                  >
-                    <strong>Submitted at:</strong> {formatDeadline(hw.subTime)}
+                  <p className="mt-2 text-xs text-gray-500">
+                    <strong>{t('submittedAt')}:</strong> {formatDeadline(hw.subTime)}
                   </p>
                 )}
 
                 {/* View Details Button */}
-                <div
-                  style={{
-                    marginTop: "12px",
-                    paddingTop: "12px",
-                    borderTop: "1px solid #eee",
-                  }}
-                >
+                <div className="mt-3 pt-3 border-t border-gray-200">
                   <button
                     onClick={() => handleToggleDetails(hw)}
                     disabled={detailsLoading && expandedHomework.has(hw.id)}
-                    style={{
-                      padding: "8px 16px",
-                      backgroundColor: expandedHomework.has(hw.id)
-                        ? "#dc3545"
-                        : "#007bff",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                    }}
+                    className={cn(
+                      "px-4 py-2 text-white border-none rounded cursor-pointer text-sm transition-colors",
+                      expandedHomework.has(hw.id)
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-blue-600 hover:bg-blue-700",
+                      (detailsLoading && expandedHomework.has(hw.id)) && "opacity-50 cursor-not-allowed"
+                    )}
                   >
                     {detailsLoading && expandedHomework.has(hw.id)
-                      ? "Loading..."
+                      ? t('loading')
                       : expandedHomework.has(hw.id)
                         ? t('hideDetails')
                         : t('viewDetails')}
@@ -671,47 +631,31 @@ const HomeworkList: React.FC = () => {
 
                 {/* Expanded Details View */}
                 {expandedHomework.has(hw.id) && homeworkDetails.get(hw.id) && (
-                  <div
-                    style={{
-                      marginTop: "16px",
-                      padding: "16px",
-                      backgroundColor: "#f8f9fa",
-                      borderRadius: "8px",
-                      border: "1px solid #dee2e6",
-                    }}
-                  >
-                    <h4 style={{ margin: "0 0 12px 0", color: "#495057" }}>
-                      Homework Details
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-300">
+                    <h4 className="mb-3 text-gray-700">
+                      {t('homeworkDetails')}
                     </h4>
 
                     {(() => {
                       const details = homeworkDetails.get(hw.id)!;
                       return (
                         <>
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr 1fr",
-                              gap: "12px",
-                              fontSize: "14px",
-                              marginBottom: "16px",
-                            }}
-                          >
-                            <p style={{ margin: "0" }}>
-                              <strong>Created:</strong>{" "}
+                          <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                            <p className="m-0">
+                              <strong>{t('created')}:</strong>{" "}
                               {new Date(details.create_date).toLocaleString()}
                             </p>
-                            <p style={{ margin: "0" }}>
-                              <strong>Open Date:</strong>{" "}
+                            <p className="m-0">
+                              <strong>{t('openDate')}:</strong>{" "}
                               {new Date(details.open_date).toLocaleString()}
                             </p>
                             {details.is_publish_answer === "1" && (
-                              <p style={{ margin: "0" }}>
-                                <strong>Answer:</strong> {details.ref_answer}
+                              <p className="m-0">
+                                <strong>{t('answer')}:</strong> {details.ref_answer}
                               </p>
                             )}
-                            <p style={{ margin: "0" }}>
-                              <strong>Repeat Allowed:</strong>{" "}
+                            <p className="m-0">
+                              <strong>{t('repeatAllowed')}:</strong>{" "}
                               {details.is_repeat ? t('yes') : t('no')}
                             </p>
                           </div>
@@ -719,25 +663,11 @@ const HomeworkList: React.FC = () => {
                           {/* Detailed Content */}
                           {details.content &&
                             sanitizeContent(details.content) && (
-                              <div style={{ marginBottom: "16px" }}>
-                                <h5
-                                  style={{
-                                    margin: "0 0 8px 0",
-                                    color: "#495057",
-                                  }}
-                                >
-                                  Full Description:
+                              <div className="mb-4">
+                                <h5 className="mb-2 text-gray-700">
+                                  {t('fullDescription')}:
                                 </h5>
-                                <div
-                                  style={{
-                                    padding: "12px",
-                                    backgroundColor: "#ffffff",
-                                    borderRadius: "4px",
-                                    border: "1px solid #dee2e6",
-                                    fontSize: "14px",
-                                    lineHeight: "1.5",
-                                  }}
-                                >
+                                <div className="p-3 bg-white rounded border border-gray-300 text-sm leading-6">
                                   {renderContentWithBold(
                                     sanitizeContent(details.content)
                                   )}
@@ -747,116 +677,60 @@ const HomeworkList: React.FC = () => {
 
                           {/* Attachments */}
                           {(details.attachments && details.attachments.length > 0) || details.url ? (
-                            <div style={{ marginBottom: "16px" }}>
-                              <h5
-                                style={{
-                                  margin: "0 0 12px 0",
-                                  color: "#495057",
-                                }}
-                              >
-                                Attachments:
+                            <div className="mb-4">
+                              <h5 className="mb-3 text-gray-700">
+                                {t('attachments')}:
                               </h5>
-                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <div className="flex flex-col gap-2">
                                 {details.attachments && details.attachments.length > 0 ? (
                                   details.attachments.map((attachment, index) => (
                                     <div
                                       key={`${attachment.id}-${index}`}
-                                      style={{
-                                        padding: "12px",
-                                        backgroundColor: "#ffffff",
-                                        borderRadius: "4px",
-                                        border: "1px solid #dee2e6",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                      }}
+                                      className="p-3 bg-white rounded border border-gray-300 flex items-center justify-between"
                                     >
                                       <div>
-                                        <div
-                                          style={{
-                                            fontWeight: "bold",
-                                            marginBottom: "4px",
-                                          }}
-                                        >
+                                        <div className="font-bold mb-1">
                                           📎 {attachment.file_name}
                                           {attachment.type && (
                                             <span
-                                              style={{
-                                                marginLeft: "8px",
-                                                fontSize: "10px",
-                                                padding: "2px 6px",
-                                                backgroundColor: attachment.type === 'answer' ? "#17a2b8" : "#6c757d",
-                                                color: "white",
-                                                borderRadius: "3px",
-                                              }}
+                                              className={cn(
+                                                "ml-2 text-xs px-1.5 py-0.5 text-white rounded",
+                                                attachment.type === 'answer' ? "bg-cyan-600" : "bg-gray-600"
+                                              )}
                                             >
-                                              {attachment.type === 'answer' ? 'Answer' : 'Homework'}
+                                              {attachment.type === 'answer' ? t('answer') : t('homework')}
                                             </span>
                                           )}
                                         </div>
-                                        <div
-                                          style={{
-                                            fontSize: "12px",
-                                            color: "#6c757d",
-                                          }}
-                                        >
-                                          Size: {formatFileSize(attachment.pic_size)}
+                                        <div className="text-xs text-gray-500">
+                                          {t('size')}: {formatFileSize(attachment.pic_size)}
                                         </div>
                                       </div>
                                       <button
                                         onClick={() => handleDownloadAttachment(attachment)}
                                         disabled={downloadingAttachment === attachment.url}
-                                        style={{
-                                          padding: "6px 12px",
-                                          backgroundColor:
-                                            downloadingAttachment === attachment.url
-                                              ? "#ccc"
-                                              : "#28a745",
-                                          color: "white",
-                                          border: "none",
-                                          borderRadius: "4px",
-                                          cursor:
-                                            downloadingAttachment === attachment.url
-                                              ? "not-allowed"
-                                              : "pointer",
-                                          fontSize: "12px",
-                                        }}
+                                        className={cn(
+                                          "px-3 py-1.5 text-white border-none rounded text-xs transition-colors",
+                                          downloadingAttachment === attachment.url
+                                            ? "bg-gray-400 cursor-not-allowed"
+                                            : "bg-green-600 hover:bg-green-700 cursor-pointer"
+                                        )}
                                       >
                                         {downloadingAttachment === attachment.url
-                                          ? "Downloading..."
+                                          ? t('downloading')
                                           : t('download')}
                                       </button>
                                     </div>
                                   ))
                                 ) : details.url ? (
                                   // Fallback for legacy single attachment format
-                                  <div
-                                    style={{
-                                      padding: "12px",
-                                      backgroundColor: "#ffffff",
-                                      borderRadius: "4px",
-                                      border: "1px solid #dee2e6",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "space-between",
-                                    }}
-                                  >
+                                  <div className="p-3 bg-white rounded border border-gray-300 flex items-center justify-between">
                                     <div>
-                                      <div
-                                        style={{
-                                          fontWeight: "bold",
-                                          marginBottom: "4px",
-                                        }}
-                                      >
+                                      <div className="font-bold mb-1">
                                         📎 {details.file_name}
                                       </div>
-                                      <div
-                                        style={{
-                                          fontSize: "12px",
-                                          color: "#6c757d",
-                                        }}
-                                      >
-                                        Size: {formatFileSize(details.pic_size)}
+                                      <div className="text-xs text-gray-500">
+                                        {t('size')}: {formatFileSize(details.pic_size)}
                                       </div>
                                     </div>
                                     <button
@@ -870,21 +744,12 @@ const HomeworkList: React.FC = () => {
                                         })
                                       }
                                       disabled={downloadingAttachment === details.url}
-                                      style={{
-                                        padding: "6px 12px",
-                                        backgroundColor:
-                                          downloadingAttachment === details.url
-                                            ? "#ccc"
-                                            : "#28a745",
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "4px",
-                                        cursor:
-                                          downloadingAttachment === details.url
-                                            ? "not-allowed"
-                                            : "pointer",
-                                        fontSize: "12px",
-                                      }}
+                                      className={cn(
+                                        "px-3 py-1.5 text-white border-none rounded text-xs transition-colors",
+                                        downloadingAttachment === details.url
+                                          ? "bg-gray-400 cursor-not-allowed"
+                                          : "bg-green-600 hover:bg-green-700 cursor-pointer"
+                                      )}
                                     >
                                       {downloadingAttachment === details.url
                                         ? "Downloading..."
