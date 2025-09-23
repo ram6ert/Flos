@@ -32,6 +32,49 @@ export async function fetchHomeworkDetails(
   const data = await authenticatedRequest(url, true); // Use session ID
 
   if (data && data.homeWork) {
+    // Process multiple attachments from picList and answerPicList
+    const attachments = [];
+
+    // Add attachments from picList (homework files)
+    if (data.picList && Array.isArray(data.picList)) {
+      attachments.push(
+        ...data.picList.map((pic: any) => ({
+          ...pic,
+          type: "homework",
+        }))
+      );
+    }
+
+    // Add attachments from answerPicList (answer files)
+    if (data.answerPicList && Array.isArray(data.answerPicList)) {
+      attachments.push(
+        ...data.answerPicList.map((pic: any) => ({
+          ...pic,
+          type: "answer",
+        }))
+      );
+    }
+
+    // If homework details has a single attachment (legacy format), add it too
+    if (data.homeWork.url && data.homeWork.file_name) {
+      const existingAttachment = attachments.find(
+        (att) => att.url === data.homeWork.url
+      );
+      if (!existingAttachment) {
+        attachments.push({
+          id: data.homeWork.id,
+          url: data.homeWork.url,
+          file_name: data.homeWork.file_name,
+          convert_url: data.homeWork.convert_url,
+          pic_size: data.homeWork.pic_size,
+          type: "homework",
+        });
+      }
+    }
+
+    // Add the processed attachments to homework details
+    data.homeWork.attachments = attachments;
+
     return data;
   }
 

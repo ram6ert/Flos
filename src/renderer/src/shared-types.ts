@@ -82,6 +82,7 @@ export interface HomeworkDetails {
   stu_weight: number;
   stu_completion: number;
   evaluation_num: number;
+  attachments?: HomeworkAttachment[];
 }
 
 export interface HomeworkAttachment {
@@ -90,6 +91,7 @@ export interface HomeworkAttachment {
   file_name: string;
   convert_url: string;
   pic_size: number;
+  type?: "homework" | "answer";
 }
 
 export interface HomeworkDetailsResponse {

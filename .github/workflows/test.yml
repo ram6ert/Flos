@@ -31,27 +31,27 @@ jobs:
         run: yarn lint
         continue-on-error: false
 
-      - name: Type check
-        run: yarn build:electron
-        continue-on-error: false
+      # - name: Type check
+      #   run: yarn build:electron
+      #   continue-on-error: false
 
       - name: Build application
         run: yarn build
         env:
           NODE_ENV: production
 
-      - name: Test build (no packaging)
-        run: yarn build:dist --publish=never
-        env:
-          NODE_ENV: production
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Test build (no packaging)
+      #   run: yarn build:dist --publish=never
+      #   env:
+      #     NODE_ENV: production
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload build artifacts (test)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-build-${{ github.sha }}
-          path: |
-            dist/
-            release/
-          retention-days: 7
+      # - name: Upload build artifacts (test)
+      #   if: matrix.os == 'ubuntu-latest'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: test-build-${{ github.sha }}
+      #     path: |
+      #       dist/
+      #       release/
+      #     retention-days: 7

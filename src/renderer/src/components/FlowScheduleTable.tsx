@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { ScheduleData, ScheduleEntry } from "../shared-types";
 import {
   Container,
@@ -22,6 +23,7 @@ interface CourseFlow {
 }
 
 const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
+  const { t } = useTranslation();
   const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,13 +35,13 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
   const timelineHeight = 800; // pixels
 
   const weekdays = [
-    { short: "Mon", full: "Monday", index: 0 },
-    { short: "Tue", full: "Tuesday", index: 1 },
-    { short: "Wed", full: "Wednesday", index: 2 },
-    { short: "Thu", full: "Thursday", index: 3 },
-    { short: "Fri", full: "Friday", index: 4 },
-    { short: "Sat", full: "Saturday", index: 5 },
-    { short: "Sun", full: "Sunday", index: 6 },
+    { short: t("mon"), full: t("monday"), index: 0 },
+    { short: t("tue"), full: t("tuesday"), index: 1 },
+    { short: t("wed"), full: t("wednesday"), index: 2 },
+    { short: t("thu"), full: t("thursday"), index: 3 },
+    { short: t("fri"), full: t("friday"), index: 4 },
+    { short: t("sat"), full: t("saturday"), index: 5 },
+    { short: t("sun"), full: t("sunday"), index: 6 },
   ];
 
   const loadSchedule = async (forceRefresh = false) => {
@@ -225,9 +227,6 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
               NOW {currentTimeStr}
             </span>
           </div>
-          <div className="absolute right-2 -top-1">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg"></div>
-          </div>
         </div>
       </div>
     );
@@ -261,7 +260,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
   if (isLoading) {
     return (
       <Container padding="lg">
-        <PageHeader title="🌊 Course Flow Schedule" />
+        <PageHeader title={t("flowSchedule")} />
         <Loading message="Loading schedule flow..." />
       </Container>
     );
@@ -271,7 +270,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     return (
       <Container padding="lg">
         <PageHeader
-          title="🌊 Course Flow Schedule"
+          title={t("flowSchedule")}
           actions={
             <Button onClick={handleRefresh} variant="primary" size="sm">
               Refresh
@@ -279,10 +278,10 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
           }
         />
         <ErrorDisplay
-          title="Failed to Load Schedule"
+          title={t("failedToLoadSchedule")}
           message={error}
           onRetry={handleRefresh}
-          retryLabel="Try Again"
+          retryLabel={t("tryAgain")}
         />
       </Container>
     );
@@ -292,7 +291,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     return (
       <Container padding="lg">
         <PageHeader
-          title="🌊 Course Flow Schedule"
+          title={t("flowSchedule")}
           actions={
             <Button onClick={handleRefresh} variant="primary" size="sm">
               Refresh
@@ -308,17 +307,17 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
 
   // Colors for flow blocks (rotate by index for variety)
   const blockColors = [
-    { border: "border-l-red-500", chip: "bg-red-50 text-red-600" },
-    { border: "border-l-blue-500", chip: "bg-blue-50 text-blue-600" },
-    { border: "border-l-green-500", chip: "bg-green-50 text-green-600" },
-    { border: "border-l-amber-500", chip: "bg-amber-50 text-amber-600" },
+    { chip: "bg-red-50 text-red-600" },
+    { chip: "bg-blue-50 text-blue-600" },
+    { chip: "bg-green-50 text-green-600" },
+    { chip: "bg-amber-50 text-amber-600" },
   ];
 
   return (
     <Container padding="lg">
       <PageHeader
-        title="🌊 Course Flow Schedule"
-        subtitle={`Week ${currentWeek.weekNumber} • ${formatDate(currentWeek.startDate)} - ${formatDate(currentWeek.endDate)}`}
+        title={t("flowSchedule")}
+        subtitle={`${t("week")} ${currentWeek.weekNumber} • ${formatDate(currentWeek.startDate)} - ${formatDate(currentWeek.endDate)}`}
         actions={
           <Button onClick={handleRefresh} variant="primary" size="sm">
             Refresh
@@ -345,95 +344,106 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
                 const isToday = isTodayColumn(day.index);
                 return (
                   <div key={day.index} className="flex-1 min-w-[120px]">
-                    <div className={cn(
-                      "text-center px-2.5 py-3 border-b border-gray-200 h-[52px] flex flex-col justify-center",
-                      isToday
-                        ? "bg-blue-100 text-blue-900 border-blue-300"
-                        : "bg-gray-100 text-gray-900"
-                    )}>
-                      <span className={cn(
-                        "block font-semibold text-sm mb-0.5",
-                        isToday && "text-blue-800"
-                      )}>
+                    <div
+                      className={cn(
+                        "text-center px-2.5 py-3 border-b border-gray-200 h-[52px] flex flex-col justify-center",
+                        isToday
+                          ? "bg-blue-100 text-blue-900 border-blue-300"
+                          : "bg-gray-100 text-gray-900"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "block font-semibold text-sm mb-0.5",
+                          isToday && "text-blue-800"
+                        )}
+                      >
                         {day.short}
                         {isToday && " 🌟"}
                       </span>
-                      <span className={cn(
-                        "block text-xs",
-                        isToday ? "text-blue-700" : "text-gray-600"
-                      )}>
+                      <span
+                        className={cn(
+                          "block text-xs",
+                          isToday ? "text-blue-700" : "text-gray-600"
+                        )}
+                      >
                         {getDateForDay(day.index)}
                       </span>
                     </div>
 
-                  <div
-                    className={cn(
-                      "relative overflow-hidden border border-t-0",
-                      isToday
-                        ? "border-blue-300 bg-gradient-to-b from-blue-100/40 via-blue-50/40 to-blue-100/40"
-                        : "border-gray-200 bg-gradient-to-b from-indigo-50/30 via-blue-50/30 to-teal-50/30"
-                    )}
-                    style={{ height: `${timelineHeight}px` }}
-                  >
-                    {getCoursesForDay(day.index).map((flow, index) => {
-                      const color = blockColors[index % blockColors.length];
-                      const isOngoing = isOngoingCourse(flow);
-                      return (
-                        <div
-                          key={`${flow.course.id}-${index}`}
-                          className={cn(
-                            "absolute left-1 right-1 rounded-md p-2 cursor-pointer transition shadow",
-                            "hover:translate-x-2 hover:shadow-lg",
-                            "backdrop-blur-sm",
-                            "hover:z-50",
-                            isOngoing
-                              ? "bg-red-100/95 border-2 border-red-500 shadow-lg shadow-red-200 animate-pulse hover:bg-red-200/90"
-                              : "bg-white/95 hover:bg-blue-50/90",
-                            color.border
-                          )}
-                          style={getFlowStyle(flow)}
-                          title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}${isOngoing ? '\n🔴 Currently ongoing!' : ''}`}
-                        >
-                          <div className="h-full flex flex-col justify-between">
-                            <div className={cn(
-                              "font-semibold text-[13px] mb-1 leading-snug line-clamp-2",
-                              isOngoing ? "text-red-900" : "text-gray-900"
-                            )}>
-                              {isOngoing && "🔴 "}
-                              {flow.course.course.name}
-                            </div>
-                            <div
-                              className={cn(
-                                "text-[11px] font-semibold mb-1 px-1.5 py-0.5 rounded text-center",
-                                isOngoing
-                                  ? "bg-red-200 text-red-800 border border-red-300"
-                                  : color.chip
-                              )}
-                            >
-                              {formatTimeFromMinutes(flow.startMinutes)}-
-                              {formatTimeFromMinutes(
-                                flow.startMinutes + flow.durationMinutes
-                              )}
-                              {isOngoing && " 🔴"}
-                            </div>
-                            <div className={cn(
-                              "text-[10px] truncate",
-                              isOngoing ? "text-red-700" : "text-gray-600"
-                            )}>
-                              👨‍🏫 {flow.course.course.teacher}
-                            </div>
-                            <div className={cn(
-                              "text-[10px] truncate",
-                              isOngoing ? "text-red-700" : "text-gray-600"
-                            )}>
-                              📍 {flow.course.course.classroom}
+                    <div
+                      className={cn(
+                        "relative overflow-hidden border border-t-0",
+                        isToday
+                          ? "border-blue-300 bg-gradient-to-b from-blue-100/40 via-blue-50/40 to-blue-100/40"
+                          : "border-gray-200 bg-gradient-to-b from-indigo-50/30 via-blue-50/30 to-teal-50/30"
+                      )}
+                      style={{ height: `${timelineHeight}px` }}
+                    >
+                      {getCoursesForDay(day.index).map((flow, index) => {
+                        const color = blockColors[index % blockColors.length];
+                        const isOngoing = isOngoingCourse(flow);
+                        return (
+                          <div
+                            key={`${flow.course.id}-${index}`}
+                            className={cn(
+                              "absolute left-1 right-1 rounded-md p-2 cursor-pointer transition shadow",
+                              "hover:translate-x-2 hover:shadow-lg",
+                              "backdrop-blur-sm",
+                              "hover:z-50",
+                              isOngoing
+                                ? "bg-red-100/95 border-2 border-red-500 shadow-lg shadow-red-200 animate-pulse hover:bg-red-200/90"
+                                : "bg-white/95 hover:bg-blue-50/90"
+                            )}
+                            style={getFlowStyle(flow)}
+                            title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\n${t("teacher")}: ${flow.course.course.teacher}\n${t("room")}: ${flow.course.course.classroom}${isOngoing ? `\n🔴 ${t("currentlyOngoing")}` : ""}`}
+                          >
+                            <div className="h-full flex flex-col justify-between">
+                              <div
+                                className={cn(
+                                  "font-semibold text-[13px] mb-1 leading-snug line-clamp-2",
+                                  isOngoing ? "text-red-900" : "text-gray-900"
+                                )}
+                              >
+                                {isOngoing && "🔴 "}
+                                {flow.course.course.name}
+                              </div>
+                              <div
+                                className={cn(
+                                  "text-[11px] font-semibold mb-1 px-1.5 py-0.5 rounded text-center",
+                                  isOngoing
+                                    ? "bg-red-200 text-red-800 border border-red-300"
+                                    : color.chip
+                                )}
+                              >
+                                {formatTimeFromMinutes(flow.startMinutes)}-
+                                {formatTimeFromMinutes(
+                                  flow.startMinutes + flow.durationMinutes
+                                )}
+                                {isOngoing && " 🔴"}
+                              </div>
+                              <div
+                                className={cn(
+                                  "text-[10px] truncate",
+                                  isOngoing ? "text-red-700" : "text-gray-600"
+                                )}
+                              >
+                                👨‍🏫 {flow.course.course.teacher}
+                              </div>
+                              <div
+                                className={cn(
+                                  "text-[10px] truncate",
+                                  isOngoing ? "text-red-700" : "text-gray-600"
+                                )}
+                              >
+                                📍 {flow.course.course.classroom}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
                 );
               })}
             </div>

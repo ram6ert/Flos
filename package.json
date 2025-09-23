@@ -1,12 +1,12 @@
 {
   "name": "smart-course-platform",
-  "version": "1.4.11",
+  "version": "1.4.12",
   "description": "An Electron app for convenient access to course information, homework, and documents",
   "main": "dist/main/index.min.js",
   "scripts": {
     "dev": "concurrently \"yarn dev:vite\" \"yarn dev:electron\"",
     "dev:vite": "vite",
-    "dev:electron": "sleep 3 && cross-env NODE_ENV=development electron .",
+    "dev:electron": "cross-env NODE_ENV=development electron .",
     "build": "cross-env NODE_ENV=production yarn build:vite && yarn build:electron",
     "build:vite": "cross-env NODE_ENV=production vite build",
     "build:electron": "tsc -p tsconfig.main.json && webpack --config webpack.main.config.js",
@@ -31,13 +31,14 @@
   "license": "MIT",
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
-    "@types/crypto-js": "^4.1.1",
     "@types/cheerio": "^0.22.31",
+    "@types/crypto-js": "^4.1.1",
     "@types/node": "^20.5.0",
     "@types/react": "^18.2.20",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.4.0",
     "@typescript-eslint/parser": "^6.4.0",
+    "@tailwindcss/vite": "^4.1.13",
     "@vitejs/plugin-react": "^4.0.4",
     "concurrently": "^8.2.0",
     "cross-env": "^7.0.3",
@@ -55,16 +56,18 @@
     "vite": "^4.4.8",
     "wait-on": "^7.0.1",
     "webpack": "^5.101.3",
-    "webpack-cli": "^6.0.1"
-  },
-  "dependencies": {
-    "@tailwindcss/vite": "^4.1.13",
-    "axios": "^1.5.0",
-    "crypto-js": "^4.1.1",
-    "iconv-lite": "^0.7.0",
-    "cheerio": "1.0.0-rc.10",
+    "webpack-cli": "^6.0.1",
+    "i18next": "^25.5.2",
+    "i18next-browser-languagedetector": "^8.2.0",
+    "react-i18next": "^15.7.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "cheerio": "1.0.0-rc.10",
+    "crypto-js": "^4.1.1",
+    "iconv-lite": "^0.7.0"
   },
   "build": {
     "appId": "com.smartcourse.platform",

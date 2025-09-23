@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import CryptoJS from "crypto-js";
 import {
   Button,
@@ -24,6 +25,7 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passcode, setPasscode] = useState("");
@@ -133,20 +135,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           Sign in to access your courses
         </p>
 
-        {error && <ErrorDisplay message={error} title="Login Failed" />}
+        {error && <ErrorDisplay message={error} title={t("loginFailed")} />}
 
         <form onSubmit={handleSubmit}>
-          <FormGroup label="Username (Student ID)">
+          <FormGroup label={t("username")}>
             <Input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder="Enter your student ID"
+              placeholder={t("enterStudentId")}
             />
           </FormGroup>
 
-          <FormGroup label="Password">
+          <FormGroup label={t("password")}>
             <div className="flex gap-2 items-center">
               <Input
                 type="password"
@@ -156,7 +158,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   setIsPasswordHashed(false);
                 }}
                 required
-                placeholder="Enter your password"
+                placeholder={t("enterPassword")}
               />
               <Button
                 type="button"
@@ -172,14 +174,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
           </FormGroup>
 
-          <FormGroup label="Verification Code">
+          <FormGroup label={t("verificationCode")}>
             <div className="flex gap-2 items-center">
               <Input
                 type="text"
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
                 required
-                placeholder="Enter captcha"
+                placeholder={t("enterCaptcha")}
               />
               <div className="relative">
                 <img
@@ -187,7 +189,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   alt="Captcha"
                   className="h-10 border border-gray-300 rounded-md cursor-pointer"
                   onClick={loadCaptcha}
-                  title="Click to refresh"
+                  title={t("clickToRefresh")}
                 />
               </div>
             </div>
@@ -215,7 +217,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             size="lg"
             className="w-full"
           >
-            {isLoading ? "Signing in..." : "Sign In"}
+            {isLoading ? t("signingIn") : t("loginButton")}
           </Button>
         </form>
 
