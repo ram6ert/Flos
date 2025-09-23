@@ -59,6 +59,12 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const api = window.electronAPI;
+
+    if (!api) {
+      return undefined;
+    }
+
     // Listen for cache updates
     const handleCacheUpdate = (
       _event: any,
@@ -149,28 +155,28 @@ const App: React.FC = () => {
       });
     };
 
-    window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
-    window.electronAPI.onSessionExpired?.(handleSessionExpired);
-    window.electronAPI.onUpdateAvailable?.(handleUpdateAvailable);
-    window.electronAPI.onUpdateCheckComplete?.(handleUpdateCheckComplete);
-    window.electronAPI.onUpdateCheckError?.(handleUpdateCheckError);
-    window.electronAPI.onUpdateChecking?.(handleUpdateChecking);
-    window.electronAPI.onDownloadStarted?.(handleDownloadStarted);
-    window.electronAPI.onDownloadProgress?.(handleDownloadProgress);
-    window.electronAPI.onDownloadCompleted?.(handleDownloadCompleted);
-    window.electronAPI.onDownloadError?.(handleDownloadError);
+    api.onCacheUpdate?.(handleCacheUpdate);
+    api.onSessionExpired?.(handleSessionExpired);
+    api.onUpdateAvailable?.(handleUpdateAvailable);
+    api.onUpdateCheckComplete?.(handleUpdateCheckComplete);
+    api.onUpdateCheckError?.(handleUpdateCheckError);
+    api.onUpdateChecking?.(handleUpdateChecking);
+    api.onDownloadStarted?.(handleDownloadStarted);
+    api.onDownloadProgress?.(handleDownloadProgress);
+    api.onDownloadCompleted?.(handleDownloadCompleted);
+    api.onDownloadError?.(handleDownloadError);
 
     return () => {
-      window.electronAPI.removeAllListeners?.("cache-updated");
-      window.electronAPI.removeAllListeners?.("session-expired");
-      window.electronAPI.removeAllListeners?.("update-available");
-      window.electronAPI.removeAllListeners?.("update-check-complete");
-      window.electronAPI.removeAllListeners?.("update-check-error");
-      window.electronAPI.removeAllListeners?.("update-checking");
-      window.electronAPI.removeAllListeners?.("download-started");
-      window.electronAPI.removeAllListeners?.("download-progress");
-      window.electronAPI.removeAllListeners?.("download-completed");
-      window.electronAPI.removeAllListeners?.("download-error");
+      api.removeAllListeners?.("cache-updated");
+      api.removeAllListeners?.("session-expired");
+      api.removeAllListeners?.("update-available");
+      api.removeAllListeners?.("update-check-complete");
+      api.removeAllListeners?.("update-check-error");
+      api.removeAllListeners?.("update-checking");
+      api.removeAllListeners?.("download-started");
+      api.removeAllListeners?.("download-progress");
+      api.removeAllListeners?.("download-completed");
+      api.removeAllListeners?.("download-error");
     };
   }, []);
 

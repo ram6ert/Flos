@@ -11,7 +11,6 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
   const { t } = useTranslation();
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
-  const { t } = useTranslation();
 
   const menuItems = [
     { id: "courses", label: t("courses"), icon: "📚" },
@@ -23,8 +22,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
   const handleCheckUpdates = async () => {
     try {
       setIsCheckingUpdates(true);
-      const result = await window.electronAPI.checkForUpdates();
 
+      const api = window.electronAPI;
+
+      if (!api?.checkForUpdates) {
+        console.warn("Update API unavailable in current context");
+        return;
+      }
+
+      const result = await api.checkForUpdates();
+      
       if (result.hasUpdate && result.updateInfo) {
         console.log(`发现新版本: ${result.updateInfo.version} (当前: ${result.currentVersion})`);
       } else if (result.error) {
