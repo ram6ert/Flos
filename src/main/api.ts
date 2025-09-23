@@ -279,13 +279,13 @@ export async function fetchCourseList() {
         });
       });
 
-      // Enrich course list with schedule info
+      // Enrich course list with schedule info and sanitize
       const enrichedCourses = data.courseList.map((course: any) => {
         const courseKey = course.name.toLowerCase().trim();
         const scheduleInfo = scheduleCourseMap.get(courseKey);
 
         if (scheduleInfo && scheduleInfo.length > 0) {
-          return {
+          const courseWithSchedule = {
             ...course,
             schedule: {
               timeSlots: scheduleInfo,
@@ -293,9 +293,10 @@ export async function fetchCourseList() {
               studentCount: scheduleInfo[0].studentCount,
             },
           };
+          return sanitizeCourse(courseWithSchedule);
         }
 
-        return course;
+        return sanitizeCourse(course);
       });
 
       Logger.event(
@@ -307,7 +308,8 @@ export async function fetchCourseList() {
         "Failed to enrich courses with schedule data, returning basic course list",
         scheduleError
       );
-      return data.courseList;
+      // Still sanitize the basic course list
+      return data.courseList.map(sanitizeCourse);
     }
   }
   throw new Error("Failed to get course list");
@@ -575,13 +577,13 @@ export async function fetchCourseDocuments(courseCode: string) {
     setCachedData("courses", courseList);
   }
 
-  const course = courseList.find((c: any) => c.course_num === courseCode);
+  const course = courseList.find((c: any) => c.courseNumber === courseCode);
   if (!course) {
     throw new Error(`Course not found: ${courseCode}`);
   }
 
   // Construct xkhId using course information
-  const xkhId = course.fz_id || `${xqCode}-${courseCode}`;
+  const xkhId = course.facilityId || `${xqCode}-${courseCode}`;
 
   // Construct the course documents URL
   const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=1&up_id=0&searchName=`;

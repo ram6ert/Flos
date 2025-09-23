@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Course } from "../shared-types";
+import { Course } from "../types/course";
 import { CourseDocument } from "../types/documents";
 import {
   Container,
@@ -36,14 +36,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
       if (!selectedCourse) return;
 
       // Create a unique request ID to track this request
-      const requestId = `${selectedCourse.course_num}-${Date.now()}`;
+      const requestId = `${selectedCourse.courseNumber}-${Date.now()}`;
       currentRequestRef.current = requestId;
 
       try {
         setLoading(true);
         setError("");
         const response = await window.electronAPI.getCourseDocuments(
-          selectedCourse.course_num,
+          selectedCourse.courseNumber,
           { skipCache: forceRefresh }
         );
 
@@ -186,7 +186,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
     return (
       <div className="flex flex-col gap-3">
         {realDocuments
-          .sort((a, b) => a.rpName.localeCompare(b.rpName))
+          .sort((a, b) => a.name.localeCompare(b.name))
           .map((doc) => (
             <Card key={doc.id} padding="lg">
               <div className="flex justify-between items-center w-full">
@@ -253,7 +253,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
               value={selectedCourse?.id || ""}
               onChange={(e) => {
                 const course = courses.find(
-                  (c) => c.id.toString() === e.target.value
+                  (c) => c.id === e.target.value
                 );
                 if (course) onCourseSelect(course);
               }}
@@ -262,7 +262,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
               <option value="">Select a course</option>
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
-                  {course.course_num} - {course.name}
+                  {course.courseNumber} - {course.name}
                 </option>
               ))}
             </select>
@@ -285,8 +285,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
           <div>
             <strong>{selectedCourse.name}</strong>
             <div className="mt-2 text-sm">
-              <strong>Teacher:</strong> {selectedCourse.teacher_name} •{" "}
-              <strong>Course Code:</strong> {selectedCourse.course_num}
+              <strong>Teacher:</strong> {selectedCourse.teacherName} •{" "}
+              <strong>Course Code:</strong> {selectedCourse.courseNumber}
             </div>
           </div>
         </InfoBanner>
