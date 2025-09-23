@@ -709,16 +709,11 @@ export async function* fetchHomeworkStreaming(
       }
     }
   } finally {
-    // Clean up and update cache with complete data
+    // Clean up streaming operations
     ongoingStreamingOps.delete(streamingKey);
-
-    // Update cache with complete homework data to maintain cache integrity
-    if (allHomework.length > 0) {
-      setCachedData(streamingKey, allHomework);
-      Logger.debug(
-        `Updated cache for ${streamingKey} with ${allHomework.length} homework items`
-      );
-    }
+    Logger.debug(
+      `Completed homework streaming for ${streamingKey} with ${allHomework.length} homework items`
+    );
   }
 }
 
@@ -1012,16 +1007,11 @@ export async function* fetchDocumentsStreaming(
       }
     }
   } finally {
-    // Clean up and update cache with complete data
+    // Clean up streaming operations
     ongoingStreamingOps.delete(streamingKey);
-
-    // Update cache with complete document data to maintain cache integrity
-    if (allDocuments.length > 0) {
-      setCachedData(streamingKey, allDocuments);
-      Logger.debug(
-        `Updated cache for ${streamingKey} with ${allDocuments.length} document items`
-      );
-    }
+    Logger.debug(
+      `Completed document streaming for ${streamingKey} with ${allDocuments.length} document items`
+    );
   }
 }
 

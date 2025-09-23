@@ -22,8 +22,6 @@ import {
   saveCacheToFile,
   getCachedData,
   setCachedData,
-  getCacheTimestamp,
-  CACHE_DURATION,
   COURSE_CACHE_DURATION,
   clearCache,
 } from "./cache";
@@ -345,32 +343,9 @@ ipcMain.handle(
       throw new Error("Not logged in");
     }
 
-    const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
-
-    // If skipCache is requested, fetch fresh data immediately
-    if (options?.skipCache) {
-      return requestQueue.add(async () => {
-        const data = await fetchHomeworkData(courseId);
-        setCachedData(cacheKey, data);
-        saveCacheToFile(currentSession?.username);
-        return { data, fromCache: false, age: 0 };
-      });
-    }
-
-    const cachedData = getCachedData(cacheKey, CACHE_DURATION);
-    const cacheTimestamp = getCacheTimestamp(cacheKey);
-    const age = Date.now() - cacheTimestamp;
-
-    // If we have cached data, return it immediately without background refresh
-    if (cachedData) {
-      return { data: cachedData, fromCache: true, age };
-    }
-
-    // No cache, fetch fresh data
+    // Always fetch fresh data - no caching for homework
     return requestQueue.add(async () => {
       const data = await fetchHomeworkData(courseId);
-      setCachedData(cacheKey, data);
-      saveCacheToFile(currentSession?.username);
       return { data, fromCache: false, age: 0 };
     });
   }
@@ -381,12 +356,9 @@ ipcMain.handle("refresh-homework", async (event, courseId?: string) => {
     throw new Error("Not logged in");
   }
 
-  const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
-
+  // Always fetch fresh data - no caching for homework
   return requestQueue.add(async () => {
     const data = await fetchHomeworkData(courseId);
-    setCachedData(cacheKey, data);
-    saveCacheToFile(currentSession?.username);
     return { data, fromCache: false, age: 0 };
   });
 });
@@ -397,25 +369,7 @@ ipcMain.handle("stream-homework", async (event, courseId?: string) => {
     throw new Error("Not logged in");
   }
 
-  const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
-
-  // Check cache first - if we have recent data, return it immediately
-  const cachedData = getCachedData(cacheKey, CACHE_DURATION);
-  if (cachedData) {
-    // Send cached data immediately
-    event.sender.send("homework-stream-chunk", {
-      homework: cachedData,
-      courseId: courseId || null,
-      courseName: "Cached Data",
-      type: "cached",
-      isComplete: true,
-      fromCache: true
-    });
-
-    return { data: cachedData, fromCache: true, age: 0 };
-  }
-
-  // No cache or expired - start streaming
+  // Always start streaming fresh data - no caching for homework
   try {
     const generator = fetchHomeworkStreaming(courseId, (progress) => {
       // Send progress updates
@@ -426,81 +380,57 @@ ipcMain.handle("stream-homework", async (event, courseId?: string) => {
       // Send each chunk as it arrives
       event.sender.send("homework-stream-chunk", {
         ...chunk,
-        fromCache: false
+        fromCache: false,
       });
     }
 
     // Send completion signal
     event.sender.send("homework-stream-complete", { courseId });
 
-    // Return final cached data
-    const finalData = getCachedData(cacheKey, CACHE_DURATION);
-    return { data: finalData || [], fromCache: false, age: 0 };
-
+    return { data: [], fromCache: false, age: 0 };
   } catch (error) {
     event.sender.send("homework-stream-error", {
-      error: error instanceof Error ? error.message : "Streaming failed"
+      error: error instanceof Error ? error.message : "Streaming failed",
     });
     throw error;
   }
 });
 
 // Streaming document handlers
-ipcMain.handle("stream-documents", async (event, courseId?: string, options = {}) => {
-  if (!currentSession) {
-    throw new Error("Not logged in");
-  }
-
-  const { forceRefresh = false } = options;
-  const cacheKey = courseId ? `documents_${courseId}` : "all_documents";
-
-  // Check cache first - if we have recent data and not forcing refresh, return it immediately
-  if (!forceRefresh) {
-    const cachedData = getCachedData(cacheKey, CACHE_DURATION);
-    if (cachedData) {
-      // Send cached data immediately
-      event.sender.send("document-stream-chunk", {
-        documents: cachedData,
-        courseId: courseId,
-        courseName: "Cached Data",
-        type: "cached",
-        isComplete: true,
-        fromCache: true
-      });
-
-      return { data: cachedData, fromCache: true, age: 0 };
-    }
-  }
-
-  // No cache, expired, or forced refresh - start streaming
-  try {
-    const generator = fetchDocumentsStreaming(courseId, (progress) => {
-      // Send progress updates
-      event.sender.send("document-stream-progress", progress);
-    });
-
-    for await (const chunk of generator) {
-      // Send each chunk as it arrives
-      event.sender.send("document-stream-chunk", {
-        ...chunk,
-        fromCache: false
-      });
+ipcMain.handle(
+  "stream-documents",
+  async (event, courseId?: string, options = {}) => {
+    if (!currentSession) {
+      throw new Error("Not logged in");
     }
 
-    // Send completion signal
-    event.sender.send("document-stream-complete", { courseId });
+    // Always start streaming fresh data - no caching for documents
+    try {
+      const generator = fetchDocumentsStreaming(courseId, (progress) => {
+        // Send progress updates
+        event.sender.send("document-stream-progress", progress);
+      });
 
-    // Return final cached data
-    const finalData = getCachedData(cacheKey, CACHE_DURATION);
-    return { data: finalData || [], fromCache: false, age: 0 };
+      for await (const chunk of generator) {
+        // Send each chunk as it arrives
+        event.sender.send("document-stream-chunk", {
+          ...chunk,
+          fromCache: false,
+        });
+      }
 
-  } catch (error) {
-    event.sender.send("document-stream-error", {
-      error: error instanceof Error ? error.message : "Streaming failed"
-    });
-    throw error;
+      // Send completion signal
+      event.sender.send("document-stream-complete", { courseId });
+
+      return { data: [], fromCache: false, age: 0 };
+    } catch (error) {
+      event.sender.send("document-stream-error", {
+        error: error instanceof Error ? error.message : "Streaming failed",
+      });
+      throw error;
+    }
   }
-});
+);
 
 // Fetch homework details
 ipcMain.handle(
@@ -694,22 +624,10 @@ ipcMain.handle(
       throw new Error("Not logged in");
     }
 
-    const cacheKey = `documents_${courseCode}`;
-    const cachedData = getCachedData(cacheKey, CACHE_DURATION);
-
-    // Use cached data if available and not expired (unless skipCache is true)
-    if (!options?.skipCache && cachedData) {
-      return { data: cachedData, fromCache: true, age: 0 };
-    }
-
+    // Always fetch fresh data - no caching for documents
     return requestQueue.add(async () => {
       try {
         const sanitizedDocuments = await fetchCourseDocuments(courseCode);
-
-        // Update cache with sanitized data
-        setCachedData(cacheKey, sanitizedDocuments);
-        saveCacheToFile(currentSession?.username);
-
         return { data: sanitizedDocuments, fromCache: false, age: 0 };
       } catch (error) {
         console.error("Failed to fetch course documents:", error);

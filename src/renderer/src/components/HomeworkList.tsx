@@ -110,53 +110,6 @@ const HomeworkList: React.FC = () => {
           }
         }
 
-        try {
-          isFetchingRef.current = true;
-          if (forceRefresh) {
-            setRefreshing(true);
-          } else {
-            setLoading(true);
-          }
-          setError("");
-
-          const response: HomeworkResponse = forceRefresh
-            ? await window.electronAPI.refreshHomework()
-            : await window.electronAPI.getHomework();
-
-          if (response.data && Array.isArray(response.data)) {
-            setHomework(response.data);
-
-            const ageMinutes = Math.floor(response.age / (1000 * 60));
-            setCacheInfo(
-              response.fromCache
-                ? t("showingCachedData", { minutes: ageMinutes })
-                : t("showingFreshData")
-            );
-          } else {
-            setHomework([]);
-            setCacheInfo(t("noHomeworkDataAvailable"));
-          }
-        } catch (error) {
-          console.error("Failed to fetch homework:", error);
-          if (error instanceof Error) {
-            if (
-              error.message.includes("404") ||
-              error.message.includes("502")
-            ) {
-              setError(t("authenticationRequired"));
-            } else if (error.message.includes("Session expired")) {
-              setError(t("sessionExpired"));
-            } else {
-              setError(t("failedToFetchHomework"));
-            }
-          } else {
-            setError(t("unexpectedError"));
-          }
-        } finally {
-          setLoading(false);
-          setRefreshing(false);
-          isFetchingRef.current = false;
-        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -178,14 +131,11 @@ const HomeworkList: React.FC = () => {
       _event: any,
       payload: { key: string; data: any }
     ) => {
-      if (
-        payload.key === "all_homework" ||
-        payload.key.startsWith("homework_")
-      ) {
-        if (payload.data && Array.isArray(payload.data)) {
-          setHomework(payload.data);
-          setCacheInfo(t("dataUpdatedInBackground"));
-        }
+      // Homework is no longer cached, so we don't handle homework cache updates
+      // Only handle course-related cache updates if needed
+      if (payload.key === "courses") {
+        // Course list was updated - this doesn't directly affect homework display
+        // but we could potentially trigger a refresh if needed
       }
     };
 
