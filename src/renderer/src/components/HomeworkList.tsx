@@ -368,24 +368,61 @@ const HomeworkList: React.FC = () => {
   const sanitizeContent = (content: string) => {
     if (!content) return "";
 
-    // Check if content contains images and replace them with bolded text
     let sanitized = content;
 
-    // Replace img tags with placeholder text
-    sanitized = sanitized.replace(/<img[^>]*>/gi, () => {
-      return "**[Image removed for security]**";
-    });
-
-    // Basic HTML sanitization - remove script tags and other HTML
+    // Remove dangerous elements first
     sanitized = sanitized
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<[^>]*>/g, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<link[^>]*>/gi, "")
+      .replace(/<meta[^>]*>/gi, "");
+
+    // Replace img tags with placeholder text
+    sanitized = sanitized.replace(/<img[^>]*>/gi, "**[Image removed for security]**");
+
+    // Preserve formatting by converting common HTML tags to text equivalents
+    sanitized = sanitized
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<p[^>]*>/gi, "")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<div[^>]*>/gi, "")
+      .replace(/<h[1-6][^>]*>/gi, "\n**")
+      .replace(/<\/h[1-6]>/gi, "**\n")
+      .replace(/<strong[^>]*>/gi, "**")
+      .replace(/<\/strong>/gi, "**")
+      .replace(/<b[^>]*>/gi, "**")
+      .replace(/<\/b>/gi, "**")
+      .replace(/<em[^>]*>/gi, "*")
+      .replace(/<\/em>/gi, "*")
+      .replace(/<i[^>]*>/gi, "*")
+      .replace(/<\/i>/gi, "*")
+      .replace(/<ul[^>]*>/gi, "\n")
+      .replace(/<\/ul>/gi, "\n")
+      .replace(/<ol[^>]*>/gi, "\n")
+      .replace(/<\/ol>/gi, "\n")
+      .replace(/<li[^>]*>/gi, "• ")
+      .replace(/<\/li>/gi, "\n");
+
+    // Remove any remaining HTML tags
+    sanitized = sanitized.replace(/<[^>]*>/g, "");
+
+    // Decode HTML entities
+    sanitized = sanitized
       .replace(/&nbsp;/g, " ")
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
       .replace(/&amp;/g, "&")
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
+      .replace(/&hellip;/g, "...")
+      .replace(/&mdash;/g, "—")
+      .replace(/&ndash;/g, "–");
+
+    // Clean up excessive whitespace
+    sanitized = sanitized
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]+/g, " ")
       .trim();
 
     return sanitized;
@@ -393,6 +430,7 @@ const HomeworkList: React.FC = () => {
 
   const renderContentWithBold = (content: string) => {
     // Split by **text** patterns and render bold text
+    // whitespace-pre-wrap CSS class handles newlines automatically
     const parts = content.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, index) => {
       if (part.startsWith("**") && part.endsWith("**")) {
@@ -590,9 +628,9 @@ const HomeworkList: React.FC = () => {
                 </div>
 
                 {sanitizeContent(hw.content) && (
-                  <p className="mb-3 text-gray-600 text-sm leading-relaxed">
+                  <div className="mb-3 text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
                     {renderContentWithBold(sanitizeContent(hw.content))}
-                  </p>
+                  </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -693,7 +731,7 @@ const HomeworkList: React.FC = () => {
                                 <h5 className="mb-2 text-gray-700">
                                   {t("fullDescription")}:
                                 </h5>
-                                <div className="p-3 bg-white rounded border border-gray-300 text-sm leading-6">
+                                <div className="p-3 bg-white rounded border border-gray-300 text-sm leading-6 whitespace-pre-wrap">
                                   {renderContentWithBold(
                                     sanitizeContent(details.content)
                                   )}
