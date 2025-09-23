@@ -198,6 +198,13 @@ const resources = {
       friday: "Friday",
       saturday: "Saturday",
       sunday: "Sunday",
+
+      // Document types
+      electronicCourseware: "Electronic Courseware",
+      experimentGuide: "Experiment Guide",
+      unknownDocumentType: "Unknown Document Type",
+      loadingDocuments: "Loading documents",
+      currentlyFetching: "Currently fetching",
     },
   },
   zh: {
@@ -390,6 +397,13 @@ const resources = {
       friday: "星期五",
       saturday: "星期六",
       sunday: "星期日",
+
+      // Document types
+      electronicCourseware: "电子课件",
+      experimentGuide: "实验指导书",
+      unknownDocumentType: "未知文档类型",
+      loadingDocuments: "正在加载文档",
+      currentlyFetching: "正在获取",
     },
   },
 };

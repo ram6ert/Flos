@@ -681,13 +681,11 @@ const HomeworkList: React.FC = () => {
             variant="primary"
             size="sm"
           >
-            {refreshing
+            {refreshing || streaming
               ? t("refreshing")
-              : streaming
-                ? t("streaming")
-                : loading
-                  ? t("loading")
-                  : t("refresh")}
+              : loading
+                ? t("loading")
+                : t("refresh")}
           </Button>
         }
       />

@@ -30,6 +30,10 @@ export interface ElectronAPI {
   streamHomework: (
     courseId?: string
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  streamDocuments: (
+    courseId?: string,
+    options?: { forceRefresh?: boolean }
+  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   getSchedule: (options?: { skipCache?: boolean }) => Promise<any>;
   refreshSchedule: () => Promise<any>;
   downloadDocument: (documentUrl: string) => Promise<{ success: boolean }>;
@@ -108,6 +112,29 @@ export interface ElectronAPI {
   onHomeworkStreamError: (
     callback: (event: any, error: { error: string }) => void
   ) => void;
+  onDocumentStreamChunk: (
+    callback: (event: any, chunk: {
+      documents: any[];
+      courseId?: string;
+      courseName?: string;
+      type: string;
+      isComplete: boolean;
+      fromCache: boolean;
+    }) => void
+  ) => void;
+  onDocumentStreamProgress: (
+    callback: (event: any, progress: {
+      completed: number;
+      total: number;
+      currentCourse?: string;
+    }) => void
+  ) => void;
+  onDocumentStreamComplete: (
+    callback: (event: any, payload: { courseId?: string }) => void
+  ) => void;
+  onDocumentStreamError: (
+    callback: (event: any, error: { error: string }) => void
+  ) => void;
   removeAllListeners: (channel: string) => void;
   // update related APIs
   checkForUpdates: () => Promise<{
@@ -149,6 +176,8 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("get-homework", courseId, { skipCache: true }),
   streamHomework: (courseId?: string) =>
     ipcRenderer.invoke("stream-homework", courseId),
+  streamDocuments: (courseId?: string, options?: { forceRefresh?: boolean }) =>
+    ipcRenderer.invoke("stream-documents", courseId, options),
   getSchedule: (options?: { skipCache?: boolean }) =>
     ipcRenderer.invoke("get-schedule", options),
   refreshSchedule: () => ipcRenderer.invoke("refresh-schedule"),
@@ -177,6 +206,10 @@ const electronAPI: ElectronAPI = {
   onHomeworkStreamProgress: (callback) => ipcRenderer.on("homework-stream-progress", callback),
   onHomeworkStreamComplete: (callback) => ipcRenderer.on("homework-stream-complete", callback),
   onHomeworkStreamError: (callback) => ipcRenderer.on("homework-stream-error", callback),
+  onDocumentStreamChunk: (callback) => ipcRenderer.on("document-stream-chunk", callback),
+  onDocumentStreamProgress: (callback) => ipcRenderer.on("document-stream-progress", callback),
+  onDocumentStreamComplete: (callback) => ipcRenderer.on("document-stream-complete", callback),
+  onDocumentStreamError: (callback) => ipcRenderer.on("document-stream-error", callback),
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
   // update related APIs
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),

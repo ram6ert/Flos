@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Course } from "../../../shared/types";
-import { CourseDocument } from "../../../shared/types";
+import { CourseDocument, DocumentStreamChunk, DocumentStreamProgress } from "../../../shared/types";
 import {
   Container,
   PageHeader,
@@ -30,42 +30,140 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [error, setError] = useState<string>("");
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [streamingProgress, setStreamingProgress] = useState<DocumentStreamProgress | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const currentRequestRef = useRef<string | null>(null);
+  const streamingAbortControllerRef = useRef<AbortController | null>(null);
 
   const fetchDocuments = useCallback(
     async (forceRefresh = false) => {
       if (!selectedCourse) return;
 
+      // Abort any ongoing streaming request
+      if (streamingAbortControllerRef.current) {
+        streamingAbortControllerRef.current.abort();
+      }
+
       // Create a unique request ID to track this request
       const requestId = `${selectedCourse.courseNumber}-${Date.now()}`;
       currentRequestRef.current = requestId;
 
+      // Create new abort controller for this request
+      const abortController = new AbortController();
+      streamingAbortControllerRef.current = abortController;
+
       try {
         setLoading(true);
         setError("");
-        const response = await window.electronAPI.getCourseDocuments(
-          selectedCourse.courseNumber,
-          { skipCache: forceRefresh }
-        );
+        setStreamingProgress(null);
 
-        // Check if this request is still the current one
-        if (currentRequestRef.current !== requestId) {
-          return;
+        if (forceRefresh) {
+          // Use normal API for refresh (faster and simpler)
+          const response = await window.electronAPI.getCourseDocuments(
+            selectedCourse.courseNumber,
+            { skipCache: true }
+          );
+
+          // Check if request was aborted or is not current
+          if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+            return;
+          }
+
+          setRealDocuments(response.data);
+          setLoading(false);
+        } else {
+          // Use streaming for initial load (shows progress)
+          setIsStreaming(true);
+          setRealDocuments([]); // Clear existing documents for streaming
+
+          // Set up event listeners for streaming with race condition protection
+          const cleanupListeners = () => {
+            window.electronAPI.removeAllListeners("document-stream-chunk");
+            window.electronAPI.removeAllListeners("document-stream-progress");
+            window.electronAPI.removeAllListeners("document-stream-complete");
+            window.electronAPI.removeAllListeners("document-stream-error");
+          };
+
+          // Clean up any existing listeners before setting up new ones
+          cleanupListeners();
+
+          window.electronAPI.onDocumentStreamChunk((_event, chunk: DocumentStreamChunk) => {
+            // Check if request was aborted or is not current
+            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+              return;
+            }
+
+            if (chunk.fromCache) {
+              // If cached data, replace all documents
+              setRealDocuments(chunk.documents);
+              setIsStreaming(false);
+              setLoading(false);
+              setStreamingProgress(null);
+              cleanupListeners();
+            } else if (chunk.isComplete || chunk.type === "complete") {
+              // Final completion signal - don't add documents but finish streaming
+              setIsStreaming(false);
+              setLoading(false);
+              setStreamingProgress(null);
+              cleanupListeners();
+            } else {
+              // If streaming data, append to existing documents
+              setRealDocuments(prev => {
+                const newDocs = [...prev, ...chunk.documents];
+                // Remove duplicates based on document ID
+                const uniqueDocs = newDocs.filter((doc, index, arr) =>
+                  arr.findIndex(d => d.id === doc.id) === index
+                );
+                return uniqueDocs;
+              });
+            }
+          });
+
+          window.electronAPI.onDocumentStreamProgress((_event, progress: DocumentStreamProgress) => {
+            // Check if request was aborted or is not current
+            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+              return;
+            }
+            setStreamingProgress(progress);
+          });
+
+          window.electronAPI.onDocumentStreamComplete((_event, _payload) => {
+            // Check if request was aborted or is not current
+            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+              return;
+            }
+            setIsStreaming(false);
+            setStreamingProgress(null);
+            setLoading(false);
+            cleanupListeners();
+          });
+
+          window.electronAPI.onDocumentStreamError((_event, errorData) => {
+            // Check if request was aborted or is not current
+            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+              return;
+            }
+            console.error("Document streaming error:", errorData.error);
+            setError(`Failed to fetch documents: ${errorData.error}`);
+            setIsStreaming(false);
+            setStreamingProgress(null);
+            setLoading(false);
+            cleanupListeners();
+          });
+
+          // Start streaming for this specific course (will fetch all document types)
+          await window.electronAPI.streamDocuments(selectedCourse.courseNumber);
         }
-
-        setRealDocuments(response.data);
       } catch (error) {
-        // Don't show error if this is not the current request
-        if (currentRequestRef.current !== requestId) {
+        // Don't show error if request was aborted or is not current
+        if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
           return;
         }
         console.error("Failed to fetch documents:", error);
         setError("Failed to fetch course documents. Please try again later.");
-      } finally {
-        // Only set loading to false if this is still the current request
-        if (currentRequestRef.current === requestId) {
-          setLoading(false);
-        }
+        setLoading(false);
+        setIsStreaming(false);
+        setStreamingProgress(null);
       }
     },
     [selectedCourse]
@@ -73,11 +171,35 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   useEffect(() => {
     if (selectedCourse) {
-      fetchDocuments();
+      fetchDocuments(false); // Use streaming for initial load
     } else {
+      // Abort any ongoing request when course is deselected
+      if (streamingAbortControllerRef.current) {
+        streamingAbortControllerRef.current.abort();
+      }
       setRealDocuments([]);
+      setStreamingProgress(null);
+      setIsStreaming(false);
+      setLoading(false);
+      setError("");
     }
   }, [selectedCourse, fetchDocuments]);
+
+  // Cleanup listeners on unmount and abort any ongoing requests
+  useEffect(() => {
+    return () => {
+      // Abort any ongoing streaming request
+      if (streamingAbortControllerRef.current) {
+        streamingAbortControllerRef.current.abort();
+      }
+
+      // Clean up event listeners
+      window.electronAPI.removeAllListeners("document-stream-chunk");
+      window.electronAPI.removeAllListeners("document-stream-progress");
+      window.electronAPI.removeAllListeners("document-stream-complete");
+      window.electronAPI.removeAllListeners("document-stream-error");
+    };
+  }, []);
 
   const formatFileSize = (sizeStr: string) => {
     const size = parseFloat(sizeStr);
@@ -172,7 +294,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       );
     }
 
-    if (loading) {
+    if (loading && !isStreaming) {
       return <Loading message={t("loading")} />;
     }
 
@@ -218,6 +340,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
                     <span className="ml-3 px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-700 font-medium">
                       {doc.fileExtension.toUpperCase()}
                     </span>
+                    <span className="ml-2 px-2 py-0.5 bg-blue-100 rounded-full text-xs text-blue-700 font-medium">
+                      {t(doc.documentType === 'courseware' ? 'electronicCourseware' :
+                         doc.documentType === 'experiment_guide' ? 'experimentGuide' :
+                         'unknownDocumentType')}
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
@@ -261,7 +388,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       <PageHeader
         title={`${t("documents")}${
           selectedCourse
-            ? ` - ${selectedCourse.name} (${loading ? "..." : realDocuments.length})`
+            ? ` - ${selectedCourse.name} (${isStreaming ? "..." : realDocuments.length})`
             : ""
         }`}
         actions={
@@ -284,11 +411,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
             {selectedCourse && (
               <Button
                 onClick={() => fetchDocuments(true)}
-                disabled={loading}
+                disabled={loading || isStreaming}
                 variant="primary"
                 size="sm"
               >
-                {loading ? t("refreshing") : t("refresh")}
+                {isStreaming ? "Streaming..." : loading ? t("refreshing") : t("refresh")}
               </Button>
             )}
           </div>
@@ -305,6 +432,48 @@ const DocumentList: React.FC<DocumentListProps> = ({
             </div>
           </div>
         </InfoBanner>
+      )}
+
+      {/* Streaming Progress */}
+      {isStreaming && streamingProgress && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-blue-800">
+              {t("loadingDocuments")} ({streamingProgress.completed}/
+              {streamingProgress.total})
+            </span>
+            <span className="text-xs text-blue-600">
+              {Math.round(
+                (streamingProgress.completed / streamingProgress.total) * 100
+              )}
+              %
+            </span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+              style={{
+                width: `${(streamingProgress.completed / streamingProgress.total) * 100}%`,
+              }}
+            />
+          </div>
+          {streamingProgress.currentCourse && (
+            <div className="text-xs text-blue-700 mt-1">
+              {t("currentlyFetching")}: {streamingProgress.currentCourse}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Show initial loading when starting to stream */}
+      {isStreaming && !streamingProgress && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-center">
+            <span className="text-sm font-medium text-blue-800">
+              {t("loadingDocuments")}...
+            </span>
+          </div>
+        </div>
       )}
 
       {selectedCourse && realDocuments.length > 0 && (

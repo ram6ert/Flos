@@ -34,6 +34,7 @@ import {
   fetchHomeworkData,
   fetchHomeworkStreaming,
   fetchCourseDocuments,
+  fetchDocumentsStreaming,
   fetchHomeworkDetails,
   fetchScheduleData,
 } from "./api";
@@ -438,6 +439,63 @@ ipcMain.handle("stream-homework", async (event, courseId?: string) => {
 
   } catch (error) {
     event.sender.send("homework-stream-error", {
+      error: error instanceof Error ? error.message : "Streaming failed"
+    });
+    throw error;
+  }
+});
+
+// Streaming document handlers
+ipcMain.handle("stream-documents", async (event, courseId?: string, options = {}) => {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  const { forceRefresh = false } = options;
+  const cacheKey = courseId ? `documents_${courseId}` : "all_documents";
+
+  // Check cache first - if we have recent data and not forcing refresh, return it immediately
+  if (!forceRefresh) {
+    const cachedData = getCachedData(cacheKey, CACHE_DURATION);
+    if (cachedData) {
+      // Send cached data immediately
+      event.sender.send("document-stream-chunk", {
+        documents: cachedData,
+        courseId: courseId,
+        courseName: "Cached Data",
+        type: "cached",
+        isComplete: true,
+        fromCache: true
+      });
+
+      return { data: cachedData, fromCache: true, age: 0 };
+    }
+  }
+
+  // No cache, expired, or forced refresh - start streaming
+  try {
+    const generator = fetchDocumentsStreaming(courseId, (progress) => {
+      // Send progress updates
+      event.sender.send("document-stream-progress", progress);
+    });
+
+    for await (const chunk of generator) {
+      // Send each chunk as it arrives
+      event.sender.send("document-stream-chunk", {
+        ...chunk,
+        fromCache: false
+      });
+    }
+
+    // Send completion signal
+    event.sender.send("document-stream-complete", { courseId });
+
+    // Return final cached data
+    const finalData = getCachedData(cacheKey, CACHE_DURATION);
+    return { data: finalData || [], fromCache: false, age: 0 };
+
+  } catch (error) {
+    event.sender.send("document-stream-error", {
       error: error instanceof Error ? error.message : "Streaming failed"
     });
     throw error;
