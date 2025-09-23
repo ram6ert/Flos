@@ -29,6 +29,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const currentRequestRef = useRef<string | null>(null);
 
   const fetchDocuments = useCallback(
@@ -187,9 +188,21 @@ const DocumentList: React.FC<DocumentListProps> = ({
       );
     }
 
+    const filteredDocuments = realDocuments.filter((doc) =>
+      doc.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (filteredDocuments.length === 0 && searchTerm) {
+      return (
+        <p className="text-gray-600">
+          No documents found matching "{searchTerm}".
+        </p>
+      );
+    }
+
     return (
       <div className="flex flex-col gap-3">
-        {realDocuments
+        {filteredDocuments
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((doc) => (
             <Card key={doc.id} padding="lg">
@@ -292,6 +305,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
             </div>
           </div>
         </InfoBanner>
+      )}
+
+      {selectedCourse && realDocuments.length > 0 && (
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Search documents by name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
       )}
 
       {renderDocumentContent()}
