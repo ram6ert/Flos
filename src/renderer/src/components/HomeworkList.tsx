@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useTranslation } from 'react-i18next';
 import { HomeworkDetails, HomeworkAttachment } from "../shared-types";
 import {
   Container,
@@ -33,6 +34,7 @@ interface HomeworkResponse {
 }
 
 const HomeworkList: React.FC = () => {
+  const { t } = useTranslation();
   const [homework, setHomework] = useState<Homework[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -165,7 +167,7 @@ const HomeworkList: React.FC = () => {
     const timeDiff = deadline.getTime() - now.getTime();
 
     if (hw.subStatus === "已提交") {
-      return { text: "Submitted", color: "#28a745", isOverdue: false };
+      return { text: t('submitted'), color: "#28a745", isOverdue: false };
     }
 
     if (timeDiff < 0) {
@@ -216,11 +218,11 @@ const HomeworkList: React.FC = () => {
   const translateStatus = (chineseStatus: string) => {
     switch (chineseStatus) {
       case "已提交":
-        return "Submitted";
+        return t('submitted');
       case "未提交":
-        return "Not Submitted";
+        return t('notSubmitted');
       case "已批改":
-        return "Graded";
+        return t('graded');
       default:
         return chineseStatus;
     }
@@ -229,9 +231,9 @@ const HomeworkList: React.FC = () => {
   const translateScore = (chineseScore: string) => {
     switch (chineseScore) {
       case "未公布成绩":
-        return "Grade not published";
+        return t('gradeNotPublished');
       case "暂未公布":
-        return "Not published yet";
+        return t('notPublishedYet');
       default:
         return chineseScore;
     }
@@ -465,11 +467,11 @@ const HomeworkList: React.FC = () => {
     return (
       <Container padding="lg">
         <ErrorDisplay
-          title="Unable to Load Homework"
+          title={t('unableToLoadHomework')}
           message={error}
           onRetry={() => fetchHomework(true)}
           retryLabel={
-            refreshing ? "Retrying..." : loading ? "Loading..." : "Retry"
+            refreshing ? t('refreshing') : loading ? t('loading') : t('retry')
           }
         />
       </Container>
@@ -479,7 +481,7 @@ const HomeworkList: React.FC = () => {
   return (
     <Container padding="lg">
       <PageHeader
-        title={`Homework (${filteredAndSortedHomework.length})`}
+        title={`${t('homework')} (${filteredAndSortedHomework.length})`}
         actions={
           <Button
             onClick={() => fetchHomework(true)}
@@ -487,7 +489,7 @@ const HomeworkList: React.FC = () => {
             variant="primary"
             size="sm"
           >
-            {refreshing ? "Refreshing..." : loading ? "Loading..." : "Refresh"}
+            {refreshing ? t('refreshing') : loading ? t('loading') : t('refresh')}
           </Button>
         }
       />
@@ -662,8 +664,8 @@ const HomeworkList: React.FC = () => {
                     {detailsLoading && expandedHomework.has(hw.id)
                       ? "Loading..."
                       : expandedHomework.has(hw.id)
-                        ? "Hide Details"
-                        : "View Details"}
+                        ? t('hideDetails')
+                        : t('viewDetails')}
                   </button>
                 </div>
 
@@ -710,7 +712,7 @@ const HomeworkList: React.FC = () => {
                             )}
                             <p style={{ margin: "0" }}>
                               <strong>Repeat Allowed:</strong>{" "}
-                              {details.is_repeat ? "Yes" : "No"}
+                              {details.is_repeat ? t('yes') : t('no')}
                             </p>
                           </div>
 
@@ -814,7 +816,7 @@ const HomeworkList: React.FC = () => {
                                 >
                                   {downloadingAttachment === details.url
                                     ? "Downloading..."
-                                    : "Download"}
+                                    : t('download')}
                                 </button>
                               </div>
                             </div>

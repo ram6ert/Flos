@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from 'react-i18next';
 
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
 
@@ -8,11 +9,12 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
+  const { t } = useTranslation();
   const menuItems = [
-    { id: "courses", label: "Courses", icon: "📚" },
-    { id: "homework", label: "Homework", icon: "📝" },
-    { id: "documents", label: "Documents", icon: "📄" },
-    { id: "flow-schedule", label: "Schedule", icon: "🌊" },
+    { id: "courses", label: t('courses'), icon: "📚" },
+    { id: "homework", label: t('homework'), icon: "📝" },
+    { id: "documents", label: t('documents'), icon: "📄" },
+    { id: "flow-schedule", label: t('schedule'), icon: "🌊" },
   ];
 
   return (

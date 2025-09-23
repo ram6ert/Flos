@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { ScheduleData, ScheduleEntry } from "../shared-types";
 import {
   Container,
@@ -22,6 +23,7 @@ interface CourseFlow {
 }
 
 const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
+  const { t } = useTranslation();
   const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,13 +35,13 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
   const timelineHeight = 800; // pixels
 
   const weekdays = [
-    { short: "Mon", full: "Monday", index: 0 },
-    { short: "Tue", full: "Tuesday", index: 1 },
-    { short: "Wed", full: "Wednesday", index: 2 },
-    { short: "Thu", full: "Thursday", index: 3 },
-    { short: "Fri", full: "Friday", index: 4 },
-    { short: "Sat", full: "Saturday", index: 5 },
-    { short: "Sun", full: "Sunday", index: 6 },
+    { short: t('mon'), full: t('monday'), index: 0 },
+    { short: t('tue'), full: t('tuesday'), index: 1 },
+    { short: t('wed'), full: t('wednesday'), index: 2 },
+    { short: t('thu'), full: t('thursday'), index: 3 },
+    { short: t('fri'), full: t('friday'), index: 4 },
+    { short: t('sat'), full: t('saturday'), index: 5 },
+    { short: t('sun'), full: t('sunday'), index: 6 },
   ];
 
   const loadSchedule = async (forceRefresh = false) => {
@@ -261,7 +263,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
   if (isLoading) {
     return (
       <Container padding="lg">
-        <PageHeader title="🌊 Course Flow Schedule" />
+        <PageHeader title={t('flowSchedule')} />
         <Loading message="Loading schedule flow..." />
       </Container>
     );
@@ -271,7 +273,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     return (
       <Container padding="lg">
         <PageHeader
-          title="🌊 Course Flow Schedule"
+          title={t('flowSchedule')}
           actions={
             <Button onClick={handleRefresh} variant="primary" size="sm">
               Refresh
@@ -279,10 +281,10 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
           }
         />
         <ErrorDisplay
-          title="Failed to Load Schedule"
+          title={t('failedToLoadSchedule')}
           message={error}
           onRetry={handleRefresh}
-          retryLabel="Try Again"
+          retryLabel={t('tryAgain')}
         />
       </Container>
     );
@@ -292,7 +294,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
     return (
       <Container padding="lg">
         <PageHeader
-          title="🌊 Course Flow Schedule"
+          title={t('flowSchedule')}
           actions={
             <Button onClick={handleRefresh} variant="primary" size="sm">
               Refresh
@@ -317,8 +319,8 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
   return (
     <Container padding="lg">
       <PageHeader
-        title="🌊 Course Flow Schedule"
-        subtitle={`Week ${currentWeek.weekNumber} • ${formatDate(currentWeek.startDate)} - ${formatDate(currentWeek.endDate)}`}
+        title={t('flowSchedule')}
+        subtitle={`${t('week')} ${currentWeek.weekNumber} • ${formatDate(currentWeek.startDate)} - ${formatDate(currentWeek.endDate)}`}
         actions={
           <Button onClick={handleRefresh} variant="primary" size="sm">
             Refresh
@@ -392,7 +394,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
                             color.border
                           )}
                           style={getFlowStyle(flow)}
-                          title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\nTeacher: ${flow.course.course.teacher}\nRoom: ${flow.course.course.classroom}${isOngoing ? '\n🔴 Currently ongoing!' : ''}`}
+                          title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\n${t('teacher')}: ${flow.course.course.teacher}\n${t('room')}: ${flow.course.course.classroom}${isOngoing ? `\n🔴 ${t('currentlyOngoing')}` : ''}`}
                         >
                           <div className="h-full flex flex-col justify-between">
                             <div className={cn(

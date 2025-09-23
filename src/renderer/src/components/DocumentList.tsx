@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useTranslation } from 'react-i18next';
 import { Course, CourseDocument } from "../shared-types";
 import {
   Container,
@@ -22,6 +23,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   courses,
   onCourseSelect,
 }) => {
+  const { t } = useTranslation();
   const [realDocuments, setRealDocuments] = useState<CourseDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
@@ -141,7 +143,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   if (loading) {
     return (
       <Container padding="lg">
-        <Loading message="Loading documents..." />
+        <Loading message={t('loading')} />
       </Container>
     );
   }
@@ -150,10 +152,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
     return (
       <Container padding="lg">
         <ErrorDisplay
-          title="Unable to Load Documents"
+          title={t('unableToLoadDocuments')}
           message={error}
           onRetry={() => fetchDocuments(true)}
-          retryLabel="Retry"
+          retryLabel={t('retry')}
         />
       </Container>
     );
@@ -162,7 +164,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   return (
     <Container padding="lg">
       <PageHeader
-        title={`Documents${
+        title={`${t('documents')}${
           selectedCourse
             ? ` - ${selectedCourse.name} (${realDocuments.length})`
             : ""
@@ -193,7 +195,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 variant="primary"
                 size="sm"
               >
-                {loading ? "Refreshing..." : "Refresh"}
+                {loading ? t('refreshing') : t('refresh')}
               </Button>
             )}
           </div>
@@ -261,8 +263,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
                       size="sm"
                     >
                       {downloadingDoc === doc.rpId
-                        ? "Downloading..."
-                        : "Download"}
+                        ? t('downloading')
+                        : t('download')}
                     </Button>
                   </div>
                 </div>
