@@ -80,6 +80,10 @@ const resources = {
       language: "Language",
       theme: "Theme",
 
+      // Logout
+      logout: "Logout",
+      logoutAndClear: "Logout & clear",
+
       // Homework List
       loadingHomework: "Loading homework...",
       filter: "Filter",
@@ -216,6 +220,10 @@ const resources = {
       settings: "设置",
       language: "语言",
       theme: "主题",
+
+      // Logout
+      logout: "登出",
+      logoutAndClear: "登出并清除",
 
       // Homework List
       loadingHomework: "正在加载作业...",
