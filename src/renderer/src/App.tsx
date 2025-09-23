@@ -7,6 +7,8 @@ import DocumentList from "./components/DocumentList";
 import Sidebar from "./components/Sidebar";
 import Login from "./components/Login";
 import FlowScheduleTable from "./components/FlowScheduleTable";
+import UpdateNotification from "./components/UpdateNotification";
+import UpdateStatusNotification from "./components/UpdateStatusNotification";
 import { Button, Loading } from "./components/common/StyledComponents";
 
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
@@ -21,6 +23,18 @@ const App: React.FC = () => {
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<{
+    type: "success" | "error" | "info";
+    title: string;
+    message: string;
+  } | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    percent: number;
+    downloadedMB: string;
+    totalMB: string;
+  } | null>(null);
 
   useEffect(() => {
     checkLoginStatus();
@@ -65,12 +79,99 @@ const App: React.FC = () => {
       setActiveView("courses");
     };
 
+    // Listen for update notifications
+    const handleUpdateAvailable = (_event: any, data: any) => {
+      console.log("Update available:", data);
+      setUpdateInfo(data);
+      setShowUpdateNotification(true);
+    };
+
+    // Listen for update check completion
+    const handleUpdateCheckComplete = (_event: any, data: any) => {
+      console.log("Update check complete:", data);
+      setUpdateStatus({
+        type: "success",
+        title: "检查更新完成",
+        message: `当前版本: v${data.currentVersion}${data.latestVersion ? `，最新版本: v${data.latestVersion}` : ""}`
+      });
+    };
+
+    // Listen for update check errors
+    const handleUpdateCheckError = (_event: any, data: any) => {
+      console.log("Update check error:", data);
+      setUpdateStatus({
+        type: "error",
+        title: "检查更新失败",
+        message: data.error || "检查更新时发生未知错误"
+      });
+    };
+
+    // Listen for update checking status
+    const handleUpdateChecking = (_event: any, data: any) => {
+      console.log("Checking for updates:", data);
+      setUpdateStatus({
+        type: "info",
+        title: "正在检查更新",
+        message: `当前版本: v${data.currentVersion}，正在检查最新版本...`
+      });
+    };
+
+    // Listen for download events
+    const handleDownloadStarted = (_event: any, data: any) => {
+      console.log("Download started:", data);
+      setDownloadProgress({
+        percent: 0,
+        downloadedMB: "0",
+        totalMB: (data.fileSize / 1024 / 1024).toFixed(1)
+      });
+    };
+
+    const handleDownloadProgress = (_event: any, data: any) => {
+      console.log("Download progress:", data);
+      setDownloadProgress({
+        percent: data.percent,
+        downloadedMB: data.downloadedMB,
+        totalMB: data.totalMB
+      });
+    };
+
+    const handleDownloadCompleted = (_event: any, data: any) => {
+      console.log("Download completed:", data);
+      setDownloadProgress(null);
+    };
+
+    const handleDownloadError = (_event: any, data: any) => {
+      console.log("Download error:", data);
+      setDownloadProgress(null);
+      setUpdateStatus({
+        type: "error",
+        title: "下载失败",
+        message: data.error || "下载过程中发生未知错误"
+      });
+    };
+
     window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
     window.electronAPI.onSessionExpired?.(handleSessionExpired);
+    window.electronAPI.onUpdateAvailable?.(handleUpdateAvailable);
+    window.electronAPI.onUpdateCheckComplete?.(handleUpdateCheckComplete);
+    window.electronAPI.onUpdateCheckError?.(handleUpdateCheckError);
+    window.electronAPI.onUpdateChecking?.(handleUpdateChecking);
+    window.electronAPI.onDownloadStarted?.(handleDownloadStarted);
+    window.electronAPI.onDownloadProgress?.(handleDownloadProgress);
+    window.electronAPI.onDownloadCompleted?.(handleDownloadCompleted);
+    window.electronAPI.onDownloadError?.(handleDownloadError);
 
     return () => {
       window.electronAPI.removeAllListeners?.("cache-updated");
       window.electronAPI.removeAllListeners?.("session-expired");
+      window.electronAPI.removeAllListeners?.("update-available");
+      window.electronAPI.removeAllListeners?.("update-check-complete");
+      window.electronAPI.removeAllListeners?.("update-check-error");
+      window.electronAPI.removeAllListeners?.("update-checking");
+      window.electronAPI.removeAllListeners?.("download-started");
+      window.electronAPI.removeAllListeners?.("download-progress");
+      window.electronAPI.removeAllListeners?.("download-completed");
+      window.electronAPI.removeAllListeners?.("download-error");
     };
   }, []);
 
@@ -175,6 +276,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateClose = () => {
+    setShowUpdateNotification(false);
+    setUpdateInfo(null);
+  };
+
+  const handleUpdate = () => {
+    // 下载和安装由更新通知组件处理
+    console.log("Starting update process...");
+  };
+
+  const handleUpdateStatusClose = () => {
+    setUpdateStatus(null);
+  };
+
   const renderContent = () => {
     switch (activeView) {
       case "courses":
@@ -274,6 +389,26 @@ const App: React.FC = () => {
         <Sidebar activeView={activeView} onViewChange={setActiveView} />
         <main className="content">{renderContent()}</main>
       </div>
+
+      {/* 更新通知 */}
+      {showUpdateNotification && updateInfo && (
+        <UpdateNotification
+          updateInfo={updateInfo.updateInfo}
+          onClose={handleUpdateClose}
+          onUpdate={handleUpdate}
+          downloadProgress={downloadProgress}
+        />
+      )}
+
+      {/* 更新状态通知 */}
+      {updateStatus && (
+        <UpdateStatusNotification
+          type={updateStatus.type}
+          title={updateStatus.title}
+          message={updateStatus.message}
+          onClose={handleUpdateStatusClose}
+        />
+      )}
     </div>
   );
 };

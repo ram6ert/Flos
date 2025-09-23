@@ -35,6 +35,14 @@ import {
   fetchHomeworkDetails,
   fetchScheduleData,
 } from "./api";
+import {
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+  showUpdateDialog,
+  autoCheckForUpdates,
+  UpdateInfo,
+} from "./updater";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -123,6 +131,13 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // 启动后延迟5秒进行自动更新检查（避免影响应用启动速度）
+  setTimeout(() => {
+    autoCheckForUpdates().catch((error) => {
+      console.error("自动更新检查失败:", error);
+    });
+  }, 5000);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -812,3 +827,111 @@ ipcMain.handle("refresh-schedule", async () => {
     return scheduleData;
   });
 });
+
+// 更新相关的IPC处理程序
+ipcMain.handle("check-for-updates", async () => {
+  try {
+    // 发送开始检查更新的通知
+    const allWindows = BrowserWindow.getAllWindows();
+    allWindows.forEach((window) => {
+      window.webContents.send("update-checking", {
+        currentVersion: app.getVersion()
+      });
+    });
+    
+    const result = await checkForUpdates();
+    
+    // 发送反馈到渲染进程
+    allWindows.forEach((window) => {
+      if (result.hasUpdate && result.updateInfo) {
+        // 有更新可用
+        window.webContents.send("update-available", {
+          updateInfo: result.updateInfo,
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion
+        });
+      } else if (result.error) {
+        // 检查失败
+        window.webContents.send("update-check-error", {
+          error: result.error,
+          currentVersion: result.currentVersion
+        });
+      } else {
+        // 已是最新版本
+        window.webContents.send("update-check-complete", {
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+          isLatest: true
+        });
+      }
+    });
+    
+    return result;
+  } catch (error) {
+    console.error("检查更新失败:", error);
+    const errorResult = {
+      hasUpdate: false,
+      currentVersion: app.getVersion(),
+      error: error instanceof Error ? error.message : "检查更新时发生未知错误",
+    };
+    
+    // 发送错误反馈到渲染进程
+    const allWindows = BrowserWindow.getAllWindows();
+    allWindows.forEach((window) => {
+      window.webContents.send("update-check-error", {
+        error: errorResult.error,
+        currentVersion: errorResult.currentVersion
+      });
+    });
+    
+    return errorResult;
+  }
+});
+
+ipcMain.handle("download-update", async (event, updateInfo: UpdateInfo) => {
+  try {
+    return await downloadUpdate(updateInfo);
+  } catch (error) {
+    console.error("下载更新失败:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "下载更新时发生未知错误",
+    };
+  }
+});
+
+ipcMain.handle("install-update", async (event, filePath: string) => {
+  try {
+    const result = await installUpdate(filePath);
+    if (result.success) {
+      // 安装成功后退出应用
+      setTimeout(() => {
+        app.quit();
+      }, 1000);
+    }
+    return result;
+  } catch (error) {
+    console.error("安装更新失败:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "安装更新时发生未知错误",
+    };
+  }
+});
+
+ipcMain.handle("show-update-dialog", async (event, updateInfo: UpdateInfo) => {
+  try {
+    return await showUpdateDialog(updateInfo);
+  } catch (error) {
+    console.error("显示更新对话框失败:", error);
+    return false;
+  }
+});
+
+// 发送更新通知到渲染进程
+export function notifyRendererAboutUpdate(updateInfo: UpdateInfo) {
+  const allWindows = BrowserWindow.getAllWindows();
+  allWindows.forEach((window) => {
+    window.webContents.send("update-available", updateInfo);
+  });
+}
