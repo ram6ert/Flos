@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"yarn dev:vite\" \"yarn dev:electron\"",
     "dev:vite": "vite",
-    "dev:electron": "sleep 3 && cross-env NODE_ENV=development electron .",
+    "dev:electron": "cross-env NODE_ENV=development electron .",
     "build": "cross-env NODE_ENV=production yarn build:vite && yarn build:electron",
     "build:vite": "cross-env NODE_ENV=production vite build",
     "build:electron": "tsc -p tsconfig.main.json && webpack --config webpack.main.config.js",
