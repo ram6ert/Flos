@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Course, CourseDocument } from "../shared-types";
+import { Course } from "../../../shared/types";
+import { CourseDocument } from "../../../shared/types";
 import {
   Container,
   PageHeader,
@@ -35,14 +36,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
       if (!selectedCourse) return;
 
       // Create a unique request ID to track this request
-      const requestId = `${selectedCourse.course_num}-${Date.now()}`;
+      const requestId = `${selectedCourse.courseNumber}-${Date.now()}`;
       currentRequestRef.current = requestId;
 
       try {
         setLoading(true);
         setError("");
         const response = await window.electronAPI.getCourseDocuments(
-          selectedCourse.course_num,
+          selectedCourse.courseNumber,
           { skipCache: forceRefresh }
         );
 
@@ -118,11 +119,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   const handleDownload = async (doc: CourseDocument) => {
-    setDownloadingDoc(doc.rpId);
+    setDownloadingDoc(doc.id);
     try {
-      const fileName = `${doc.rpName}.${doc.extName}`;
+      const fileName = `${doc.name}.${doc.fileExtension}`;
       const result = await window.electronAPI.downloadCourseDocument(
-        doc.res_url,
+        doc.resourceUrl,
         fileName
       );
 
@@ -185,36 +186,36 @@ const DocumentList: React.FC<DocumentListProps> = ({
     return (
       <div className="flex flex-col gap-3">
         {realDocuments
-          .sort((a, b) => a.rpName.localeCompare(b.rpName))
+          .sort((a, b) => a.name.localeCompare(b.name))
           .map((doc) => (
-            <Card key={doc.rpId} padding="lg">
+            <Card key={doc.id} padding="lg">
               <div className="flex justify-between items-center w-full">
                 <div className="flex-1">
                   <div className="flex items-center mb-2">
                     <span className="text-2xl mr-3">
-                      {getFileIcon(doc.extName)}
+                      {getFileIcon(doc.fileExtension)}
                     </span>
                     <h3 className="m-0 text-base text-gray-900 font-semibold">
-                      {doc.rpName}
+                      {doc.name}
                     </h3>
                     <span className="ml-3 px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-700 font-medium">
-                      {doc.extName.toUpperCase()}
+                      {doc.fileExtension.toUpperCase()}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
                     <p className="m-0">
-                      <strong>Size:</strong> {formatFileSize(doc.rpSize)}
+                      <strong>Size:</strong> {formatFileSize(doc.size)}
                     </p>
                     <p className="m-0">
                       <strong>Uploaded:</strong>{" "}
-                      {formatUploadTime(doc.inputTime)}
+                      {formatUploadTime(doc.uploadTime)}
                     </p>
                     <p className="m-0">
                       <strong>Teacher:</strong> {doc.teacherName}
                     </p>
                     <p className="m-0">
-                      <strong>Downloads:</strong> {doc.downloadNum}
+                      <strong>Downloads:</strong> {doc.downloadCount}
                     </p>
                   </div>
                 </div>
@@ -222,11 +223,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 <div className="ml-4">
                   <Button
                     onClick={() => handleDownload(doc)}
-                    disabled={downloadingDoc === doc.rpId}
+                    disabled={downloadingDoc === doc.id}
                     variant="success"
                     size="sm"
                   >
-                    {downloadingDoc === doc.rpId
+                    {downloadingDoc === doc.id
                       ? t("downloading")
                       : t("download")}
                   </Button>
@@ -252,7 +253,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
               value={selectedCourse?.id || ""}
               onChange={(e) => {
                 const course = courses.find(
-                  (c) => c.id.toString() === e.target.value
+                  (c) => c.id === e.target.value
                 );
                 if (course) onCourseSelect(course);
               }}
@@ -261,7 +262,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
               <option value="">Select a course</option>
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
-                  {course.course_num} - {course.name}
+                  {course.courseNumber} - {course.name}
                 </option>
               ))}
             </select>
@@ -284,8 +285,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
           <div>
             <strong>{selectedCourse.name}</strong>
             <div className="mt-2 text-sm">
-              <strong>Teacher:</strong> {selectedCourse.teacher_name} •{" "}
-              <strong>Course Code:</strong> {selectedCourse.course_num}
+              <strong>Teacher:</strong> {selectedCourse.teacherName} •{" "}
+              <strong>Course Code:</strong> {selectedCourse.courseNumber}
             </div>
           </div>
         </InfoBanner>

@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Course } from "../shared-types";
+import { Course } from "../../../shared/types";
 import {
   Container,
   PageHeader,
@@ -23,7 +23,7 @@ const CourseList: React.FC<CourseListProps> = ({
   const { t } = useTranslation();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [courseImages, setCourseImages] = React.useState<
-    Record<number, string | null>
+    Record<string, string | null>
   >({});
 
   const handleRefresh = async () => {
@@ -59,10 +59,10 @@ const CourseList: React.FC<CourseListProps> = ({
   React.useEffect(() => {
     const fetchImages = async () => {
       for (const course of courses) {
-        if (course.pic && !courseImages[course.id]) {
+        if (course.picture && !courseImages[course.id]) {
           try {
             const imageData = await window.electronAPI.fetchCourseImage(
-              course.pic
+              course.picture
             );
             if (imageData) {
               setCourseImages((prev) => ({
@@ -134,16 +134,16 @@ const CourseList: React.FC<CourseListProps> = ({
                 </h3>
 
                 <p className="m-0 mb-2 text-gray-700 text-sm">
-                  <strong>{t("courseNumber")}:</strong> {course.course_num}
+                  <strong>{t("courseNumber")}:</strong> {course.courseNumber}
                 </p>
 
                 <p className="m-0 mb-2 text-gray-700 text-sm">
-                  <strong>{t("instructor")}:</strong> {course.teacher_name}
+                  <strong>{t("instructor")}:</strong> {course.teacherName}
                 </p>
 
                 <p className="m-0 text-gray-600 text-xs">
                   <strong>{t("semester")}:</strong>{" "}
-                  {formatSemesterDates(course.begin_date, course.end_date)}
+                  {formatSemesterDates(course.beginDate, course.endDate)}
                 </p>
               </div>
             </Card>
