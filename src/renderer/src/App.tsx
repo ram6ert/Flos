@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { UserSession } from "./shared-types";
+import { UserSession } from "../../main/types";
 import { Course } from "./types/course";
 import { CourseDocument } from "./types/documents";
 import CourseList from "./components/CourseList";

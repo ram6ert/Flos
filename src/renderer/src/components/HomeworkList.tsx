@@ -104,7 +104,7 @@ const HomeworkList: React.FC = () => {
       setRefreshing(false);
       isFetchingRef.current = false;
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchHomework();
@@ -131,7 +131,7 @@ const HomeworkList: React.FC = () => {
     return () => {
       window.electronAPI.removeAllListeners?.("cache-updated");
     };
-  }, []);
+  }, [t]);
 
   const getStatusColor = (hw: Homework) => {
     if (hw.submissionStatus === "graded") return "#28a745"; // green

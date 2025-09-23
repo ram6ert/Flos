@@ -9,3 +9,10 @@ export interface LoginResponse {
   message?: string;
   requestId?: string;
 }
+
+export interface UserSession {
+  username: string;
+  requestId: string;
+  isLoggedIn: boolean;
+  loginTime: Date;
+}
