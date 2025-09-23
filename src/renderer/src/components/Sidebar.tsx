@@ -11,6 +11,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
   const { t } = useTranslation();
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const { t } = useTranslation();
 
   const menuItems = [
     { id: "courses", label: t("courses"), icon: "📚" },

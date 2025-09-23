@@ -35,7 +35,6 @@ const App: React.FC = () => {
     downloadedMB: string;
     totalMB: string;
   } | null>(null);
-
   useEffect(() => {
     checkLoginStatus();
   }, []);
@@ -53,9 +52,9 @@ const App: React.FC = () => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -261,6 +260,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateClose = () => {
+    setShowUpdateNotification(false);
+    setUpdateInfo(null);
+  };
+
+  const handleUpdate = () => {
+    // 下载和安装由更新通知组件处理
+    console.log("Starting update process...");
+  };
+
+  const handleUpdateStatusClose = () => {
+    setUpdateStatus(null);
+  };
+
   const handleLogoutAndClearCredentials = async () => {
     try {
       await window.electronAPI.logout();
@@ -274,20 +287,6 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Error during logout and clear credentials:", error);
     }
-  };
-
-  const handleUpdateClose = () => {
-    setShowUpdateNotification(false);
-    setUpdateInfo(null);
-  };
-
-  const handleUpdate = () => {
-    // 下载和安装由更新通知组件处理
-    console.log("Starting update process...");
-  };
-
-  const handleUpdateStatusClose = () => {
-    setUpdateStatus(null);
   };
 
   const renderContent = () => {
@@ -361,7 +360,7 @@ const App: React.FC = () => {
               size="sm"
               className="bg-white/20 hover:bg-white/30 border-white/30"
             >
-              {t('logout')} ▼
+              {t("logout")} ▼
             </Button>
             {showLogoutDropdown && (
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg z-10 border border-gray-200">
@@ -370,13 +369,13 @@ const App: React.FC = () => {
                     onClick={handleLogout}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >
-                    {t('logout')}
+                    {t("logout")}
                   </button>
                   <button
                     onClick={handleLogoutAndClearCredentials}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >
-                    {t('logoutAndClear')}
+                    {t("logoutAndClear")}
                   </button>
                 </div>
               </div>
