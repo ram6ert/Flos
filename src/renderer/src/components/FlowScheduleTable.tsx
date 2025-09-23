@@ -227,9 +227,6 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
               NOW {currentTimeStr}
             </span>
           </div>
-          <div className="absolute right-2 -top-1">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg"></div>
-          </div>
         </div>
       </div>
     );
@@ -310,10 +307,10 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
 
   // Colors for flow blocks (rotate by index for variety)
   const blockColors = [
-    { border: "border-l-red-500", chip: "bg-red-50 text-red-600" },
-    { border: "border-l-blue-500", chip: "bg-blue-50 text-blue-600" },
-    { border: "border-l-green-500", chip: "bg-green-50 text-green-600" },
-    { border: "border-l-amber-500", chip: "bg-amber-50 text-amber-600" },
+    { chip: "bg-red-50 text-red-600" },
+    { chip: "bg-blue-50 text-blue-600" },
+    { chip: "bg-green-50 text-green-600" },
+    { chip: "bg-amber-50 text-amber-600" },
   ];
 
   return (
@@ -396,8 +393,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
                               "hover:z-50",
                               isOngoing
                                 ? "bg-red-100/95 border-2 border-red-500 shadow-lg shadow-red-200 animate-pulse hover:bg-red-200/90"
-                                : "bg-white/95 hover:bg-blue-50/90",
-                              color.border
+                                : "bg-white/95 hover:bg-blue-50/90"
                             )}
                             style={getFlowStyle(flow)}
                             title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\n${t("teacher")}: ${flow.course.course.teacher}\n${t("room")}: ${flow.course.course.classroom}${isOngoing ? `\n🔴 ${t("currentlyOngoing")}` : ""}`}
