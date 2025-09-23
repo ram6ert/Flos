@@ -56,7 +56,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
       setDownloadStatus(t("downloadingUpdate"));
       onUpdate();
 
-      // 下载更新
+      // download update
       const api = window.electronAPI;
 
       if (!api?.downloadUpdate || !api.installUpdate) {
@@ -64,9 +64,14 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
       }
 
       const downloadResult = await api.downloadUpdate(updateInfo);
-      
+
       if (!downloadResult.success) {
-        setError(getErrorMessage(downloadResult.error || t("downloadFailed"), (downloadResult as any).errorCode));
+        setError(
+          getErrorMessage(
+            downloadResult.error || t("downloadFailed"),
+            (downloadResult as any).errorCode
+          )
+        );
         setIsDownloading(false);
         setDownloadStatus("");
         return;
@@ -76,11 +81,16 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
       setIsInstalling(true);
       setDownloadStatus(t("installingUpdate"));
 
-      // 安装更新
+      // install the update
       const installResult = await api.installUpdate(downloadResult.filePath!);
-      
+
       if (!installResult.success) {
-        setError(getErrorMessage(installResult.error || t("installationFailed"), (installResult as any).errorCode));
+        setError(
+          getErrorMessage(
+            installResult.error || t("installationFailed"),
+            (installResult as any).errorCode
+          )
+        );
         setIsInstalling(false);
         setDownloadStatus("");
         return;
@@ -110,7 +120,9 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center">
             <span className="text-blue-500 mr-2 text-xl">🔔</span>
-            <h3 className="text-lg font-semibold text-gray-900">{t("updateAvailable")}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {t("updateAvailable")}
+            </h3>
           </div>
           <button
             onClick={onClose}
@@ -124,15 +136,21 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
           <p className="text-sm text-gray-600 mb-2">
             {t("newVersionFound", { version: updateInfo.version })}
           </p>
-          
+
           <div className="text-xs text-gray-500 space-y-1">
-            <p>{t("fileSize")}: {formatFileSize(updateInfo.fileSize)}</p>
-            <p>{t("publishedAt")}: {formatDate(updateInfo.publishedAt)}</p>
+            <p>
+              {t("fileSize")}: {formatFileSize(updateInfo.fileSize)}
+            </p>
+            <p>
+              {t("publishedAt")}: {formatDate(updateInfo.publishedAt)}
+            </p>
           </div>
 
           {updateInfo.releaseNotes && (
             <div className="mt-3">
-              <p className="text-sm font-medium text-gray-700 mb-1">{t("updateNotes")}:</p>
+              <p className="text-sm font-medium text-gray-700 mb-1">
+                {t("updateNotes")}:
+              </p>
               <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded max-h-20 overflow-y-auto">
                 {updateInfo.releaseNotes}
               </div>
@@ -161,13 +179,16 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-              <div 
+              <div
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${downloadProgress.percent}%` }}
               ></div>
             </div>
             <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>{downloadProgress.downloadedMB} {t("mb")} / {downloadProgress.totalMB} {t("mb")}</span>
+              <span>
+                {downloadProgress.downloadedMB} {t("mb")} /{" "}
+                {downloadProgress.totalMB} {t("mb")}
+              </span>
             </div>
           </div>
         )}
@@ -189,12 +210,10 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
                 {t("installingUpdate")}
               </>
             ) : (
-              <>
-                {t("updateNow")}
-              </>
+              <>{t("updateNow")}</>
             )}
           </button>
-          
+
           <button
             onClick={handleLater}
             disabled={isDownloading || isInstalling}
@@ -202,7 +221,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
           >
             {t("remindLater")}
           </button>
-          
+
           <button
             onClick={handleSkip}
             disabled={isDownloading || isInstalling}

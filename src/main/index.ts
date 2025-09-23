@@ -797,12 +797,12 @@ ipcMain.handle("check-for-updates", async () => {
     allWindows.forEach((window) => {
       window.webContents.send("update-status", {
         type: "checking",
-        currentVersion: app.getVersion()
+        currentVersion: app.getVersion(),
       });
     });
-    
+
     const result = await checkForUpdates();
-    
+
     // Send feedback to renderer process
     allWindows.forEach((window) => {
       if (result.hasUpdate && result.updateInfo) {
@@ -811,7 +811,7 @@ ipcMain.handle("check-for-updates", async () => {
           type: "available",
           updateInfo: result.updateInfo,
           currentVersion: result.currentVersion,
-          latestVersion: result.latestVersion
+          latestVersion: result.latestVersion,
         });
       } else if (result.error) {
         // Check failed
@@ -819,25 +819,28 @@ ipcMain.handle("check-for-updates", async () => {
           type: "error",
           error: result.error,
           errorCode: result.errorCode,
-          currentVersion: result.currentVersion
+          currentVersion: result.currentVersion,
         });
       } else {
         // Already latest version
         window.webContents.send("update-status", {
           type: "up-to-date",
           currentVersion: result.currentVersion,
-          latestVersion: result.latestVersion
+          latestVersion: result.latestVersion,
         });
       }
     });
-    
+
     return result;
   } catch (error) {
     Logger.error("Update check failed", error);
     const errorResult = {
       hasUpdate: false,
       currentVersion: app.getVersion(),
-      error: error instanceof Error ? error.message : "Unknown error occurred during update check",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update check",
     };
 
     // Send error feedback to renderer process
@@ -847,10 +850,10 @@ ipcMain.handle("check-for-updates", async () => {
         type: "error",
         error: errorResult.error,
         errorCode: "UNKNOWN_CHECK_ERROR",
-        currentVersion: errorResult.currentVersion
+        currentVersion: errorResult.currentVersion,
       });
     });
-    
+
     return errorResult;
   }
 });
@@ -862,7 +865,10 @@ ipcMain.handle("download-update", async (event, updateInfo: UpdateInfo) => {
     Logger.error("Download update failed", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred during update download",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update download",
     };
   }
 });
@@ -881,7 +887,10 @@ ipcMain.handle("install-update", async (event, filePath: string) => {
     Logger.error("Install update failed", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred during update installation",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update installation",
     };
   }
 });
@@ -895,7 +904,6 @@ ipcMain.handle("show-update-dialog", async (event, updateInfo: UpdateInfo) => {
   }
 });
 
-// 发送更新通知到渲染进程
 export function notifyRendererAboutUpdate(updateInfo: UpdateInfo) {
   const allWindows = BrowserWindow.getAllWindows();
   allWindows.forEach((window) => {

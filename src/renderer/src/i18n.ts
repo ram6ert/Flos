@@ -146,7 +146,8 @@ const resources = {
       checkUpdates: "Check for Updates",
       startedUpdateCheck: "Started checking for updates",
       downloadingUpdate: "Downloading update...",
-      downloadProgress: "Download progress: {{percent}}% ({{downloadedMB}}MB / {{totalMB}}MB)",
+      downloadProgress:
+        "Download progress: {{percent}}% ({{downloadedMB}}MB / {{totalMB}}MB)",
       downloadStarted: "Started downloading {{fileName}} ({{fileSize}}MB)",
       downloadCompleted: "Download completed: {{fileName}}",
       downloadFailed: "Download failed: {{error}}",
@@ -160,7 +161,8 @@ const resources = {
       unsupportedPlatform: "Unsupported operating system",
       unknownUpdateError: "Unknown error occurred during update",
       autoUpdateCheckFailed: "Auto update check failed",
-      skipAutoUpdateCheck: "Skipping auto update check (checked less than 24 hours ago)",
+      skipAutoUpdateCheck:
+        "Skipping auto update check (checked less than 24 hours ago)",
       startingAutoUpdateCheck: "Starting auto update check...",
       updateCheckComplete: "Update check complete",
       updateCheckError: "Update check error",
@@ -176,7 +178,8 @@ const resources = {
       DOWNLOAD_STREAM_ERROR: "Download stream error",
       UNKNOWN_DOWNLOAD_ERROR: "Unknown error occurred during update download",
       UNSUPPORTED_PLATFORM: "Unsupported operating system",
-      UNKNOWN_INSTALL_ERROR: "Unknown error occurred during update installation",
+      UNKNOWN_INSTALL_ERROR:
+        "Unknown error occurred during update installation",
 
       // Days of the week - short forms
       mon: "Mon",
@@ -337,7 +340,8 @@ const resources = {
       checkUpdates: "检查更新",
       startedUpdateCheck: "开始检查更新",
       downloadingUpdate: "正在下载更新...",
-      downloadProgress: "下载进度: {{percent}}% ({{downloadedMB}}MB / {{totalMB}}MB)",
+      downloadProgress:
+        "下载进度: {{percent}}% ({{downloadedMB}}MB / {{totalMB}}MB)",
       downloadStarted: "开始下载 {{fileName}} ({{fileSize}}MB)",
       downloadCompleted: "下载完成: {{fileName}}",
       downloadFailed: "下载失败: {{error}}",

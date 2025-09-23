@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { UserSession } from "../../shared/types";
 import { Course } from "../../shared/types";
@@ -39,12 +39,12 @@ const App: React.FC = () => {
   } | null>(null);
 
   // Helper function to translate error codes
-  const getErrorMessage = (error: string, errorCode?: string): string => {
+  const getErrorMessage = useCallback((error: string, errorCode?: string): string => {
     if (errorCode && t(errorCode) !== errorCode) {
       return t(errorCode);
     }
     return error;
-  };
+  }, [t]);
 
   useEffect(() => {
     checkLoginStatus();
@@ -58,7 +58,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setShowLogoutDropdown(false);
       }
     };
@@ -104,7 +107,7 @@ const App: React.FC = () => {
           setUpdateStatus({
             type: "info",
             title: t("checkingForUpdates"),
-            message: `${t("currentVersion")}: v${data.currentVersion}, ${t("checkingForUpdates").toLowerCase()}...`
+            message: `${t("currentVersion")}: v${data.currentVersion}, ${t("checkingForUpdates").toLowerCase()}...`,
           });
           break;
 
@@ -117,7 +120,7 @@ const App: React.FC = () => {
           setUpdateStatus({
             type: "success",
             title: t("updateCheckComplete"),
-            message: `${t("currentVersion")}: v${data.currentVersion}${data.latestVersion ? `, ${t("latestVersion")}: v${data.latestVersion}` : ""}`
+            message: `${t("currentVersion")}: v${data.currentVersion}${data.latestVersion ? `, ${t("latestVersion")}: v${data.latestVersion}` : ""}`,
           });
           break;
 
@@ -125,7 +128,10 @@ const App: React.FC = () => {
           setUpdateStatus({
             type: "error",
             title: t("updateCheckFailed"),
-            message: getErrorMessage(data.error || t("unknownUpdateError"), data.errorCode)
+            message: getErrorMessage(
+              data.error || t("unknownUpdateError"),
+              data.errorCode
+            ),
           });
           break;
       }
@@ -140,7 +146,7 @@ const App: React.FC = () => {
           setDownloadProgress({
             percent: 0,
             downloadedMB: "0",
-            totalMB: (data.fileSize / 1024 / 1024).toFixed(1)
+            totalMB: (data.fileSize / 1024 / 1024).toFixed(1),
           });
           break;
 
@@ -148,7 +154,7 @@ const App: React.FC = () => {
           setDownloadProgress({
             percent: data.percent,
             downloadedMB: data.downloadedMB,
-            totalMB: data.totalMB
+            totalMB: data.totalMB,
           });
           break;
 
@@ -161,7 +167,10 @@ const App: React.FC = () => {
           setUpdateStatus({
             type: "error",
             title: t("downloadFailed"),
-            message: getErrorMessage(data.error || t("unknownUpdateError"), data.errorCode)
+            message: getErrorMessage(
+              data.error || t("unknownUpdateError"),
+              data.errorCode
+            ),
           });
           break;
       }
@@ -178,7 +187,7 @@ const App: React.FC = () => {
       api.removeAllListeners?.("update-status");
       api.removeAllListeners?.("update-download");
     };
-  }, []);
+  }, [t, getErrorMessage]);
 
   const checkLoginStatus = async () => {
     try {
@@ -272,7 +281,6 @@ const App: React.FC = () => {
   };
 
   const handleUpdate = () => {
-    // 下载和安装由更新通知组件处理
     console.log("Starting update process...");
   };
 
@@ -366,7 +374,7 @@ const App: React.FC = () => {
               size="sm"
               className="bg-white/20 hover:bg-white/30 border-white/30"
             >
-              {t('logout')} ▼
+              {t("logout")} ▼
             </Button>
             {showLogoutDropdown && (
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg z-10 border border-gray-200">
@@ -375,13 +383,13 @@ const App: React.FC = () => {
                     onClick={handleLogout}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >
-                    {t('logout')}
+                    {t("logout")}
                   </button>
                   <button
                     onClick={handleLogoutAndClearCredentials}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >
-                    {t('logoutAndClear')}
+                    {t("logoutAndClear")}
                   </button>
                 </div>
               </div>
@@ -395,7 +403,7 @@ const App: React.FC = () => {
         <main className="content">{renderContent()}</main>
       </div>
 
-      {/* 更新通知 */}
+      {/* notification */}
       {showUpdateNotification && updateInfo && (
         <UpdateNotification
           updateInfo={updateInfo.updateInfo}
@@ -405,7 +413,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* 更新状态通知 */}
+      {/* status notification */}
       {updateStatus && (
         <UpdateStatusNotification
           type={updateStatus.type}

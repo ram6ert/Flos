@@ -83,7 +83,7 @@ export interface ElectronAPI {
   ) => void;
   onSessionExpired: (callback: () => void) => void;
   removeAllListeners: (channel: string) => void;
-  // 更新相关API
+  // update related APIs
   checkForUpdates: () => Promise<{
     hasUpdate: boolean;
     currentVersion: string;
@@ -146,11 +146,14 @@ const electronAPI: ElectronAPI = {
   onCacheUpdate: (callback) => ipcRenderer.on("cache-updated", callback),
   onSessionExpired: (callback) => ipcRenderer.on("session-expired", callback),
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
-  // 更新相关API实现
+  // update related APIs
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
-  downloadUpdate: (updateInfo: UpdateInfo) => ipcRenderer.invoke("download-update", updateInfo),
-  installUpdate: (filePath: string) => ipcRenderer.invoke("install-update", filePath),
-  showUpdateDialog: (updateInfo: UpdateInfo) => ipcRenderer.invoke("show-update-dialog", updateInfo),
+  downloadUpdate: (updateInfo: UpdateInfo) =>
+    ipcRenderer.invoke("download-update", updateInfo),
+  installUpdate: (filePath: string) =>
+    ipcRenderer.invoke("install-update", filePath),
+  showUpdateDialog: (updateInfo: UpdateInfo) =>
+    ipcRenderer.invoke("show-update-dialog", updateInfo),
   onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
   onUpdateDownload: (callback) => ipcRenderer.on("update-download", callback),
 };

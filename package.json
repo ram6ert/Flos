@@ -1,6 +1,6 @@
 {
   "name": "smart-course-platform",
-  "version": "1.4.15",
+  "version": "1.4.16",
   "description": "An Electron app for convenient access to course information, homework, and documents",
   "main": "dist/main/index.min.js",
   "scripts": {
@@ -91,11 +91,15 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         }
       ]
     },

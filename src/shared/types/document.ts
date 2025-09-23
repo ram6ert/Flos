@@ -1,6 +1,6 @@
 export interface CourseDocument {
   id: string; // rpId from server, transformed from number to string
-  auditStatus: 'pending' | 'approved' | 'rejected'; // transformed from number
+  auditStatus: "pending" | "approved" | "rejected"; // transformed from number
   name: string; // rpName from server
   size: string; // rpSize from server
   playUrl: string | null; // play_url from server
@@ -14,7 +14,7 @@ export interface CourseDocument {
   teacherName: string;
   documentType: string; // docType from server
   fileExtension: string; // extName from server
-  shareType: 'private' | 'public' | 'course'; // share_type from server (number to enum)
+  shareType: "private" | "public" | "course"; // share_type from server (number to enum)
   studentDownloadCount: number; // stu_download from server
 }
 

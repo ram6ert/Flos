@@ -67,7 +67,7 @@ function getPlatformFileExtension(): string {
 function getPlatformArch(): string {
   const arch = os.arch();
   const platform = os.platform();
-  
+
   if (platform === "darwin") {
     return arch === "arm64" ? "arm64" : "x64";
   } else if (platform === "win32") {
@@ -81,17 +81,17 @@ function getPlatformArch(): string {
 function compareVersions(version1: string, version2: string): number {
   const v1Parts = version1.split(".").map(Number);
   const v2Parts = version2.split(".").map(Number);
-  
+
   const maxLength = Math.max(v1Parts.length, v2Parts.length);
-  
+
   for (let i = 0; i < maxLength; i++) {
     const v1Part = v1Parts[i] || 0;
     const v2Part = v2Parts[i] || 0;
-    
+
     if (v1Part > v2Part) return 1;
     if (v1Part < v2Part) return -1;
   }
-  
+
   return 0;
 }
 
@@ -99,9 +99,11 @@ function compareVersions(version1: string, version2: string): number {
 export async function checkForUpdates(): Promise<UpdateCheckResult> {
   try {
     Logger.info("Starting update check...");
-    Logger.debug(`Request URL: ${GITHUB_API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`);
+    Logger.debug(
+      `Request URL: ${GITHUB_API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`
+    );
     Logger.info(`Current version: ${CURRENT_VERSION}`);
-    
+
     // Get the latest release version
     const response = await axios.get(
       `${GITHUB_API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,
@@ -109,7 +111,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
         timeout: 10000,
         headers: {
           "User-Agent": "Smart-Course-Platform-Updater",
-          "Accept": "application/vnd.github.v3+json",
+          Accept: "application/vnd.github.v3+json",
         },
       }
     );
@@ -117,21 +119,25 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     const release = response.data;
     const latestVersion = release.tag_name.replace(/^v/, ""); // Remove v prefix
 
-    Logger.info(`Version comparison: current=${CURRENT_VERSION}, latest=${latestVersion}`);
+    Logger.info(
+      `Version comparison: current=${CURRENT_VERSION}, latest=${latestVersion}`
+    );
 
     // Compare versions
     const versionComparison = compareVersions(latestVersion, CURRENT_VERSION);
-    Logger.debug(`Version comparison result: ${versionComparison} (positive means update available)`);
-    
+    Logger.debug(
+      `Version comparison result: ${versionComparison} (positive means update available)`
+    );
+
     if (versionComparison <= 0) {
       Logger.info("Already using the latest version");
-      return { 
-        hasUpdate: false, 
+      return {
+        hasUpdate: false,
         currentVersion: CURRENT_VERSION,
-        latestVersion: latestVersion
+        latestVersion: latestVersion,
       };
     }
-    
+
     Logger.info("New version found!");
 
     // Find the appropriate download file for the current platform
@@ -197,7 +203,10 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     return {
       hasUpdate: false,
       currentVersion: CURRENT_VERSION,
-      error: error instanceof Error ? error.message : "Unknown error occurred during update check",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update check",
       errorCode: UPDATE_ERROR_CODES.UNKNOWN_CHECK_ERROR,
     };
   }
@@ -206,37 +215,48 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
 // Download update file
 export async function downloadUpdate(
   updateInfo: UpdateInfo,
-  onProgress?: (progress: { percent: number; downloaded: number; total: number }) => void
-): Promise<{ success: boolean; filePath?: string; error?: string; errorCode?: string }> {
+  onProgress?: (progress: {
+    percent: number;
+    downloaded: number;
+    total: number;
+  }) => void
+): Promise<{
+  success: boolean;
+  filePath?: string;
+  error?: string;
+  errorCode?: string;
+}> {
   try {
     Logger.info(`Starting download: ${updateInfo.fileName}`);
     Logger.debug(`Download URL: ${Logger.sanitizeUrl(updateInfo.downloadUrl)}`);
-    Logger.info(`File size: ${(updateInfo.fileSize / 1024 / 1024).toFixed(1)} MB`);
-    
+    Logger.info(
+      `File size: ${(updateInfo.fileSize / 1024 / 1024).toFixed(1)} MB`
+    );
+
     // Create download directory
     const downloadDir = path.join(os.tmpdir(), "smart-course-platform-updates");
     if (!fs.existsSync(downloadDir)) {
       fs.mkdirSync(downloadDir, { recursive: true });
     }
-    
+
     const filePath = path.join(downloadDir, updateInfo.fileName);
-    
+
     // Send download start event
     await notifyRendererWindows("update-download", {
       type: DOWNLOAD_STATUS_TYPES.STARTED,
       fileName: updateInfo.fileName,
-      fileSize: updateInfo.fileSize
+      fileSize: updateInfo.fileSize,
     });
-    
+
     // Download file
     Logger.info("Starting file download...");
-    
+
     const response = await axios.get(updateInfo.downloadUrl, {
       responseType: "stream",
       timeout: 30000, // 30 second connection timeout
       headers: {
         "User-Agent": "Smart-Course-Platform-Updater/1.0",
-        "Accept": "*/*",
+        Accept: "*/*",
       },
     });
 
@@ -266,10 +286,12 @@ export async function downloadUpdate(
 
       // Output progress every 5% or every 10 seconds
       if (percent % 5 === 0 || now - lastProgressTime > 10000) {
-        Logger.info(`Download progress: ${percent}% (${(downloadedSize / 1024 / 1024).toFixed(1)}MB / ${(totalSize / 1024 / 1024).toFixed(1)}MB)`);
+        Logger.info(
+          `Download progress: ${percent}% (${(downloadedSize / 1024 / 1024).toFixed(1)}MB / ${(totalSize / 1024 / 1024).toFixed(1)}MB)`
+        );
         lastProgressTime = now;
       }
-      
+
       // Send progress update event
       import("electron").then(({ BrowserWindow }) => {
         const allWindows = BrowserWindow.getAllWindows();
@@ -280,15 +302,15 @@ export async function downloadUpdate(
             downloaded: downloadedSize,
             total: totalSize,
             downloadedMB: (downloadedSize / 1024 / 1024).toFixed(1),
-            totalMB: (totalSize / 1024 / 1024).toFixed(1)
+            totalMB: (totalSize / 1024 / 1024).toFixed(1),
           });
         });
       });
-      
+
       if (onProgress) {
         onProgress({ percent, downloaded: downloadedSize, total: totalSize });
       }
-      
+
       // Reset timeout timer
       resetTimeout();
     });
@@ -306,7 +328,9 @@ export async function downloadUpdate(
         // Verify file size
         const stats = fs.statSync(filePath);
         if (stats.size !== totalSize) {
-          Logger.warn(`File size mismatch: expected ${totalSize}, actual ${stats.size}`);
+          Logger.warn(
+            `File size mismatch: expected ${totalSize}, actual ${stats.size}`
+          );
           fs.unlinkSync(filePath);
           resolve({
             success: false,
@@ -315,7 +339,7 @@ export async function downloadUpdate(
           });
           return;
         }
-        
+
         // Send download completed event
         import("electron").then(({ BrowserWindow }) => {
           const allWindows = BrowserWindow.getAllWindows();
@@ -323,11 +347,11 @@ export async function downloadUpdate(
             window.webContents.send("update-download", {
               type: DOWNLOAD_STATUS_TYPES.COMPLETED,
               filePath,
-              fileName: updateInfo.fileName
+              fileName: updateInfo.fileName,
             });
           });
         });
-        
+
         resolve({ success: true, filePath });
       });
 
@@ -347,7 +371,7 @@ export async function downloadUpdate(
             window.webContents.send("update-download", {
               type: DOWNLOAD_STATUS_TYPES.ERROR,
               error: error.message,
-              errorCode: UPDATE_ERROR_CODES.FILE_WRITE_ERROR
+              errorCode: UPDATE_ERROR_CODES.FILE_WRITE_ERROR,
             });
           });
         });
@@ -358,7 +382,7 @@ export async function downloadUpdate(
           errorCode: UPDATE_ERROR_CODES.FILE_WRITE_ERROR,
         });
       });
-      
+
       // Listen to response errors
       response.data.on("error", (error: Error) => {
         if (timeoutId) clearTimeout(timeoutId);
@@ -376,7 +400,7 @@ export async function downloadUpdate(
             window.webContents.send("update-download", {
               type: DOWNLOAD_STATUS_TYPES.ERROR,
               error: error.message,
-              errorCode: UPDATE_ERROR_CODES.DOWNLOAD_STREAM_ERROR
+              errorCode: UPDATE_ERROR_CODES.DOWNLOAD_STREAM_ERROR,
             });
           });
         });
@@ -397,22 +421,30 @@ export async function downloadUpdate(
       allWindows.forEach((window) => {
         window.webContents.send("update-download", {
           type: DOWNLOAD_STATUS_TYPES.ERROR,
-          error: error instanceof Error ? error.message : "Unknown error occurred during update download",
-          errorCode: UPDATE_ERROR_CODES.UNKNOWN_DOWNLOAD_ERROR
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unknown error occurred during update download",
+          errorCode: UPDATE_ERROR_CODES.UNKNOWN_DOWNLOAD_ERROR,
         });
       });
     });
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred during update download",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update download",
       errorCode: UPDATE_ERROR_CODES.UNKNOWN_DOWNLOAD_ERROR,
     };
   }
 }
 
 // Install update
-export async function installUpdate(filePath: string): Promise<{ success: boolean; error?: string; errorCode?: string }> {
+export async function installUpdate(
+  filePath: string
+): Promise<{ success: boolean; error?: string; errorCode?: string }> {
   try {
     const platform = os.platform();
     const { spawn } = await import("child_process");
@@ -425,14 +457,20 @@ export async function installUpdate(filePath: string): Promise<{ success: boolea
 
       case "win32":
         // Windows: Run .exe installer
-        const winInstaller = spawn(filePath, ["/S"], { detached: true, stdio: "ignore" });
+        const winInstaller = spawn(filePath, ["/S"], {
+          detached: true,
+          stdio: "ignore",
+        });
         winInstaller.unref();
         return { success: true };
 
       case "linux":
         // Linux: Add execute permission to AppImage and run
         fs.chmodSync(filePath, "755");
-        const linuxInstaller = spawn(filePath, [], { detached: true, stdio: "ignore" });
+        const linuxInstaller = spawn(filePath, [], {
+          detached: true,
+          stdio: "ignore",
+        });
         linuxInstaller.unref();
         return { success: true };
 
@@ -447,14 +485,19 @@ export async function installUpdate(filePath: string): Promise<{ success: boolea
     Logger.error("Update installation failed", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred during update installation",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update installation",
       errorCode: UPDATE_ERROR_CODES.UNKNOWN_INSTALL_ERROR,
     };
   }
 }
 
 // Show update dialog
-export async function showUpdateDialog(updateInfo: UpdateInfo): Promise<boolean> {
+export async function showUpdateDialog(
+  updateInfo: UpdateInfo
+): Promise<boolean> {
   const fileSizeMB = (updateInfo.fileSize / 1024 / 1024).toFixed(1);
   const publishDate = new Date(updateInfo.publishedAt).toLocaleString();
 
@@ -479,14 +522,16 @@ export async function autoCheckForUpdates(): Promise<void> {
     const now = Date.now();
 
     // Skip check if less than 24 hours since last check
-    if (lastCheckTime && (now - lastCheckTime) < UPDATE_CHECK_INTERVAL) {
-      Logger.info("Skipping auto update check (checked less than 24 hours ago)");
+    if (lastCheckTime && now - lastCheckTime < UPDATE_CHECK_INTERVAL) {
+      Logger.info(
+        "Skipping auto update check (checked less than 24 hours ago)"
+      );
       return;
     }
 
     Logger.info("Starting auto update check...");
     const result = await checkForUpdates();
-    
+
     if (result.hasUpdate && result.updateInfo) {
       Logger.info(`New version found: ${result.updateInfo.version}`);
       // Send event to renderer process to show update notification
@@ -494,7 +539,7 @@ export async function autoCheckForUpdates(): Promise<void> {
         type: UPDATE_STATUS_TYPES.AVAILABLE,
         updateInfo: result.updateInfo,
         currentVersion: result.currentVersion,
-        latestVersion: result.latestVersion
+        latestVersion: result.latestVersion,
       });
     } else if (result.error) {
       Logger.error("Auto update check failed", result.error);
@@ -503,18 +548,20 @@ export async function autoCheckForUpdates(): Promise<void> {
         type: UPDATE_STATUS_TYPES.ERROR,
         error: result.error,
         errorCode: result.errorCode,
-        currentVersion: result.currentVersion
+        currentVersion: result.currentVersion,
       });
     } else {
-      Logger.info(`Already using the latest version (${result.currentVersion})`);
+      Logger.info(
+        `Already using the latest version (${result.currentVersion})`
+      );
       // Send latest version information to renderer process
       await notifyRendererWindows("update-status", {
         type: UPDATE_STATUS_TYPES.UP_TO_DATE,
         currentVersion: result.currentVersion,
-        latestVersion: result.latestVersion
+        latestVersion: result.latestVersion,
       });
     }
-    
+
     // Update last check time
     setLastUpdateCheckTime(now);
   } catch (error) {
@@ -538,7 +585,10 @@ export const DOWNLOAD_STATUS_TYPES = {
 } as const;
 
 // Helper function to notify all renderer windows
-async function notifyRendererWindows(channel: string, data: any): Promise<void> {
+async function notifyRendererWindows(
+  channel: string,
+  data: any
+): Promise<void> {
   const { BrowserWindow } = await import("electron");
   const allWindows = BrowserWindow.getAllWindows();
   allWindows.forEach((window) => {
