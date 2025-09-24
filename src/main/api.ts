@@ -524,7 +524,8 @@ export async function* fetchHomeworkStreaming(
     completed: number;
     total: number;
     currentCourse?: string;
-  }) => void
+  }) => void,
+  skipCache: boolean = false
 ) {
   const streamingKey = courseId ? `homework_${courseId}` : "all_homework";
 
@@ -709,11 +710,19 @@ export async function* fetchHomeworkStreaming(
       }
     }
   } finally {
-    // Clean up streaming operations
+    // Clean up and update cache with complete data (unless skipping cache)
     ongoingStreamingOps.delete(streamingKey);
-    Logger.debug(
-      `Completed homework streaming for ${streamingKey} with ${allHomework.length} homework items`
-    );
+
+    if (!skipCache && allHomework.length > 0) {
+      setCachedData(streamingKey, allHomework);
+      Logger.debug(
+        `Updated cache for ${streamingKey} with ${allHomework.length} homework items`
+      );
+    } else {
+      Logger.debug(
+        `Completed homework streaming for ${streamingKey} with ${allHomework.length} homework items (cache ${skipCache ? 'skipped' : 'not updated due to no data'})`
+      );
+    }
   }
 }
 
@@ -836,7 +845,8 @@ export async function* fetchDocumentsStreaming(
     completed: number;
     total: number;
     currentCourse?: string;
-  }) => void
+  }) => void,
+  skipCache: boolean = false
 ) {
   const streamingKey = courseId ? `documents_${courseId}` : "all_documents";
 
@@ -1007,11 +1017,19 @@ export async function* fetchDocumentsStreaming(
       }
     }
   } finally {
-    // Clean up streaming operations
+    // Clean up and update cache with complete data (unless skipping cache)
     ongoingStreamingOps.delete(streamingKey);
-    Logger.debug(
-      `Completed document streaming for ${streamingKey} with ${allDocuments.length} document items`
-    );
+
+    if (!skipCache && allDocuments.length > 0) {
+      setCachedData(streamingKey, allDocuments);
+      Logger.debug(
+        `Updated cache for ${streamingKey} with ${allDocuments.length} document items`
+      );
+    } else {
+      Logger.debug(
+        `Completed document streaming for ${streamingKey} with ${allDocuments.length} document items (cache ${skipCache ? 'skipped' : 'not updated due to no data'})`
+      );
+    }
   }
 }
 

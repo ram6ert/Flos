@@ -33,13 +33,13 @@ const HomeworkList: React.FC = () => {
   const { t } = useTranslation();
   const [homework, setHomework] = useState<Homework[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingStateData>({
-    state: LoadingState.LOADING,
+    state: LoadingState.IDLE,
   });
   const [filter, setFilter] = useState<
     "all" | "pending" | "submitted" | "graded" | "overdue"
   >("all");
   const [cacheInfo, setCacheInfo] = useState<string>("");
-  const [error, setError] = useState<string>("");
+  // Removed error state - using loadingState.error instead
   const [expandedHomework, setExpandedHomework] = useState<Set<number>>(
     new Set()
   );
@@ -52,43 +52,25 @@ const HomeworkList: React.FC = () => {
   >(null);
 
   const isFetchingRef = useRef(false);
-  const streamingRef = useRef(false);
 
   const fetchHomework = useCallback(
     async (forceRefresh = false) => {
       // Prevent duplicate requests
-      if (isFetchingRef.current || streamingRef.current) {
+      if (isFetchingRef.current) {
         console.log(
           "Homework fetch already in progress, skipping duplicate request"
         );
         return;
       }
 
+      isFetchingRef.current = true;
+
       try {
         if (forceRefresh) {
-          // For force refresh, use the old non-streaming method
-          isFetchingRef.current = true;
-          setLoadingState({ state: LoadingState.LOADING });
-
-          const response: HomeworkResponse =
-            await window.electronAPI.refreshHomework();
-
-          if (response.data && Array.isArray(response.data)) {
-            setHomework(response.data);
-
-            const ageMinutes = Math.floor(response.age / (1000 * 60));
-            setCacheInfo(
-              response.fromCache
-                ? t("showingCachedData", { minutes: ageMinutes })
-                : t("showingFreshData")
-            );
-          } else {
-            setHomework([]);
-            setCacheInfo(t("noHomeworkDataAvailable"));
-          }
+          // For force refresh, use streaming refresh (clears display first)
+          await window.electronAPI.refreshHomework();
         } else {
           // Use streaming for normal loads
-          streamingRef.current = true;
           setLoadingState({ state: LoadingState.LOADING });
 
           // Start streaming
@@ -101,11 +83,11 @@ const HomeworkList: React.FC = () => {
             setCacheInfo(t("showingCachedData", { minutes: ageMinutes }));
           }
         }
-
       } finally {
-        setLoadingState({ state: LoadingState.SUCCESS });
+        if (!forceRefresh) {
+          setLoadingState({ state: LoadingState.SUCCESS });
+        }
         isFetchingRef.current = false;
-        streamingRef.current = false;
       }
     },
     [t]
@@ -120,11 +102,14 @@ const HomeworkList: React.FC = () => {
       _event: any,
       payload: { key: string; data: any }
     ) => {
-      // Homework is no longer cached, so we don't handle homework cache updates
-      // Only handle course-related cache updates if needed
-      if (payload.key === "courses") {
-        // Course list was updated - this doesn't directly affect homework display
-        // but we could potentially trigger a refresh if needed
+      if (
+        payload.key === "all_homework" ||
+        payload.key.startsWith("homework_")
+      ) {
+        if (payload.data && Array.isArray(payload.data)) {
+          setHomework(payload.data);
+          setCacheInfo(t("dataUpdatedInBackground"));
+        }
       }
     };
 
@@ -184,14 +169,22 @@ const HomeworkList: React.FC = () => {
       _payload: { courseId?: string }
     ) => {
       setLoadingState({ state: LoadingState.SUCCESS });
-      streamingRef.current = false;
       setCacheInfo(t("showingFreshData"));
     };
 
     const handleStreamError = (_event: any, error: { error: string }) => {
       console.error("Streaming error:", error.error);
       setLoadingState({ state: LoadingState.ERROR, error: error.error });
-      streamingRef.current = false;
+    };
+
+    const handleRefreshStart = (
+      _event: any,
+      _payload: { courseId?: string }
+    ) => {
+      // Clear current homework and reset loading state for refresh
+      setHomework([]);
+      setLoadingState({ state: LoadingState.LOADING });
+      setCacheInfo("");
     };
 
     // Set up event listeners
@@ -200,6 +193,7 @@ const HomeworkList: React.FC = () => {
     window.electronAPI.onHomeworkStreamProgress?.(handleStreamProgress);
     window.electronAPI.onHomeworkStreamComplete?.(handleStreamComplete);
     window.electronAPI.onHomeworkStreamError?.(handleStreamError);
+    window.electronAPI.onHomeworkRefreshStart?.(handleRefreshStart);
 
     return () => {
       window.electronAPI.removeAllListeners?.("cache-updated");
@@ -207,6 +201,7 @@ const HomeworkList: React.FC = () => {
       window.electronAPI.removeAllListeners?.("homework-stream-progress");
       window.electronAPI.removeAllListeners?.("homework-stream-complete");
       window.electronAPI.removeAllListeners?.("homework-stream-error");
+      window.electronAPI.removeAllListeners?.("homework-refresh-start");
     };
   }, [t]);
 
@@ -363,7 +358,7 @@ const HomeworkList: React.FC = () => {
       console.error("Failed to fetch homework details:", error);
       setLoadingState({
         state: LoadingState.ERROR,
-        error: t("failedToLoadHomeworkDetails")
+        error: t("failedToLoadHomeworkDetails"),
       });
     } finally {
       setDetailsLoading(false);
@@ -606,7 +601,7 @@ const HomeworkList: React.FC = () => {
           title={t("unableToLoadHomework")}
           message={loadingState.error || "Unknown error"}
           onRetry={() => fetchHomework(true)}
-          retryLabel={loadingState.state === LoadingState.LOADING ? t("loading") : t("retry")}
+          retryLabel={t("retry")}
         />
       </Container>
     );
@@ -623,7 +618,9 @@ const HomeworkList: React.FC = () => {
             variant="primary"
             size="sm"
           >
-            {loadingState.state === LoadingState.LOADING ? t("loading") : t("refresh")}
+            {loadingState.state === LoadingState.LOADING
+              ? t("loading")
+              : t("refresh")}
           </Button>
         }
       />
@@ -640,7 +637,9 @@ const HomeworkList: React.FC = () => {
             </span>
             <span className="text-xs text-blue-600">
               {Math.round(
-                (loadingState.progress.completed / loadingState.progress.total) * 100
+                (loadingState.progress.completed /
+                  loadingState.progress.total) *
+                  100
               )}
               %
             </span>

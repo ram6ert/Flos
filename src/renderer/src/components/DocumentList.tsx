@@ -56,19 +56,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
         setLoadingState({ state: LoadingState.LOADING });
 
         if (forceRefresh) {
-          // Use normal API for refresh (faster and simpler)
-          const response = await window.electronAPI.getCourseDocuments(
-            selectedCourse.courseNumber,
-            { skipCache: true }
-          );
-
-          // Check if request was aborted or is not current
-          if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
-            return;
-          }
-
-          setRealDocuments(response.data);
-          setLoadingState({ state: LoadingState.SUCCESS });
+          // Use streaming refresh API (will clear display first)
+          await window.electronAPI.refreshDocuments(selectedCourse.courseNumber);
+          return;
         } else {
           // Use streaming for initial load (shows progress)
           setRealDocuments([]); // Clear existing documents for streaming
@@ -79,6 +69,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
             window.electronAPI.removeAllListeners("document-stream-progress");
             window.electronAPI.removeAllListeners("document-stream-complete");
             window.electronAPI.removeAllListeners("document-stream-error");
+            window.electronAPI.removeAllListeners("document-refresh-start");
           };
 
           // Clean up any existing listeners before setting up new ones
@@ -147,6 +138,16 @@ const DocumentList: React.FC<DocumentListProps> = ({
               error: `Failed to fetch documents: ${errorData.error}`
             });
             cleanupListeners();
+          });
+
+          window.electronAPI.onDocumentRefreshStart?.((_event, _payload) => {
+            // Check if request was aborted or is not current
+            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+              return;
+            }
+            // Clear current documents and reset loading state for refresh
+            setRealDocuments([]);
+            setLoadingState({ state: LoadingState.LOADING });
           });
 
           // Start streaming for this specific course (will fetch all document types)

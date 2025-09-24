@@ -27,6 +27,9 @@ export interface ElectronAPI {
   refreshHomework: (
     courseId?: string
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  refreshDocuments: (
+    courseId?: string
+  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   streamHomework: (
     courseId?: string
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
@@ -135,6 +138,12 @@ export interface ElectronAPI {
   onDocumentStreamError: (
     callback: (event: any, error: { error: string }) => void
   ) => void;
+  onHomeworkRefreshStart: (
+    callback: (event: any, payload: { courseId?: string }) => void
+  ) => void;
+  onDocumentRefreshStart: (
+    callback: (event: any, payload: { courseId?: string }) => void
+  ) => void;
   removeAllListeners: (channel: string) => void;
   // update related APIs
   checkForUpdates: () => Promise<{
@@ -173,7 +182,9 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("get-course-documents", courseId, options),
   refreshCourses: () => ipcRenderer.invoke("get-courses", { skipCache: true }),
   refreshHomework: (courseId?: string) =>
-    ipcRenderer.invoke("get-homework", courseId, { skipCache: true }),
+    ipcRenderer.invoke("refresh-homework", courseId),
+  refreshDocuments: (courseId?: string) =>
+    ipcRenderer.invoke("refresh-documents", courseId),
   streamHomework: (courseId?: string) =>
     ipcRenderer.invoke("stream-homework", courseId),
   streamDocuments: (courseId?: string, options?: { forceRefresh?: boolean }) =>
@@ -210,6 +221,8 @@ const electronAPI: ElectronAPI = {
   onDocumentStreamProgress: (callback) => ipcRenderer.on("document-stream-progress", callback),
   onDocumentStreamComplete: (callback) => ipcRenderer.on("document-stream-complete", callback),
   onDocumentStreamError: (callback) => ipcRenderer.on("document-stream-error", callback),
+  onHomeworkRefreshStart: (callback) => ipcRenderer.on("homework-refresh-start", callback),
+  onDocumentRefreshStart: (callback) => ipcRenderer.on("document-refresh-start", callback),
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
   // update related APIs
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
