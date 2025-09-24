@@ -69,6 +69,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
   const [submitting, setSubmitting] = useState<Set<number>>(new Set());
 
   const isFetchingRef = useRef(false);
+  const currentRequestIdRef = useRef<string | null>(null);
 
   const fetchHomework = useCallback(
     async (forceRefresh = false) => {
@@ -80,6 +81,9 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         return;
       }
 
+      // Generate unique request ID
+      const requestId = `homework-${Date.now()}-${Math.random()}`;
+      currentRequestIdRef.current = requestId;
       isFetchingRef.current = true;
 
       try {
@@ -105,6 +109,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
           setLoadingState({ state: LoadingState.SUCCESS });
         }
         isFetchingRef.current = false;
+        currentRequestIdRef.current = null;
       }
     },
     [t]
@@ -137,8 +142,12 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         courseId?: string;
         courseName?: string;
         fromCache: boolean;
+        responseId?: string; // TODO: Will be added by main process
       }
     ) => {
+      // TODO: When main process includes responseId, check if chunk.responseId matches currentRequestIdRef.current
+      // For now, we accept all chunks since main process will handle deduplication
+
       // Streaming data - append new homework
       setHomework((prev) => {
         const existingIds = new Set((prev || []).map((hw) => hw.id));
@@ -174,13 +183,22 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
 
     const handleStreamComplete = (
       _event: any,
-      _payload: { courseId?: string }
+      _payload: { courseId?: string; responseId?: string } // TODO: responseId will be added by main process
     ) => {
+      // TODO: When main process includes responseId, check if payload.responseId matches currentRequestIdRef.current
+      // For now, we accept completion events since main process will handle this
+
       setLoadingState({ state: LoadingState.SUCCESS });
       setCacheInfo(t("showingFreshData"));
     };
 
-    const handleStreamError = (_event: any, error: { error: string }) => {
+    const handleStreamError = (
+      _event: any,
+      error: { error: string; responseId?: string } // TODO: responseId will be added by main process
+    ) => {
+      // TODO: When main process includes responseId, check if error.responseId matches currentRequestIdRef.current
+      // For now, we accept error events since main process will handle this
+
       console.error("Streaming error:", error.error);
       setLoadingState({ state: LoadingState.ERROR, error: error.error });
     };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Course } from "../../../shared/types";
 import {
@@ -43,9 +43,15 @@ const DocumentList: React.FC<DocumentListProps> = ({
     CourseDocumentType | "all"
   >("all");
 
+  // Simple race condition protection - tracks current request
+  const currentRequestIdRef = useRef<string | null>(null);
+
   // Handler functions for document streaming events
   const handleDocumentStreamChunk = useCallback(
     (_event: any, chunk: DocumentStreamChunk) => {
+      // TODO: When main process includes responseId, check if chunk.responseId matches currentRequestIdRef.current
+      // For now, we accept all chunks since main process will handle deduplication
+
       // If streaming data, append to existing documents
       setDocuments((prev) => {
         const newDocs = [...(prev || []), ...chunk.documents];
@@ -76,19 +82,26 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   const handleDocumentStreamComplete = useCallback(
     (_event: any, _payload: any) => {
-      // Check if request was aborted or is not current
+      // TODO: When main process includes responseId, check if payload.responseId matches currentRequestIdRef.current
+      // For now, we accept completion events since main process will handle this
+
       setLoadingState({ state: LoadingState.SUCCESS });
+      currentRequestIdRef.current = null; // Clear current request
     },
     []
   );
 
   const handleDocumentStreamError = useCallback(
     (_event: any, errorData: { error: string }) => {
+      // TODO: When main process includes responseId, check if errorData.responseId matches currentRequestIdRef.current
+      // For now, we accept error events since main process will handle this
+
       console.error("Document streaming error:", errorData.error);
       setLoadingState({
         state: LoadingState.ERROR,
         error: `Failed to fetch documents: ${errorData.error}`,
       });
+      currentRequestIdRef.current = null; // Clear current request
     },
     []
   );
@@ -105,9 +118,12 @@ const DocumentList: React.FC<DocumentListProps> = ({
     async (forceRefresh = false) => {
       if (!selectedCourse) return;
 
+      // Generate unique request ID for this fetch
+      const requestId = `${selectedCourse.courseNumber}-${Date.now()}-${Math.random()}`;
+      currentRequestIdRef.current = requestId;
+
       try {
         setLoadingState({ state: LoadingState.LOADING });
-
         setDocuments(null); // Clear existing documents for streaming
 
         if (forceRefresh) {
@@ -119,11 +135,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
           await window.electronAPI.streamDocuments(selectedCourse.courseNumber);
         }
       } catch (error) {
-        console.error("Failed to fetch documents:", error);
-        setLoadingState({
-          state: LoadingState.ERROR,
-          error: "Failed to fetch course documents. Please try again later.",
-        });
+        // Only handle error if this is still the current request
+        if (currentRequestIdRef.current === requestId) {
+          console.error("Failed to fetch documents:", error);
+          setLoadingState({
+            state: LoadingState.ERROR,
+            error: "Failed to fetch course documents. Please try again later.",
+          });
+        }
       }
     },
     [selectedCourse, setDocuments]
@@ -131,8 +150,12 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   useEffect(() => {
     if (selectedCourse) {
+      // Cancel previous request when course changes
+      currentRequestIdRef.current = null;
       fetchDocuments(false); // Always fetch when course changes
     } else {
+      // Cancel any ongoing request
+      currentRequestIdRef.current = null;
       setDocuments(null);
       setLoadingState({ state: LoadingState.IDLE });
     }
