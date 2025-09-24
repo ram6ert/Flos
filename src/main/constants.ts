@@ -87,7 +87,7 @@ function getAcceptLanguage() {
 
 export const API_CONFIG = {
   API_BASE_URL: "http://123.121.147.7:88/ve/back",
-  VE_BASE_URL: "http://123.121.147.7:88/ve/back",
+  VE_BASE_URL: "http://123.121.147.7:88/ve",
   BASE_URL: "http://123.121.147.7:88", // Documents don't use /ve
   ORIGIN: "http://123.121.147.7:88",
   USER_AGENT: generateUserAgent(),
