@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Course } from "../../../shared/types";
-import { CourseDocument, DocumentStreamChunk, DocumentStreamProgress } from "../../../shared/types";
+import {
+  CourseDocument,
+  DocumentStreamChunk,
+  DocumentStreamProgress,
+} from "../../../shared/types";
 import { LoadingState, LoadingStateData } from "../types/ui";
 import {
   Container,
@@ -55,29 +59,27 @@ const DocumentList: React.FC<DocumentListProps> = ({
       try {
         setLoadingState({ state: LoadingState.LOADING });
 
-        if (forceRefresh) {
-          // Use streaming refresh API (will clear display first)
-          await window.electronAPI.refreshDocuments(selectedCourse.courseNumber);
-          return;
-        } else {
-          // Use streaming for initial load (shows progress)
-          setRealDocuments([]); // Clear existing documents for streaming
+        setRealDocuments([]); // Clear existing documents for streaming
 
-          // Set up event listeners for streaming with race condition protection
-          const cleanupListeners = () => {
-            window.electronAPI.removeAllListeners("document-stream-chunk");
-            window.electronAPI.removeAllListeners("document-stream-progress");
-            window.electronAPI.removeAllListeners("document-stream-complete");
-            window.electronAPI.removeAllListeners("document-stream-error");
-            window.electronAPI.removeAllListeners("document-refresh-start");
-          };
+        // Set up event listeners for streaming with race condition protection
+        const cleanupListeners = () => {
+          window.electronAPI.removeAllListeners("document-stream-chunk");
+          window.electronAPI.removeAllListeners("document-stream-progress");
+          window.electronAPI.removeAllListeners("document-stream-complete");
+          window.electronAPI.removeAllListeners("document-stream-error");
+          window.electronAPI.removeAllListeners("document-refresh-start");
+        };
 
-          // Clean up any existing listeners before setting up new ones
-          cleanupListeners();
+        // Clean up any existing listeners before setting up new ones
+        cleanupListeners();
 
-          window.electronAPI.onDocumentStreamChunk((_event, chunk: DocumentStreamChunk) => {
+        window.electronAPI.onDocumentStreamChunk(
+          (_event, chunk: DocumentStreamChunk) => {
             // Check if request was aborted or is not current
-            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+            if (
+              abortController.signal.aborted ||
+              currentRequestRef.current !== requestId
+            ) {
               return;
             }
 
@@ -92,20 +94,26 @@ const DocumentList: React.FC<DocumentListProps> = ({
               cleanupListeners();
             } else {
               // If streaming data, append to existing documents
-              setRealDocuments(prev => {
+              setRealDocuments((prev) => {
                 const newDocs = [...prev, ...chunk.documents];
                 // Remove duplicates based on document ID
-                const uniqueDocs = newDocs.filter((doc, index, arr) =>
-                  arr.findIndex(d => d.id === doc.id) === index
+                const uniqueDocs = newDocs.filter(
+                  (doc, index, arr) =>
+                    arr.findIndex((d) => d.id === doc.id) === index
                 );
                 return uniqueDocs;
               });
             }
-          });
+          }
+        );
 
-          window.electronAPI.onDocumentStreamProgress((_event, progress: DocumentStreamProgress) => {
+        window.electronAPI.onDocumentStreamProgress(
+          (_event, progress: DocumentStreamProgress) => {
             // Check if request was aborted or is not current
-            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+            if (
+              abortController.signal.aborted ||
+              currentRequestRef.current !== requestId
+            ) {
               return;
             }
             setLoadingState({
@@ -116,52 +124,70 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 currentItem: progress.currentCourse,
               },
             });
-          });
+          }
+        );
 
-          window.electronAPI.onDocumentStreamComplete((_event, _payload) => {
-            // Check if request was aborted or is not current
-            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
-              return;
-            }
-            setLoadingState({ state: LoadingState.SUCCESS });
-            cleanupListeners();
-          });
+        window.electronAPI.onDocumentStreamComplete((_event, _payload) => {
+          // Check if request was aborted or is not current
+          if (
+            abortController.signal.aborted ||
+            currentRequestRef.current !== requestId
+          ) {
+            return;
+          }
+          setLoadingState({ state: LoadingState.SUCCESS });
+          cleanupListeners();
+        });
 
-          window.electronAPI.onDocumentStreamError((_event, errorData) => {
-            // Check if request was aborted or is not current
-            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
-              return;
-            }
-            console.error("Document streaming error:", errorData.error);
-            setLoadingState({
-              state: LoadingState.ERROR,
-              error: `Failed to fetch documents: ${errorData.error}`
-            });
-            cleanupListeners();
+        window.electronAPI.onDocumentStreamError((_event, errorData) => {
+          // Check if request was aborted or is not current
+          if (
+            abortController.signal.aborted ||
+            currentRequestRef.current !== requestId
+          ) {
+            return;
+          }
+          console.error("Document streaming error:", errorData.error);
+          setLoadingState({
+            state: LoadingState.ERROR,
+            error: `Failed to fetch documents: ${errorData.error}`,
           });
+          cleanupListeners();
+        });
 
-          window.electronAPI.onDocumentRefreshStart?.((_event, _payload) => {
-            // Check if request was aborted or is not current
-            if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
-              return;
-            }
-            // Clear current documents and reset loading state for refresh
-            setRealDocuments([]);
-            setLoadingState({ state: LoadingState.LOADING });
-          });
+        window.electronAPI.onDocumentRefreshStart?.((_event, _payload) => {
+          // Check if request was aborted or is not current
+          if (
+            abortController.signal.aborted ||
+            currentRequestRef.current !== requestId
+          ) {
+            return;
+          }
+          // Clear current documents and reset loading state for refresh
+          setRealDocuments([]);
+          setLoadingState({ state: LoadingState.LOADING });
+        });
 
+        if (forceRefresh) {
+          await window.electronAPI.refreshDocuments(
+            selectedCourse.courseNumber
+          );
+        } else {
           // Start streaming for this specific course (will fetch all document types)
           await window.electronAPI.streamDocuments(selectedCourse.courseNumber);
         }
       } catch (error) {
         // Don't show error if request was aborted or is not current
-        if (abortController.signal.aborted || currentRequestRef.current !== requestId) {
+        if (
+          abortController.signal.aborted ||
+          currentRequestRef.current !== requestId
+        ) {
           return;
         }
         console.error("Failed to fetch documents:", error);
         setLoadingState({
           state: LoadingState.ERROR,
-          error: "Failed to fetch course documents. Please try again later."
+          error: "Failed to fetch course documents. Please try again later.",
         });
       }
     },
@@ -337,9 +363,13 @@ const DocumentList: React.FC<DocumentListProps> = ({
                       {doc.fileExtension.toUpperCase()}
                     </span>
                     <span className="ml-2 px-2 py-0.5 bg-blue-100 rounded-full text-xs text-blue-700 font-medium">
-                      {t(doc.documentType === 'courseware' ? 'electronicCourseware' :
-                         doc.documentType === 'experiment_guide' ? 'experimentGuide' :
-                         'unknownDocumentType')}
+                      {t(
+                        doc.documentType === "courseware"
+                          ? "electronicCourseware"
+                          : doc.documentType === "experiment_guide"
+                            ? "experimentGuide"
+                            : "unknownDocumentType"
+                      )}
                     </span>
                   </div>
 
@@ -411,7 +441,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 variant="primary"
                 size="sm"
               >
-                {loadingState.state === LoadingState.LOADING ? t("loading") : t("refresh")}
+                {loadingState.state === LoadingState.LOADING
+                  ? t("loading")
+                  : t("refresh")}
               </Button>
             )}
           </div>
@@ -440,7 +472,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
             </span>
             <span className="text-xs text-blue-600">
               {Math.round(
-                (loadingState.progress.completed / loadingState.progress.total) * 100
+                (loadingState.progress.completed /
+                  loadingState.progress.total) *
+                  100
               )}
               %
             </span>
@@ -462,15 +496,16 @@ const DocumentList: React.FC<DocumentListProps> = ({
       )}
 
       {/* Show initial loading when starting to load */}
-      {loadingState.state === LoadingState.LOADING && !loadingState.progress && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center justify-center">
-            <span className="text-sm font-medium text-blue-800">
-              {t("loadingDocuments")}...
-            </span>
+      {loadingState.state === LoadingState.LOADING &&
+        !loadingState.progress && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-center">
+              <span className="text-sm font-medium text-blue-800">
+                {t("loadingDocuments")}...
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {selectedCourse && realDocuments.length > 0 && (
         <div className="mb-4">
