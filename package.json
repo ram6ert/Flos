@@ -64,7 +64,8 @@
     "axios": "^1.5.0",
     "cheerio": "1.0.0-rc.10",
     "crypto-js": "^4.1.1",
-    "iconv-lite": "^0.7.0"
+    "iconv-lite": "^0.7.0",
+    "node-cache": "^5.1.2"
   },
   "build": {
     "appId": "com.smartcourse.platform",

@@ -2,13 +2,6 @@ import { ipcMain } from "electron";
 import axios from "axios";
 import { currentSession, captchaSession } from "../auth";
 import {
-  getCachedData,
-  setCachedData,
-  saveCacheToFile,
-  getCacheTimestamp,
-  CACHE_DURATION,
-} from "../cache";
-import {
   requestQueue,
   fetchHomeworkData,
   fetchHomeworkStreaming,
@@ -17,7 +10,13 @@ import {
   submitHomework,
 } from "../api";
 import { API_CONFIG } from "../constants";
+import NodeCache from "node-cache";
 
+const CACHE_TTL = 30 * 60;
+const cachedHomework = new NodeCache({
+  stdTTL: CACHE_TTL,
+  checkperiod: CACHE_TTL / 2,
+});
 export function setupHomeworkHandlers() {
   ipcMain.handle(
     "get-homework",
@@ -26,21 +25,21 @@ export function setupHomeworkHandlers() {
         throw new Error("Not logged in");
       }
 
-      const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
+      const cacheKey = courseId
+        ? `homework_${currentSession.username}_${courseId}`
+        : "all_homework";
 
       // If skipCache is requested, fetch fresh data immediately
       if (options?.skipCache) {
         return requestQueue.add(async () => {
           const data = await fetchHomeworkData(courseId);
-          setCachedData(cacheKey, data);
-          saveCacheToFile(currentSession?.username);
+          cachedHomework.set(cacheKey, data);
           return { data, fromCache: false, age: 0 };
         });
       }
 
-      const cachedData = getCachedData(cacheKey, CACHE_DURATION);
-      const cacheTimestamp = getCacheTimestamp(cacheKey);
-      const age = Date.now() - cacheTimestamp;
+      const cachedData = cachedHomework.get(cacheKey);
+      const age = (CACHE_TTL - (cachedHomework.getTtl(cacheKey) ?? 0)) * 1000;
 
       // If we have cached data, return it immediately without background refresh
       if (cachedData) {
@@ -50,8 +49,7 @@ export function setupHomeworkHandlers() {
       // No cache, fetch fresh data
       return requestQueue.add(async () => {
         const data = await fetchHomeworkData(courseId);
-        setCachedData(cacheKey, data);
-        saveCacheToFile(currentSession?.username);
+        cachedHomework.set(cacheKey, data);
         return { data, fromCache: false, age: 0 };
       });
     }
@@ -62,10 +60,12 @@ export function setupHomeworkHandlers() {
       throw new Error("Not logged in");
     }
 
-    const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
+    const cacheKey = courseId
+      ? `homework_${currentSession.username}_${courseId}`
+      : "all_homework";
 
     // Clear existing cache for this key
-    setCachedData(cacheKey, null);
+    cachedHomework.del(cacheKey);
 
     // Signal renderer to clear display and start streaming fresh data
     try {
@@ -107,10 +107,12 @@ export function setupHomeworkHandlers() {
       throw new Error("Not logged in");
     }
 
-    const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
+    const cacheKey = courseId
+      ? `homework_${currentSession.username}_${courseId}`
+      : "all_homework";
 
     // Check cache first - if we have recent data, return it immediately
-    const cachedData = getCachedData(cacheKey, CACHE_DURATION);
+    const cachedData = cachedHomework.get(cacheKey);
     if (cachedData) {
       // Send cached data immediately
       event.sender.send("homework-stream-chunk", {
@@ -144,7 +146,7 @@ export function setupHomeworkHandlers() {
       event.sender.send("homework-stream-complete", { courseId });
 
       // Return final cached data
-      const finalData = getCachedData(cacheKey, CACHE_DURATION);
+      const finalData = cachedHomework.get(cacheKey);
       return { data: finalData || [], fromCache: false, age: 0 };
     } catch (error) {
       event.sender.send("homework-stream-error", {

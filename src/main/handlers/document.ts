@@ -2,18 +2,18 @@ import { ipcMain } from "electron";
 import axios from "axios";
 import { currentSession, captchaSession } from "../auth";
 import {
-  getCachedData,
-  setCachedData,
-  saveCacheToFile,
-  CACHE_DURATION,
-} from "../cache";
-import {
   requestQueue,
   fetchCourseDocuments,
   fetchDocumentsStreaming,
 } from "../api";
 import { API_CONFIG as APP_CONFIG } from "../constants";
+import NodeCache from "node-cache";
 
+const CACHE_TTL = 30 * 60;
+const cachedDocuments = new NodeCache({
+  stdTTL: CACHE_TTL,
+  checkperiod: CACHE_TTL / 2,
+});
 export function setupDocumentHandlers() {
   // Streaming document handlers
   ipcMain.handle(
@@ -24,11 +24,13 @@ export function setupDocumentHandlers() {
       }
 
       const { forceRefresh = false } = options;
-      const cacheKey = courseId ? `documents_${courseId}` : "all_documents";
+      const cacheKey = courseId
+        ? `documents_${currentSession.username}_${courseId}`
+        : `all_documents_${currentSession.username}`;
 
       // Check cache first - if we have recent data and not forcing refresh, return it immediately
       if (!forceRefresh) {
-        const cachedData = getCachedData(cacheKey, CACHE_DURATION);
+        const cachedData = cachedDocuments.get(cacheKey);
         if (cachedData) {
           // Send cached data immediately
           event.sender.send("document-stream-chunk", {
@@ -63,7 +65,7 @@ export function setupDocumentHandlers() {
         event.sender.send("document-stream-complete", { courseId });
 
         // Return final cached data
-        const finalData = getCachedData(cacheKey, CACHE_DURATION);
+        const finalData = cachedDocuments.get(cacheKey);
         return { data: finalData || [], fromCache: false, age: 0 };
       } catch (error) {
         event.sender.send("document-stream-error", {
@@ -80,10 +82,12 @@ export function setupDocumentHandlers() {
       throw new Error("Not logged in");
     }
 
-    const cacheKey = courseId ? `documents_${courseId}` : "all_documents";
+    const cacheKey = courseId
+      ? `documents_${currentSession.username}_${courseId}`
+      : "all_documents";
 
     // Clear existing cache for this key
-    setCachedData(cacheKey, null);
+    cachedDocuments.del(cacheKey);
 
     // Signal renderer to clear display and start streaming fresh data
     try {
@@ -167,8 +171,8 @@ export function setupDocumentHandlers() {
         throw new Error("Not logged in");
       }
 
-      const cacheKey = `documents_${courseCode}`;
-      const cachedData = getCachedData(cacheKey, CACHE_DURATION);
+      const cacheKey = `documents_${currentSession.username}_${courseCode}`;
+      const cachedData = cachedDocuments.get(cacheKey);
 
       // Use cached data if available and not expired (unless skipCache is true)
       if (!options?.skipCache && cachedData) {
@@ -180,8 +184,7 @@ export function setupDocumentHandlers() {
           const sanitizedDocuments = await fetchCourseDocuments(courseCode);
 
           // Update cache with sanitized data
-          setCachedData(cacheKey, sanitizedDocuments);
-          saveCacheToFile(currentSession?.username);
+          cachedDocuments.set(cacheKey, sanitizedDocuments);
 
           return { data: sanitizedDocuments, fromCache: false, age: 0 };
         } catch (error) {
