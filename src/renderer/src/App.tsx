@@ -20,7 +20,10 @@ type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [activeView, setActiveView] = useState<ActiveView>("courses");
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedCourse_Documents, setSelectedCourse_Documents] = useState<Course | null>(null);
+  const [selectedCourse_Homework, setSelectedCourse_Homework] = useState<Course | null>(null);
+  const [selectedCourse_Schedule, setSelectedCourse_Schedule] = useState<Course | null>(null);
+  const [selectedCourse_All, setSelectedCourse_All] = useState<Course | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [documents, setDocuments] = useState<CourseDocument[] | null>(null);
   const [homework, setHomework] = useState<Homework[] | null>(null);
@@ -101,7 +104,7 @@ const App: React.FC = () => {
       console.log("Session expired, prompting for re-login");
       setUserSession(null);
       // Don't clear cached data - keep it available until user explicitly refreshes
-      setSelectedCourse(null);
+      setSelectedCourse_Documents(null);
       setActiveView("courses");
     };
 
@@ -257,7 +260,10 @@ const App: React.FC = () => {
   };
 
   const handleCourseSelect = (course: Course | null) => {
-    setSelectedCourse(course);
+    setSelectedCourse_Documents(course);
+    setSelectedCourse_Homework(course);
+    setSelectedCourse_Schedule(course);
+    setSelectedCourse_All(course);
   };
 
   const handleRefreshCourses = async () => {
@@ -274,7 +280,7 @@ const App: React.FC = () => {
       setUserSession(null);
       setCourses([]);
       setDocuments(null);
-      setSelectedCourse(null);
+      setSelectedCourse_Documents(null);
       setActiveView("courses");
       setShowLogoutDropdown(false);
     } catch (error) {
@@ -302,7 +308,7 @@ const App: React.FC = () => {
       setUserSession(null);
       setCourses([]);
       setDocuments(null);
-      setSelectedCourse(null);
+      setSelectedCourse_Documents(null);
       setActiveView("courses");
       setShowLogoutDropdown(false);
     } catch (error) {
@@ -318,14 +324,15 @@ const App: React.FC = () => {
             courses={courses}
             onCourseSelect={handleCourseSelect}
             onRefresh={handleRefreshCourses}
+            selectedCourse={selectedCourse_All}
           />
         );
       case "homework":
         return (
           <HomeworkList
-            selectedCourse={selectedCourse}
+            selectedCourse={selectedCourse_Homework}
             courses={courses}
-            onCourseSelect={handleCourseSelect}
+            onCourseSelect={v => setSelectedCourse_Homework(v)}
             homework={homework}
             setHomework={setHomework}
           />
@@ -335,9 +342,9 @@ const App: React.FC = () => {
           <DocumentList
             documents={documents}
             setDocuments={setDocuments}
-            selectedCourse={selectedCourse}
+            selectedCourse={selectedCourse_Documents}
             courses={courses}
-            onCourseSelect={handleCourseSelect}
+            onCourseSelect={v => setSelectedCourse_Documents(v)}
           />
         );
       case "flow-schedule":
@@ -345,6 +352,7 @@ const App: React.FC = () => {
           <FlowScheduleTable
             scheduleData={scheduleData}
             setScheduleData={setScheduleData}
+            selectedCourse={selectedCourse_Schedule}
           />
         );
       default:
@@ -353,6 +361,7 @@ const App: React.FC = () => {
             courses={courses}
             onCourseSelect={handleCourseSelect}
             onRefresh={handleRefreshCourses}
+            selectedCourse={selectedCourse_Documents}
           />
         );
     }

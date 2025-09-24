@@ -13,12 +13,14 @@ interface CourseListProps {
   courses: Course[];
   onCourseSelect: (course: Course) => void;
   onRefresh?: () => Promise<void>;
+  selectedCourse?: Course | null;
 }
 
 const CourseList: React.FC<CourseListProps> = ({
   courses,
   onCourseSelect,
   onRefresh,
+  selectedCourse,
 }) => {
   const { t } = useTranslation();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -109,12 +111,25 @@ const CourseList: React.FC<CourseListProps> = ({
         <p className="text-gray-600">{t("noCourses")}</p>
       ) : (
         <Grid>
-          {courses.map((course) => (
+          {courses.map((course) => {
+            const isSelected = !!selectedCourse && (selectedCourse.id === course.id || selectedCourse.name === course.name);
+            return (
             <Card
               key={course.id}
               onClick={() => onCourseSelect(course)}
-              className="course-card flex flex-col"
+              className={`course-card flex flex-col relative ${
+                isSelected
+                  ? "ring-4 ring-indigo-500/80 ring-offset-2 ring-offset-white border-2 border-indigo-500 bg-indigo-50/70 shadow-lg shadow-indigo-300"
+                  : ""
+              }`}
             >
+              {isSelected && (
+                <div className="absolute top-4 right-4 z-10">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-400 text-black border border-amber-600 shadow-md shadow-amber-300">
+                    ✓ Selected
+                  </span>
+                </div>
+              )}
               {courseImages[course.id] && (
                 <div className="mb-3">
                   <img
@@ -129,25 +144,25 @@ const CourseList: React.FC<CourseListProps> = ({
               )}
 
               <div className="flex-1">
-                <h3 className="m-0 mb-2 text-lg text-gray-900 font-semibold">
+                <h3 className={`m-0 mb-2 text-lg font-semibold ${isSelected ? "text-indigo-900" : "text-gray-900"}`}>
                   {course.name}
                 </h3>
 
-                <p className="m-0 mb-2 text-gray-700 text-sm">
+                <p className={`m-0 mb-2 text-sm ${isSelected ? "text-indigo-800" : "text-gray-700"}`}>
                   <strong>{t("courseNumber")}:</strong> {course.courseNumber}
                 </p>
 
-                <p className="m-0 mb-2 text-gray-700 text-sm">
+                <p className={`m-0 mb-2 text-sm ${isSelected ? "text-indigo-800" : "text-gray-700"}`}>
                   <strong>{t("instructor")}:</strong> {course.teacherName}
                 </p>
 
-                <p className="m-0 text-gray-600 text-xs">
+                <p className={`m-0 text-xs ${isSelected ? "text-indigo-700" : "text-gray-600"}`}>
                   <strong>{t("semester")}:</strong>{" "}
                   {formatSemesterDates(course.beginDate, course.endDate)}
                 </p>
               </div>
             </Card>
-          ))}
+          )})}
         </Grid>
       )}
     </Container>
