@@ -99,8 +99,6 @@ export interface ElectronAPI {
         homework: any[];
         courseId?: string;
         courseName?: string;
-        type: string;
-        isComplete: boolean;
         fromCache: boolean;
       }
     ) => void
@@ -128,8 +126,6 @@ export interface ElectronAPI {
         documents: any[];
         courseId?: string;
         courseName?: string;
-        type: string;
-        isComplete: boolean;
         fromCache: boolean;
       }
     ) => void

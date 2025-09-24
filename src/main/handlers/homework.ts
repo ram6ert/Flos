@@ -126,11 +126,10 @@ export function setupHomeworkHandlers() {
         homework: cachedData,
         courseId: courseId || null,
         courseName: "Cached Data",
-        type: "cached",
-        isComplete: true,
         fromCache: true,
       });
 
+      event.sender.send("homework-stream-complete", { courseId });
       return { data: cachedData, fromCache: true, age: 0 };
     }
 

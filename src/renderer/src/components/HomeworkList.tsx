@@ -86,7 +86,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         if (forceRefresh) {
           // For force refresh, use streaming refresh (clears display first)
           await window.electronAPI.refreshHomework();
-        } else if(!homework) {
+        } else if (!homework) {
           // Use streaming for normal loads
           setLoadingState({ state: LoadingState.LOADING });
 
@@ -107,7 +107,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         isFetchingRef.current = false;
       }
     },
-    [t]
+    [homework, t]
   );
 
   useEffect(() => {
@@ -136,29 +136,21 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         homework: any[];
         courseId?: string;
         courseName?: string;
-        type: string;
-        isComplete: boolean;
         fromCache: boolean;
       }
     ) => {
-      if (chunk.fromCache && chunk.isComplete) {
-        // Cached data - replace all homework
-        setHomework(chunk.homework);
-        setLoadingState({ state: LoadingState.SUCCESS });
-      } else {
-        // Streaming data - append new homework
-        setHomework((prev) => {
-          const existingIds = new Set((prev || []).map((hw) => hw.id));
-          const newHomework = chunk.homework.filter(
-            (hw) => !existingIds.has(hw.id)
-          );
-          return [...(prev || []), ...newHomework];
-        });
+      // Streaming data - append new homework
+      setHomework((prev) => {
+        const existingIds = new Set((prev || []).map((hw) => hw.id));
+        const newHomework = chunk.homework.filter(
+          (hw) => !existingIds.has(hw.id)
+        );
+        return [...(prev || []), ...newHomework];
+      });
 
-        // Update cache info to show we're receiving fresh data
-        if (!chunk.fromCache) {
-          setCacheInfo(t("showingFreshData"));
-        }
+      // Update cache info to show we're receiving fresh data
+      if (!chunk.fromCache) {
+        setCacheInfo(t("showingFreshData"));
       }
     };
 
@@ -219,7 +211,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       window.electronAPI.removeAllListeners?.("homework-stream-error");
       window.electronAPI.removeAllListeners?.("homework-refresh-start");
     };
-  }, [t]);
+  }, [setHomework, t]);
 
   const getStatusColor = (hw: Homework) => {
     if (hw.submissionStatus === "graded") return "#28a745"; // green
@@ -701,14 +693,14 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         title={`${t("homework")} (${filteredAndSortedHomework.length})`}
         actions={
           <Button
-              onClick={() => fetchHomework(true)}
-              disabled={loadingState.state === LoadingState.LOADING}
-              variant="primary"
-              size="sm"
-            >
-              {loadingState.state === LoadingState.LOADING
-                ? t("loading")
-                : t("refresh")}
+            onClick={() => fetchHomework(true)}
+            disabled={loadingState.state === LoadingState.LOADING}
+            variant="primary"
+            size="sm"
+          >
+            {loadingState.state === LoadingState.LOADING
+              ? t("loading")
+              : t("refresh")}
           </Button>
         }
       />
@@ -773,7 +765,11 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <strong>{t("course")}: </strong>
             <select
-              value={courses.some((c) => c.id === (selectedCourse?.id || "")) ? selectedCourse?.id || "" : ""}
+              value={
+                courses.some((c) => c.id === (selectedCourse?.id || ""))
+                  ? selectedCourse?.id || ""
+                  : ""
+              }
               onChange={(e) => {
                 if (e.target.value === "") {
                   onCourseSelect(null);

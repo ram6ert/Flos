@@ -40,10 +40,10 @@ export function setupDocumentHandlers() {
             courseId: courseId,
             courseName: "Cached Data",
             type: "cached",
-            isComplete: true,
             fromCache: true,
           });
 
+          event.sender.send("document-stream-complete", { courseId });
           return { data: cachedData, fromCache: true, age: 0 };
         }
       }

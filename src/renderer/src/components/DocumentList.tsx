@@ -46,6 +46,99 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const currentRequestRef = useRef<string | null>(null);
   const streamingAbortControllerRef = useRef<AbortController | null>(null);
 
+  // Handler functions for document streaming events
+  const handleDocumentStreamChunk = useCallback(
+    (_event: any, chunk: DocumentStreamChunk) => {
+      // Check if request was aborted or is not current
+      if (
+        streamingAbortControllerRef.current?.signal.aborted ||
+        !currentRequestRef.current
+      ) {
+        return;
+      }
+
+      // If streaming data, append to existing documents
+      setDocuments((prev) => {
+        const newDocs = [...(prev || []), ...chunk.documents];
+        // Remove duplicates based on document ID
+        const uniqueDocs = newDocs.filter(
+          (doc, index, arr) => arr.findIndex((d) => d.id === doc.id) === index
+        );
+        return uniqueDocs;
+      });
+    },
+    [setDocuments]
+  );
+
+  const handleDocumentStreamProgress = useCallback(
+    (_event: any, progress: DocumentStreamProgress) => {
+      // Check if request was aborted or is not current
+      if (
+        streamingAbortControllerRef.current?.signal.aborted ||
+        !currentRequestRef.current
+      ) {
+        return;
+      }
+      setLoadingState({
+        state: LoadingState.LOADING,
+        progress: {
+          completed: progress.completed,
+          total: progress.total,
+          currentItem: progress.currentCourse,
+        },
+      });
+    },
+    []
+  );
+
+  const handleDocumentStreamComplete = useCallback(
+    (_event: any, _payload: any) => {
+      // Check if request was aborted or is not current
+      if (
+        streamingAbortControllerRef.current?.signal.aborted ||
+        !currentRequestRef.current
+      ) {
+        return;
+      }
+      setLoadingState({ state: LoadingState.SUCCESS });
+    },
+    []
+  );
+
+  const handleDocumentStreamError = useCallback(
+    (_event: any, errorData: { error: string }) => {
+      // Check if request was aborted or is not current
+      if (
+        streamingAbortControllerRef.current?.signal.aborted ||
+        !currentRequestRef.current
+      ) {
+        return;
+      }
+      console.error("Document streaming error:", errorData.error);
+      setLoadingState({
+        state: LoadingState.ERROR,
+        error: `Failed to fetch documents: ${errorData.error}`,
+      });
+    },
+    []
+  );
+
+  const handleDocumentRefreshStart = useCallback(
+    (_event: any, _payload: any) => {
+      // Check if request was aborted or is not current
+      if (
+        streamingAbortControllerRef.current?.signal.aborted ||
+        !currentRequestRef.current
+      ) {
+        return;
+      }
+      // Clear current documents and reset loading state for refresh
+      setDocuments(null);
+      setLoadingState({ state: LoadingState.LOADING });
+    },
+    [setDocuments]
+  );
+
   const fetchDocuments = useCallback(
     async (forceRefresh = false) => {
       if (!selectedCourse) return;
@@ -68,112 +161,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
         setDocuments(null); // Clear existing documents for streaming
 
-        // Set up event listeners for streaming with race condition protection
-        const cleanupListeners = () => {
-          window.electronAPI.removeAllListeners("document-stream-chunk");
-          window.electronAPI.removeAllListeners("document-stream-progress");
-          window.electronAPI.removeAllListeners("document-stream-complete");
-          window.electronAPI.removeAllListeners("document-stream-error");
-          window.electronAPI.removeAllListeners("document-refresh-start");
-        };
-
-        // Clean up any existing listeners before setting up new ones
-        cleanupListeners();
-
-        window.electronAPI.onDocumentStreamChunk(
-          (_event, chunk: DocumentStreamChunk) => {
-            // Check if request was aborted or is not current
-            if (
-              abortController.signal.aborted ||
-              currentRequestRef.current !== requestId
-            ) {
-              return;
-            }
-
-            if (chunk.fromCache) {
-              // If cached data, replace all documents
-              setDocuments(chunk.documents);
-              setLoadingState({ state: LoadingState.SUCCESS });
-              cleanupListeners();
-            } else if (chunk.isComplete || chunk.type === "complete") {
-              // Final completion signal - don't add documents but finish streaming
-              setLoadingState({ state: LoadingState.SUCCESS });
-              cleanupListeners();
-            } else {
-              // If streaming data, append to existing documents
-              setDocuments((prev) => {
-                const newDocs = [...(prev || []), ...chunk.documents];
-                // Remove duplicates based on document ID
-                const uniqueDocs = newDocs.filter(
-                  (doc, index, arr) =>
-                    arr.findIndex((d) => d.id === doc.id) === index
-                );
-                return uniqueDocs;
-              });
-            }
-          }
-        );
-
-        window.electronAPI.onDocumentStreamProgress(
-          (_event, progress: DocumentStreamProgress) => {
-            // Check if request was aborted or is not current
-            if (
-              abortController.signal.aborted ||
-              currentRequestRef.current !== requestId
-            ) {
-              return;
-            }
-            setLoadingState({
-              state: LoadingState.LOADING,
-              progress: {
-                completed: progress.completed,
-                total: progress.total,
-                currentItem: progress.currentCourse,
-              },
-            });
-          }
-        );
-
-        window.electronAPI.onDocumentStreamComplete((_event, _payload) => {
-          // Check if request was aborted or is not current
-          if (
-            abortController.signal.aborted ||
-            currentRequestRef.current !== requestId
-          ) {
-            return;
-          }
-          setLoadingState({ state: LoadingState.SUCCESS });
-          cleanupListeners();
-        });
-
-        window.electronAPI.onDocumentStreamError((_event, errorData) => {
-          // Check if request was aborted or is not current
-          if (
-            abortController.signal.aborted ||
-            currentRequestRef.current !== requestId
-          ) {
-            return;
-          }
-          console.error("Document streaming error:", errorData.error);
-          setLoadingState({
-            state: LoadingState.ERROR,
-            error: `Failed to fetch documents: ${errorData.error}`,
-          });
-          cleanupListeners();
-        });
-
-        window.electronAPI.onDocumentRefreshStart?.((_event, _payload) => {
-          // Check if request was aborted or is not current
-          if (
-            abortController.signal.aborted ||
-            currentRequestRef.current !== requestId
-          ) {
-            return;
-          }
-          // Clear current documents and reset loading state for refresh
-          setDocuments(null);
-          setLoadingState({ state: LoadingState.LOADING });
-        });
+        // Event listeners are now set up in useEffect
 
         if (forceRefresh) {
           await window.electronAPI.refreshDocuments(
@@ -198,12 +186,12 @@ const DocumentList: React.FC<DocumentListProps> = ({
         });
       }
     },
-    [selectedCourse]
+    [selectedCourse, setDocuments]
   );
 
   useEffect(() => {
     if (selectedCourse) {
-      if(!documents) {
+      if (!documents) {
         fetchDocuments(false); // Use streaming for initial load
       }
     } else {
@@ -214,10 +202,17 @@ const DocumentList: React.FC<DocumentListProps> = ({
       setDocuments(null);
       setLoadingState({ state: LoadingState.IDLE });
     }
-  }, [selectedCourse, fetchDocuments]);
+  }, [selectedCourse, fetchDocuments, setDocuments, documents]);
 
-  // Cleanup listeners on unmount and abort any ongoing requests
+  // Set up event listeners and cleanup on unmount
   useEffect(() => {
+    // Set up event listeners
+    window.electronAPI.onDocumentStreamChunk?.(handleDocumentStreamChunk);
+    window.electronAPI.onDocumentStreamProgress?.(handleDocumentStreamProgress);
+    window.electronAPI.onDocumentStreamComplete?.(handleDocumentStreamComplete);
+    window.electronAPI.onDocumentStreamError?.(handleDocumentStreamError);
+    window.electronAPI.onDocumentRefreshStart?.(handleDocumentRefreshStart);
+
     return () => {
       // Abort any ongoing streaming request
       if (streamingAbortControllerRef.current) {
@@ -225,12 +220,19 @@ const DocumentList: React.FC<DocumentListProps> = ({
       }
 
       // Clean up event listeners
-      window.electronAPI.removeAllListeners("document-stream-chunk");
-      window.electronAPI.removeAllListeners("document-stream-progress");
-      window.electronAPI.removeAllListeners("document-stream-complete");
-      window.electronAPI.removeAllListeners("document-stream-error");
+      window.electronAPI.removeAllListeners?.("document-stream-chunk");
+      window.electronAPI.removeAllListeners?.("document-stream-progress");
+      window.electronAPI.removeAllListeners?.("document-stream-complete");
+      window.electronAPI.removeAllListeners?.("document-stream-error");
+      window.electronAPI.removeAllListeners?.("document-refresh-start");
     };
-  }, []);
+  }, [
+    handleDocumentStreamChunk,
+    handleDocumentStreamProgress,
+    handleDocumentStreamComplete,
+    handleDocumentStreamError,
+    handleDocumentRefreshStart,
+  ]);
 
   const formatFileSize = (sizeStr: string) => {
     const size = parseFloat(sizeStr);
@@ -437,13 +439,19 @@ const DocumentList: React.FC<DocumentListProps> = ({
         actions={
           <div className="flex gap-3 items-center">
             <select
-              value={(courses || []).some((c) => c.id === (selectedCourse?.id || "")) ? selectedCourse?.id || "" : ""}
+              value={
+                (courses || []).some((c) => c.id === (selectedCourse?.id || ""))
+                  ? selectedCourse?.id || ""
+                  : ""
+              }
               onChange={(e) => {
                 if (e.target.value === "") {
                   onCourseSelect(null);
                   return;
                 }
-                const course = (courses || []).find((c) => c.id === e.target.value);
+                const course = (courses || []).find(
+                  (c) => c.id === e.target.value
+                );
                 if (course) onCourseSelect(course);
               }}
               className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

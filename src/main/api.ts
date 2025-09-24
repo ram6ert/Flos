@@ -761,7 +761,6 @@ export async function* fetchHomeworkStreaming(
               courseId,
               courseName: null,
               type: type.name,
-              isComplete: false,
             };
           }
         } catch (error) {
@@ -846,7 +845,6 @@ export async function* fetchHomeworkStreaming(
                 courseId: course.id,
                 courseName: course.name,
                 type: type.name,
-                isComplete: false,
               };
             }
           } catch (error) {
@@ -1070,7 +1068,6 @@ export async function* fetchDocumentsStreaming(
             courseId,
             courseName: null,
             type: type.name,
-            isComplete: false,
           };
         } catch (error) {
           Logger.error(`Failed to get ${type.name} for course`, error);
@@ -1080,7 +1077,6 @@ export async function* fetchDocumentsStreaming(
             courseId,
             courseName: null,
             type: type.name,
-            isComplete: false,
           };
         }
 
@@ -1090,15 +1086,6 @@ export async function* fetchDocumentsStreaming(
           setTimeout(resolve, Math.floor(Math.random() * 301) + 50)
         );
       }
-
-      // Send a final completion signal
-      yield {
-        documents: [],
-        courseId,
-        courseName: null,
-        type: "complete",
-        isComplete: true,
-      };
     } else {
       // Get all documents for all courses
       let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
