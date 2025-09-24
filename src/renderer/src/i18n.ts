@@ -225,8 +225,10 @@ const resources = {
       attachFiles: "Attach Files",
       selectedFiles: "Selected {{count}} file(s)",
       submittingHomework: "Submitting homework...",
-      submissionNote: "Note: Please ensure all content and files are correct before submitting.",
-      homeworkSubmittedSuccessfully: "Homework submitted successfully! Message: {{message}}, Files: {{files}}",
+      submissionNote:
+        "Note: Please ensure all content and files are correct before submitting.",
+      homeworkSubmittedSuccessfully:
+        "Homework submitted successfully! Message: {{message}}, Files: {{files}}",
       homeworkSubmissionFailed: "Homework submission failed: {{error}}",
       downloadFailedTryAgain: "Download failed. Please try again.",
       unknown: "Unknown",
@@ -452,7 +454,8 @@ const resources = {
       selectedFiles: "已选择{{count}}个文件",
       submittingHomework: "正在提交作业...",
       submissionNote: "注意：请确保所有内容和文件正确无误后再提交。",
-      homeworkSubmittedSuccessfully: "作业提交成功！消息：{{message}}，文件：{{files}}",
+      homeworkSubmittedSuccessfully:
+        "作业提交成功！消息：{{message}}，文件：{{files}}",
       homeworkSubmissionFailed: "作业提交失败：{{error}}",
       downloadFailedTryAgain: "下载失败。请重试。",
       unknown: "未知",

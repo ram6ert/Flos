@@ -51,33 +51,36 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({
     { short: t("sun"), full: t("sunday"), index: 6 },
   ];
 
-  const loadSchedule = useCallback(async (forceRefresh = false) => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const loadSchedule = useCallback(
+    async (forceRefresh = false) => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      const scheduleResponse = forceRefresh
-        ? await window.electronAPI.refreshSchedule()
-        : await window.electronAPI.getSchedule();
+        const scheduleResponse = forceRefresh
+          ? await window.electronAPI.refreshSchedule()
+          : await window.electronAPI.getSchedule();
 
-      if (
-        scheduleResponse &&
-        typeof scheduleResponse === "object" &&
-        "weeks" in scheduleResponse &&
-        "courses" in scheduleResponse
-      ) {
-        setScheduleData(scheduleResponse as ScheduleData);
-      } else {
-        console.error("Invalid schedule response format:", scheduleResponse);
-        setError("Invalid schedule response format");
+        if (
+          scheduleResponse &&
+          typeof scheduleResponse === "object" &&
+          "weeks" in scheduleResponse &&
+          "courses" in scheduleResponse
+        ) {
+          setScheduleData(scheduleResponse as ScheduleData);
+        } else {
+          console.error("Invalid schedule response format:", scheduleResponse);
+          setError("Invalid schedule response format");
+        }
+      } catch (error) {
+        console.error("Failed to load schedule:", error);
+        setError("Failed to load schedule. Please try again.");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to load schedule:", error);
-      setError("Failed to load schedule. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [setScheduleData]);
+    },
+    [setScheduleData]
+  );
 
   useEffect(() => {
     loadSchedule();

@@ -268,7 +268,10 @@ export const handleSessionExpired = async (): Promise<void> => {
       win.webContents.send("session-expired");
     }
   } catch (notifyError) {
-    Logger.warn("Failed to notify renderer about session expiration", notifyError);
+    Logger.warn(
+      "Failed to notify renderer about session expiration",
+      notifyError
+    );
   }
 };
 

@@ -20,10 +20,15 @@ type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [activeView, setActiveView] = useState<ActiveView>("courses");
-  const [selectedCourse_Documents, setSelectedCourse_Documents] = useState<Course | null>(null);
-  const [selectedCourse_Homework, setSelectedCourse_Homework] = useState<Course | null>(null);
-  const [selectedCourse_Schedule, setSelectedCourse_Schedule] = useState<Course | null>(null);
-  const [selectedCourse_All, setSelectedCourse_All] = useState<Course | null>(null);
+  const [selectedCourse_Documents, setSelectedCourse_Documents] =
+    useState<Course | null>(null);
+  const [selectedCourse_Homework, setSelectedCourse_Homework] =
+    useState<Course | null>(null);
+  const [selectedCourse_Schedule, setSelectedCourse_Schedule] =
+    useState<Course | null>(null);
+  const [selectedCourse_All, setSelectedCourse_All] = useState<Course | null>(
+    null
+  );
   const [courses, setCourses] = useState<Course[]>([]);
   const [documents, setDocuments] = useState<CourseDocument[] | null>(null);
   const [homework, setHomework] = useState<Homework[] | null>(null);
@@ -332,7 +337,7 @@ const App: React.FC = () => {
           <HomeworkList
             selectedCourse={selectedCourse_Homework}
             courses={courses}
-            onCourseSelect={v => setSelectedCourse_Homework(v)}
+            onCourseSelect={(v) => setSelectedCourse_Homework(v)}
             homework={homework}
             setHomework={setHomework}
           />
@@ -344,7 +349,7 @@ const App: React.FC = () => {
             setDocuments={setDocuments}
             selectedCourse={selectedCourse_Documents}
             courses={courses}
-            onCourseSelect={v => setSelectedCourse_Documents(v)}
+            onCourseSelect={(v) => setSelectedCourse_Documents(v)}
           />
         );
       case "flow-schedule":

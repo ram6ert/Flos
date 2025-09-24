@@ -116,10 +116,16 @@ export interface ElectronAPI {
     ) => void
   ) => void;
   onHomeworkStreamComplete: (
-    callback: (event: any, payload: { courseId?: string; responseId?: string }) => void
+    callback: (
+      event: any,
+      payload: { courseId?: string; responseId?: string }
+    ) => void
   ) => void;
   onHomeworkStreamError: (
-    callback: (event: any, error: { error: string; responseId?: string }) => void
+    callback: (
+      event: any,
+      error: { error: string; responseId?: string }
+    ) => void
   ) => void;
   onDocumentStreamChunk: (
     callback: (
@@ -145,16 +151,28 @@ export interface ElectronAPI {
     ) => void
   ) => void;
   onDocumentStreamComplete: (
-    callback: (event: any, payload: { courseId?: string; responseId?: string }) => void
+    callback: (
+      event: any,
+      payload: { courseId?: string; responseId?: string }
+    ) => void
   ) => void;
   onDocumentStreamError: (
-    callback: (event: any, error: { error: string; responseId?: string }) => void
+    callback: (
+      event: any,
+      error: { error: string; responseId?: string }
+    ) => void
   ) => void;
   onHomeworkRefreshStart: (
-    callback: (event: any, payload: { courseId?: string; responseId?: string }) => void
+    callback: (
+      event: any,
+      payload: { courseId?: string; responseId?: string }
+    ) => void
   ) => void;
   onDocumentRefreshStart: (
-    callback: (event: any, payload: { courseId?: string; responseId?: string }) => void
+    callback: (
+      event: any,
+      payload: { courseId?: string; responseId?: string }
+    ) => void
   ) => void;
   removeAllListeners: (channel: string) => void;
   // update related APIs
@@ -214,8 +232,10 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("refresh-documents", courseId),
   streamHomework: (courseId?: string) =>
     ipcRenderer.invoke("stream-homework", courseId),
-  streamDocuments: (courseId?: string, options?: { forceRefresh?: boolean; requestId?: string }) =>
-    ipcRenderer.invoke("stream-documents", courseId, options),
+  streamDocuments: (
+    courseId?: string,
+    options?: { forceRefresh?: boolean; requestId?: string }
+  ) => ipcRenderer.invoke("stream-documents", courseId, options),
   getSchedule: (options?: { skipCache?: boolean }) =>
     ipcRenderer.invoke("get-schedule", options),
   refreshSchedule: () => ipcRenderer.invoke("refresh-schedule"),

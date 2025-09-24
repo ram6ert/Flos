@@ -112,57 +112,69 @@ const CourseList: React.FC<CourseListProps> = ({
       ) : (
         <Grid>
           {courses.map((course) => {
-            const isSelected = !!selectedCourse && (selectedCourse.id === course.id || selectedCourse.name === course.name);
+            const isSelected =
+              !!selectedCourse &&
+              (selectedCourse.id === course.id ||
+                selectedCourse.name === course.name);
             return (
-            <Card
-              key={course.id}
-              onClick={() => onCourseSelect(course)}
-              className={`course-card flex flex-col relative ${
-                isSelected
-                  ? "ring-4 ring-indigo-500/80 ring-offset-2 ring-offset-white border-2 border-indigo-500 bg-indigo-50/70 shadow-lg shadow-indigo-300"
-                  : ""
-              }`}
-            >
-              {isSelected && (
-                <div className="absolute top-4 right-4 z-10">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-400 text-black border border-amber-600 shadow-md shadow-amber-300">
-                    ✓ Selected
-                  </span>
+              <Card
+                key={course.id}
+                onClick={() => onCourseSelect(course)}
+                className={`course-card flex flex-col relative ${
+                  isSelected
+                    ? "ring-4 ring-indigo-500/80 ring-offset-2 ring-offset-white border-2 border-indigo-500 bg-indigo-50/70 shadow-lg shadow-indigo-300"
+                    : ""
+                }`}
+              >
+                {isSelected && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-400 text-black border border-amber-600 shadow-md shadow-amber-300">
+                      ✓ Selected
+                    </span>
+                  </div>
+                )}
+                {courseImages[course.id] && (
+                  <div className="mb-3">
+                    <img
+                      src={courseImages[course.id]!}
+                      alt={course.name}
+                      className="w-full h-30 object-cover rounded-md"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="flex-1">
+                  <h3
+                    className={`m-0 mb-2 text-lg font-semibold ${isSelected ? "text-indigo-900" : "text-gray-900"}`}
+                  >
+                    {course.name}
+                  </h3>
+
+                  <p
+                    className={`m-0 mb-2 text-sm ${isSelected ? "text-indigo-800" : "text-gray-700"}`}
+                  >
+                    <strong>{t("courseNumber")}:</strong> {course.courseNumber}
+                  </p>
+
+                  <p
+                    className={`m-0 mb-2 text-sm ${isSelected ? "text-indigo-800" : "text-gray-700"}`}
+                  >
+                    <strong>{t("instructor")}:</strong> {course.teacherName}
+                  </p>
+
+                  <p
+                    className={`m-0 text-xs ${isSelected ? "text-indigo-700" : "text-gray-600"}`}
+                  >
+                    <strong>{t("semester")}:</strong>{" "}
+                    {formatSemesterDates(course.beginDate, course.endDate)}
+                  </p>
                 </div>
-              )}
-              {courseImages[course.id] && (
-                <div className="mb-3">
-                  <img
-                    src={courseImages[course.id]!}
-                    alt={course.name}
-                    className="w-full h-30 object-cover rounded-md"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
-
-              <div className="flex-1">
-                <h3 className={`m-0 mb-2 text-lg font-semibold ${isSelected ? "text-indigo-900" : "text-gray-900"}`}>
-                  {course.name}
-                </h3>
-
-                <p className={`m-0 mb-2 text-sm ${isSelected ? "text-indigo-800" : "text-gray-700"}`}>
-                  <strong>{t("courseNumber")}:</strong> {course.courseNumber}
-                </p>
-
-                <p className={`m-0 mb-2 text-sm ${isSelected ? "text-indigo-800" : "text-gray-700"}`}>
-                  <strong>{t("instructor")}:</strong> {course.teacherName}
-                </p>
-
-                <p className={`m-0 text-xs ${isSelected ? "text-indigo-700" : "text-gray-600"}`}>
-                  <strong>{t("semester")}:</strong>{" "}
-                  {formatSemesterDates(course.beginDate, course.endDate)}
-                </p>
-              </div>
-            </Card>
-          )})}
+              </Card>
+            );
+          })}
         </Grid>
       )}
     </Container>

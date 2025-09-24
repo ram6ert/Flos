@@ -14,7 +14,8 @@ const CACHE_TTL = 30 * 60;
 
 // Active request tracking to prevent race conditions
 const activeRequests = new Map<string, string>(); // requestKey -> responseId
-const generateResponseId = () => `resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const generateResponseId = () =>
+  `resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 const cachedDocuments = new NodeCache({
   stdTTL: CACHE_TTL,
   checkperiod: CACHE_TTL / 2,
@@ -30,7 +31,7 @@ export function setupDocumentHandlers() {
       }
 
       const { forceRefresh = false, requestId } = options;
-      const requestKey = courseId || 'all_documents';
+      const requestKey = courseId || "all_documents";
       // Use the requestId passed from renderer, or generate one if not provided
       const responseId = requestId || generateResponseId();
 
@@ -60,7 +61,10 @@ export function setupDocumentHandlers() {
               responseId,
             });
 
-            event.sender.send("document-stream-complete", { courseId, responseId });
+            event.sender.send("document-stream-complete", {
+              courseId,
+              responseId,
+            });
             activeRequests.delete(requestKey);
           }
           return { data: cachedData, fromCache: true, age: 0 };
@@ -72,7 +76,10 @@ export function setupDocumentHandlers() {
         const generator = fetchDocumentsStreaming(courseId, (progress) => {
           // Only send progress if this is still the current request
           if (activeRequests.get(requestKey) === responseId) {
-            event.sender.send("document-stream-progress", { ...progress, responseId });
+            event.sender.send("document-stream-progress", {
+              ...progress,
+              responseId,
+            });
           }
         });
 
@@ -95,7 +102,10 @@ export function setupDocumentHandlers() {
 
         // Only complete if this is still the current request
         if (activeRequests.get(requestKey) === responseId) {
-          event.sender.send("document-stream-complete", { courseId, responseId });
+          event.sender.send("document-stream-complete", {
+            courseId,
+            responseId,
+          });
           cachedDocuments.set(cacheKey, finalData);
           activeRequests.delete(requestKey);
         }
@@ -122,7 +132,7 @@ export function setupDocumentHandlers() {
       throw new Error("SESSION_EXPIRED");
     }
 
-    const requestKey = courseId || 'all_documents';
+    const requestKey = courseId || "all_documents";
     const responseId = generateResponseId();
 
     // Cancel any existing request
@@ -145,7 +155,10 @@ export function setupDocumentHandlers() {
         (progress) => {
           // Only send progress if this is still the current request
           if (activeRequests.get(requestKey) === responseId) {
-            event.sender.send("document-stream-progress", { ...progress, responseId });
+            event.sender.send("document-stream-progress", {
+              ...progress,
+              responseId,
+            });
           }
         },
         false

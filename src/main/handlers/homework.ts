@@ -17,7 +17,8 @@ const CACHE_TTL = 30 * 60;
 
 // Active request tracking to prevent race conditions
 const activeHomeworkRequests = new Map<string, string>(); // requestKey -> responseId
-const generateHomeworkResponseId = () => `hw_resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const generateHomeworkResponseId = () =>
+  `hw_resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 const cachedHomework = new NodeCache({
   stdTTL: CACHE_TTL,
   checkperiod: CACHE_TTL / 2,
@@ -67,7 +68,7 @@ export function setupHomeworkHandlers() {
       throw new Error("SESSION_EXPIRED");
     }
 
-    const requestKey = courseId || 'all_homework';
+    const requestKey = courseId || "all_homework";
     const responseId = generateHomeworkResponseId();
 
     // Cancel any existing request
@@ -93,7 +94,10 @@ export function setupHomeworkHandlers() {
         (progress) => {
           // Only send progress if this is still the current request
           if (activeHomeworkRequests.get(requestKey) === responseId) {
-            event.sender.send("homework-stream-progress", { ...progress, responseId });
+            event.sender.send("homework-stream-progress", {
+              ...progress,
+              responseId,
+            });
           }
         },
         false
@@ -144,7 +148,7 @@ export function setupHomeworkHandlers() {
       throw new Error("SESSION_EXPIRED");
     }
 
-    const requestKey = courseId || 'all_homework';
+    const requestKey = courseId || "all_homework";
     const responseId = generateHomeworkResponseId();
 
     // Check for existing request and cancel it
@@ -182,7 +186,10 @@ export function setupHomeworkHandlers() {
       const generator = fetchHomeworkStreaming(courseId, (progress) => {
         // Only send progress if this is still the current request
         if (activeHomeworkRequests.get(requestKey) === responseId) {
-          event.sender.send("homework-stream-progress", { ...progress, responseId });
+          event.sender.send("homework-stream-progress", {
+            ...progress,
+            responseId,
+          });
         }
       });
 

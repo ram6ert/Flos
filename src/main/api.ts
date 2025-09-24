@@ -41,7 +41,8 @@ export function setupAxiosSessionInterceptors(): void {
 
       // For 200 responses, sometimes HTML is returned instead of JSON → expired
       const contentType = response.headers?.["content-type"] || "";
-      const isHtml = typeof contentType === "string" && contentType.includes("text/html");
+      const isHtml =
+        typeof contentType === "string" && contentType.includes("text/html");
       if (response.status === 200 && isHtml) {
         Logger.event("HTML response detected - possible session expired");
         await handleSessionExpired();

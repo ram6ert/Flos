@@ -52,7 +52,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       // Check if this chunk is from the current request
       if (chunk.responseId && currentRequestIdRef.current) {
         if (chunk.responseId !== currentRequestIdRef.current) {
-          console.log('Ignoring document chunk from outdated request');
+          console.log("Ignoring document chunk from outdated request");
           return;
         }
       }
@@ -71,11 +71,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
   );
 
   const handleDocumentStreamProgress = useCallback(
-    (_event: any, progress: DocumentStreamProgress & { responseId?: string }) => {
+    (
+      _event: any,
+      progress: DocumentStreamProgress & { responseId?: string }
+    ) => {
       // Check if this progress is from the current request
       if (progress.responseId && currentRequestIdRef.current) {
         if (progress.responseId !== currentRequestIdRef.current) {
-          console.log('Ignoring document progress from outdated request');
+          console.log("Ignoring document progress from outdated request");
           return;
         }
       }
@@ -97,7 +100,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       // Check if this completion is from the current request
       if (payload.responseId && currentRequestIdRef.current) {
         if (payload.responseId !== currentRequestIdRef.current) {
-          console.log('Ignoring document completion from outdated request');
+          console.log("Ignoring document completion from outdated request");
           return;
         }
       }
@@ -114,7 +117,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       // Check if this error is from the current request
       if (errorData.responseId && currentRequestIdRef.current) {
         if (errorData.responseId !== currentRequestIdRef.current) {
-          console.log('Ignoring document error from outdated request');
+          console.log("Ignoring document error from outdated request");
           return;
         }
       }
@@ -155,15 +158,21 @@ const DocumentList: React.FC<DocumentListProps> = ({
         if (forceRefresh) {
           // For refresh, we need to pass the requestId too - but refreshDocuments doesn't support it yet
           // For now, let's use streamDocuments with forceRefresh option
-          await window.electronAPI.streamDocuments(selectedCourse.courseNumber, {
-            forceRefresh: true,
-            requestId: requestId
-          });
+          await window.electronAPI.streamDocuments(
+            selectedCourse.courseNumber,
+            {
+              forceRefresh: true,
+              requestId: requestId,
+            }
+          );
         } else {
           // Start streaming for this specific course (will fetch all document types)
-          await window.electronAPI.streamDocuments(selectedCourse.courseNumber, {
-            requestId: requestId
-          });
+          await window.electronAPI.streamDocuments(
+            selectedCourse.courseNumber,
+            {
+              requestId: requestId,
+            }
+          );
         }
       } catch (error) {
         // Only handle error if this is still the current request
