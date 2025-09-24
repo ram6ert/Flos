@@ -252,7 +252,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCourseSelect = (course: Course) => {
+  const handleCourseSelect = (course: Course | null) => {
     setSelectedCourse(course);
   };
 
@@ -317,7 +317,13 @@ const App: React.FC = () => {
           />
         );
       case "homework":
-        return <HomeworkList />;
+        return (
+          <HomeworkList
+            selectedCourse={selectedCourse}
+            courses={courses}
+            onCourseSelect={handleCourseSelect}
+          />
+        );
       case "documents":
         return (
           <DocumentList

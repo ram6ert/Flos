@@ -10,6 +10,7 @@ import {
   Homework,
   HomeworkDetails,
   HomeworkAttachment,
+  Course,
 } from "../../../shared/types";
 import { LoadingState, LoadingStateData } from "../types/ui";
 import {
@@ -29,7 +30,17 @@ interface HomeworkResponse {
   age: number;
 }
 
-const HomeworkList: React.FC = () => {
+interface HomeworkListProps {
+  selectedCourse: Course | null;
+  courses: Course[];
+  onCourseSelect: (course: Course | null) => void;
+}
+
+const HomeworkList: React.FC<HomeworkListProps> = ({
+  selectedCourse,
+  courses,
+  onCourseSelect,
+}) => {
   const { t } = useTranslation();
   const [homework, setHomework] = useState<Homework[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingStateData>({
@@ -596,6 +607,12 @@ const HomeworkList: React.FC = () => {
   const filteredAndSortedHomework = useMemo(() => {
     return homework
       .filter((hw) => {
+        // Filter by selected course if provided
+        if (selectedCourse) {
+          const selectedCourseIdAsNumber = Number(selectedCourse.id);
+          if (hw.courseId !== selectedCourseIdAsNumber) return false;
+        }
+
         const hwIsOverdue = isOverdue(hw);
 
         switch (filter) {
@@ -652,7 +669,7 @@ const HomeworkList: React.FC = () => {
 
         return sortOrder === "asc" ? comparison : -comparison;
       });
-  }, [homework, filter, sortBy, sortOrder]);
+  }, [homework, selectedCourse, filter, sortBy, sortOrder]);
 
   if (loadingState.state === LoadingState.LOADING && !loadingState.progress) {
     return (
@@ -681,14 +698,14 @@ const HomeworkList: React.FC = () => {
         title={`${t("homework")} (${filteredAndSortedHomework.length})`}
         actions={
           <Button
-            onClick={() => fetchHomework(true)}
-            disabled={loadingState.state === LoadingState.LOADING}
-            variant="primary"
-            size="sm"
-          >
-            {loadingState.state === LoadingState.LOADING
-              ? t("loading")
-              : t("refresh")}
+              onClick={() => fetchHomework(true)}
+              disabled={loadingState.state === LoadingState.LOADING}
+              variant="primary"
+              size="sm"
+            >
+              {loadingState.state === LoadingState.LOADING
+                ? t("loading")
+                : t("refresh")}
           </Button>
         }
       />
@@ -729,27 +746,52 @@ const HomeworkList: React.FC = () => {
       )}
 
       <div className="mb-6">
-        <div className="mb-4">
-          <strong className="mr-3">{t("filter")}: </strong>
-          {["all", "pending", "submitted", "graded", "overdue"].map(
-            (filterType) => (
-              <button
-                key={filterType}
-                onClick={() => setFilter(filterType as any)}
-                className={cn(
-                  "px-3 py-1.5 mr-2 border border-gray-300 rounded-md cursor-pointer text-sm font-medium transition-colors",
-                  filter === filterType
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                )}
-              >
-                {t(filterType)}
-              </button>
-            )
-          )}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <strong className="mr-1">{t("filter")}: </strong>
+            {["all", "pending", "submitted", "graded", "overdue"].map(
+              (filterType) => (
+                <button
+                  key={filterType}
+                  onClick={() => setFilter(filterType as any)}
+                  className={cn(
+                    "px-3 py-1.5 border border-gray-300 rounded-md cursor-pointer text-sm font-medium transition-colors",
+                    filter === filterType
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                  )}
+                >
+                  {t(filterType)}
+                </button>
+              )
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <strong>{t("course")}: </strong>
+            <select
+              value={courses.some((c) => c.id === (selectedCourse?.id || "")) ? selectedCourse?.id || "" : ""}
+              onChange={(e) => {
+                if (e.target.value === "") {
+                  onCourseSelect(null);
+                  return;
+                }
+                const course = courses.find((c) => c.id === e.target.value);
+                if (course) onCourseSelect(course);
+              }}
+              className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
+            >
+              <option value="">All courses</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.courseNumber} - {course.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <strong>{t("sortBy")}: </strong>
           <select
             value={sortBy}

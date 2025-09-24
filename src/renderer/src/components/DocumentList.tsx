@@ -22,7 +22,7 @@ interface DocumentListProps {
   documents: CourseDocument[];
   selectedCourse: Course | null;
   courses: Course[];
-  onCourseSelect: (course: Course) => void;
+  onCourseSelect: (course: Course | null) => void;
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
@@ -432,14 +432,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
         actions={
           <div className="flex gap-3 items-center">
             <select
-              value={selectedCourse?.id || ""}
+              value={courses.some((c) => c.id === (selectedCourse?.id || "")) ? selectedCourse?.id || "" : ""}
               onChange={(e) => {
+                if (e.target.value === "") {
+                  onCourseSelect(null);
+                  return;
+                }
                 const course = courses.find((c) => c.id === e.target.value);
                 if (course) onCourseSelect(course);
               }}
               className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Select a course</option>
+              <option value="">All courses</option>
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
                   {course.courseNumber} - {course.name}
