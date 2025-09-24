@@ -206,6 +206,19 @@ const resources = {
       unknownDocumentType: "Unknown Document Type",
       loadingDocuments: "Loading documents",
       currentlyFetching: "Currently fetching",
+
+      // Homework Submission
+      submitHomework: "Submit Homework",
+      addFiles: "Add Files",
+      content: "Content",
+      submitting: "Submitting...",
+      submissionSuccessful: "Submission successful",
+      submissionFailed: "Submission failed",
+      chooseFiles: "Choose files",
+      noFilesSelected: "No files selected",
+      enterHomeworkContent: "Enter homework content (optional)",
+      fileSelected: "{{count}} file selected",
+      filesSelected: "{{count}} files selected",
     },
   },
   zh: {
@@ -406,6 +419,19 @@ const resources = {
       unknownDocumentType: "未知文档类型",
       loadingDocuments: "正在加载文档",
       currentlyFetching: "正在获取",
+
+      // Homework Submission
+      submitHomework: "提交作业",
+      addFiles: "添加文件",
+      content: "内容",
+      submitting: "提交中...",
+      submissionSuccessful: "提交成功",
+      submissionFailed: "提交失败",
+      chooseFiles: "选择文件",
+      noFilesSelected: "未选择文件",
+      enterHomeworkContent: "输入作业内容（可选）",
+      fileSelected: "已选择{{count}}个文件",
+      filesSelected: "已选择{{count}}个文件",
     },
   },
 };

@@ -7,7 +7,6 @@ export const API_CONFIG = {
     // Authentication endpoints (under /ve)
     LOGIN: "/ve/s.shtml",
     CAPTCHA: "/ve/GetImg",
-    VE_ROOT: "/ve/",
 
     // Backend API endpoints (under /back)
     SEMESTER_INFO: "/back/rp/common/teachCalendar.shtml?method=queryCurrentXq",

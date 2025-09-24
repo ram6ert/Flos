@@ -12,7 +12,7 @@ import {
   fetchCourseDocuments,
   fetchDocumentsStreaming,
 } from "../api";
-import { API_CONFIG } from "../constants";
+import { API_CONFIG as APP_CONFIG } from "../constants";
 
 export function setupDocumentHandlers() {
   // Streaming document handlers
@@ -134,14 +134,15 @@ export function setupDocumentHandlers() {
       try {
         // If imagePath starts with /, it's a relative path from the server
         const imageUrl = imagePath.startsWith("/")
-          ? `${API_CONFIG.DOCS_BASE_URL}${imagePath}`
+          ? `${APP_CONFIG.BASE_URL}${imagePath}`
           : imagePath;
 
+        // so we use axios
         const response = await axios.get(imageUrl, {
           responseType: "arraybuffer",
           headers: {
             Cookie: captchaSession?.cookies.join("; ") || "",
-            "User-Agent": API_CONFIG.USER_AGENT,
+            ...APP_CONFIG.HEADERS,
           },
           timeout: 10000, // 10 second timeout for images
         });
@@ -201,7 +202,7 @@ export function setupDocumentHandlers() {
 
       try {
         const fullUrl = documentUrl.startsWith("/")
-          ? `${API_CONFIG.DOCS_BASE_URL}${documentUrl}`
+          ? `${APP_CONFIG.BASE_URL}${documentUrl}`
           : documentUrl;
 
         console.log("Downloading document from URL:", fullUrl);
@@ -210,7 +211,7 @@ export function setupDocumentHandlers() {
         const headResponse = await axios.head(fullUrl, {
           headers: {
             Cookie: captchaSession?.cookies.join("; ") || "",
-            "User-Agent": API_CONFIG.USER_AGENT,
+            ...APP_CONFIG.HEADERS,
           },
           timeout: 10000,
         });
@@ -235,7 +236,7 @@ export function setupDocumentHandlers() {
             responseType: "arraybuffer",
             headers: {
               Cookie: captchaSession?.cookies.join("; ") || "",
-              "User-Agent": API_CONFIG.USER_AGENT,
+              ...APP_CONFIG.HEADERS,
             },
             timeout: 60000,
           });
@@ -276,7 +277,7 @@ export function setupDocumentHandlers() {
             responseType: "stream",
             headers: {
               Cookie: captchaSession?.cookies.join("; ") || "",
-              "User-Agent": API_CONFIG.USER_AGENT,
+              ...APP_CONFIG.HEADERS,
             },
             timeout: 120000, // 2 minute timeout for large files
           });

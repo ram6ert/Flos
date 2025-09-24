@@ -13,6 +13,8 @@ import {
   fetchHomeworkData,
   fetchHomeworkStreaming,
   fetchHomeworkDetails,
+  uploadFile,
+  submitHomework,
 } from "../api";
 import { API_CONFIG } from "../constants";
 
@@ -186,7 +188,7 @@ export function setupHomeworkHandlers() {
 
       try {
         const fullUrl = attachmentUrl.startsWith("/")
-          ? `${API_CONFIG.DOCS_BASE_URL}${attachmentUrl}`
+          ? `${API_CONFIG.BASE_URL}${attachmentUrl}`
           : attachmentUrl;
 
         console.log("Downloading homework attachment from URL:", fullUrl);
@@ -195,7 +197,7 @@ export function setupHomeworkHandlers() {
         const headResponse = await axios.head(fullUrl, {
           headers: {
             Cookie: captchaSession?.cookies.join("; ") || "",
-            "User-Agent": API_CONFIG.USER_AGENT,
+            ...API_CONFIG.HEADERS,
           },
           timeout: 10000,
         });
@@ -220,7 +222,7 @@ export function setupHomeworkHandlers() {
             responseType: "arraybuffer",
             headers: {
               Cookie: captchaSession?.cookies.join("; ") || "",
-              "User-Agent": API_CONFIG.USER_AGENT,
+              ...API_CONFIG.HEADERS,
             },
             timeout: 60000,
           });
@@ -260,7 +262,7 @@ export function setupHomeworkHandlers() {
             responseType: "stream",
             headers: {
               Cookie: captchaSession?.cookies.join("; ") || "",
-              "User-Agent": API_CONFIG.USER_AGENT,
+              ...API_CONFIG.HEADERS,
             },
             timeout: 120000, // 2 minute timeout for large files
           });
@@ -293,6 +295,90 @@ export function setupHomeworkHandlers() {
           success: false,
           error: error instanceof Error ? error.message : "Download failed",
         };
+      }
+    }
+  );
+
+  // Submit homework with files (combined interface for renderer)
+  ipcMain.handle(
+    "submit-homework",
+    async (
+      event,
+      submission: {
+        homeworkId: string;
+        courseId: string;
+        content?: string;
+        files?: Array<{
+          filePath: string;
+          fileName: string;
+        }>;
+      }
+    ) => {
+      if (!currentSession) {
+        throw new Error("Not logged in");
+      }
+
+      try {
+        const fileList: Array<{
+          fileNameNoExt: string;
+          fileExtName: string;
+          fileSize: string;
+          visitName: string;
+          pid: string;
+          ftype: string;
+        }> = [];
+
+        // Step 1: Upload files if provided
+        if (submission.files && submission.files.length > 0) {
+          for (const file of submission.files) {
+            try {
+              const uploadResult = await uploadFile(
+                file.filePath,
+                file.fileName
+              );
+
+              if (uploadResult.success && uploadResult.data) {
+                // Extract file extension and name without extension from server response
+                const fileExtName = uploadResult.data.fileExtName;
+                const fileNameNoExt = uploadResult.data.fileNameNoExt;
+
+                fileList.push({
+                  fileNameNoExt: fileNameNoExt,
+                  fileExtName: fileExtName,
+                  fileSize: uploadResult.data.fileSize.toString(),
+                  visitName: uploadResult.data.visitName,
+                  pid: "",
+                  ftype: "insert",
+                });
+              } else {
+                throw new Error(`Failed to upload file: ${file.fileName}`);
+              }
+            } catch (error) {
+              throw new Error(
+                `File upload failed for ${file.fileName}: ${error.message}`
+              );
+            }
+          }
+        }
+
+        // Step 2: Submit homework with uploaded files
+        const submissionResult = await submitHomework({
+          upId: submission.homeworkId,
+          courseId: submission.courseId,
+          content: submission.content,
+          fileList: fileList,
+        });
+
+        // Return sanitized response to renderer
+        return {
+          success: true,
+          message: "Homework submitted successfully",
+          submissionTime: new Date().toISOString(),
+          filesSubmitted: fileList.length,
+        };
+      } catch (error) {
+        console.error("Failed to submit homework:", error);
+        throw error;
       }
     }
   );

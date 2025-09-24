@@ -70,7 +70,7 @@ export function setupCourseHandlers() {
     }
 
     return requestQueue.add(async () => {
-      const url = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+      const url = `${API_CONFIG.API_BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
       const data = await authenticatedRequest(url);
 
       if (data.result && data.result.length > 0) {

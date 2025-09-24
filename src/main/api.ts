@@ -1,5 +1,4 @@
-import axios from "axios";
-import { API_CONFIG } from "./constants";
+import { API_CONFIG, courseAPI } from "./constants";
 import {
   currentSession,
   captchaSession,
@@ -17,6 +16,139 @@ import { ScheduleParser } from "./schedule-parser";
 import { CourseDocumentType, ScheduleData } from "../shared/types";
 import { Logger } from "./logger";
 
+// File upload API function
+export async function uploadFile(filePath: string, fileName: string) {
+  if (!currentSession || !captchaSession) {
+    throw new Error("Not logged in");
+  }
+
+  const FormData = require("form-data");
+  const fs = require("fs");
+
+  const form = new FormData();
+  form.append("file", fs.createReadStream(filePath), fileName);
+
+  const url = `/rp/common/rpUpload.shtml;jsessionid=${captchaSession.jsessionId}`;
+
+  const response = await courseAPI.post(url, form, {
+    headers: {
+      ...form.getHeaders(),
+      Accept: "application/json, text/javascript, */*; q=0.01",
+      Cookie: captchaSession.cookies.join("; "),
+      Origin: API_CONFIG.ORIGIN,
+      Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    validateStatus: () => true,
+  });
+
+  if (response.status >= 200 && response.status < 400) {
+    updateSessionCookies(response);
+
+    if (typeof response.data === "object" && response.data.STATUS === "0") {
+      return {
+        success: true,
+        data: response.data,
+      };
+    } else {
+      return {
+        success: false,
+        error: "File upload failed",
+      };
+    }
+  }
+
+  throw new Error(`Upload failed with status: ${response.status}`);
+}
+
+// Homework submission API function
+export async function submitHomework(submission: {
+  upId: string;
+  courseId: string;
+  content?: string;
+  fileList: Array<{
+    fileNameNoExt: string;
+    fileExtName: string;
+    fileSize: string;
+    visitName: string;
+    pid: string;
+    ftype: string;
+  }>;
+  groupName?: string;
+  groupId?: string;
+  jxrl_id?: string;
+}) {
+  if (!currentSession || !captchaSession) {
+    throw new Error("Not logged in");
+  }
+
+  const formData = new URLSearchParams();
+  formData.append("content", submission.content || "");
+  formData.append("groupName", submission.groupName || "");
+  formData.append("groupId", submission.groupId || "");
+  formData.append("courseId", submission.courseId);
+  formData.append("contentType", "0"); // 0=作业提交
+  formData.append("fz", "0"); // 0=个人作业
+  formData.append("jxrl_id", submission.jxrl_id || "");
+  formData.append("upId", submission.upId);
+  formData.append("return_num", "0");
+  formData.append("isTeacher", "0"); // 0=学生
+  formData.append("fileList", JSON.stringify(submission.fileList));
+
+  const url = `/course/courseWorkInfo.shtml?method=sendStuHomeWorks`;
+
+  const response = await courseAPI.post(url, formData, {
+    headers: {
+      Accept: "*/*",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      Cookie: captchaSession.cookies.join("; "),
+      Origin: API_CONFIG.ORIGIN,
+      Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    validateStatus: () => true,
+  });
+
+  if (response.status >= 200 && response.status < 400) {
+    updateSessionCookies(response);
+
+    // Empty response body indicates success
+    return {
+      success: true,
+      message: "Homework submitted successfully",
+    };
+  }
+
+  throw new Error(`Homework submission failed with status: ${response.status}`);
+}
+
+// Sanitization function for upload response
+const sanitizeUploadResponse = (uploadData: any): any => {
+  return {
+    id: uploadData.resSerId,
+    fileName: decodeURIComponent(uploadData.fileNameNoExt),
+    fileExtension: uploadData.fileExtName,
+    fileSize: parseInt(uploadData.fileSize) || 0,
+    serverPath: uploadData.visitName,
+    relativePath: uploadData.path,
+    uploadTime: uploadData.time,
+    status: uploadData.STATUS === "0" ? "success" : "failed",
+  };
+};
+
+// Sanitization function for submission response
+const sanitizeSubmissionResponse = (
+  responseData: any,
+  uploadedFilesCount: number
+): any => {
+  return {
+    success: true,
+    message: "Homework submitted successfully",
+    submissionTime: new Date().toISOString(),
+    filesSubmitted: uploadedFilesCount,
+  };
+};
+
 // Helper function to fetch homework details
 export async function fetchHomeworkDetails(
   homeworkId: string,
@@ -27,7 +159,7 @@ export async function fetchHomeworkDetails(
     throw new Error("Not logged in");
   }
 
-  const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=queryStudentCourseNote&id=${homeworkId}&courseId=${courseId}&teacherId=${teacherId}`;
+  const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=queryStudentCourseNote&id=${homeworkId}&courseId=${courseId}&teacherId=${teacherId}`;
 
   const data = await authenticatedRequest(url, true); // Use session ID
 
@@ -147,17 +279,13 @@ export async function authenticatedRequest(
   // If no active session, try to get one
   if (!activeSession) {
     // Fetch fresh captcha to get session
-    const captchaResponse = await axios.get(
-      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CAPTCHA}`,
+    const captchaResponse = await courseAPI.get(
+      `${API_CONFIG.ENDPOINTS.CAPTCHA}`,
       {
         headers: {
           Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
-          "Accept-Language":
-            "zh-CN,zh-TW;q=0.9,zh;q=0.8,en;q=0.7,en-GB;q=0.6,en-US;q=0.5",
           "Cache-Control": "max-age=0",
-          Connection: "keep-alive",
-          Referer: `${API_CONFIG.BASE_URL}/ve/`,
-          "User-Agent": API_CONFIG.USER_AGENT,
+          Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
         },
         responseType: "arraybuffer",
         validateStatus: () => true,
@@ -174,10 +302,8 @@ export async function authenticatedRequest(
   // Prepare headers
   const headers: any = {
     Accept: "*/*",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
     Cookie: cookieHeader,
-    Referer: `${API_CONFIG.BASE_URL}/ve/`,
-    "User-Agent": API_CONFIG.USER_AGENT,
+    Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
     "X-Requested-With": "XMLHttpRequest",
   };
 
@@ -186,7 +312,7 @@ export async function authenticatedRequest(
     headers["Sessionid"] = currentSession.sessionId;
   }
 
-  const response = await axios.get(url, {
+  const response = await courseAPI.get(url, {
     headers,
     validateStatus: () => true,
   });
@@ -242,7 +368,7 @@ export async function authenticatedRequest(
 // Helper function to fetch course list with proper semester code
 export async function fetchCourseList() {
   // First get semester info
-  const semesterUrl = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+  const semesterUrl = `${API_CONFIG.API_BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
   const semesterData = await authenticatedRequest(semesterUrl);
 
   if (!semesterData.result || semesterData.result.length === 0) {
@@ -250,7 +376,7 @@ export async function fetchCourseList() {
   }
 
   const xqCode = semesterData.result[0].xqCode;
-  const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/course.shtml?method=getCourseList&pagesize=100&page=1&xqCode=${xqCode}`;
+  const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/course.shtml?method=getCourseList&pagesize=100&page=1&xqCode=${xqCode}`;
   const data = await authenticatedRequest(url, true); // Use dynamic session ID
 
   if (data.courseList) {
@@ -443,7 +569,7 @@ export async function fetchHomeworkData(courseId?: string) {
     // Get homework for specific course
     const allHomework = [];
     for (const type of homeworkTypes) {
-      const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
+      const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
 
       try {
         const data = await authenticatedRequest(url, true); // Use dynamic session ID
@@ -485,7 +611,7 @@ export async function fetchHomeworkData(courseId?: string) {
     for (const course of courseList) {
       // Get homework for this course using the same method as above
       for (const type of homeworkTypes) {
-        const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
+        const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
 
         try {
           const data = await authenticatedRequest(url, true); // Use dynamic session ID
@@ -568,7 +694,7 @@ export async function* fetchHomeworkStreaming(
           onProgress({ completed, total: totalTasks, currentCourse: courseId });
         }
 
-        const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
+        const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
 
         try {
           const data = await authenticatedRequest(url, true);
@@ -654,7 +780,7 @@ export async function* fetchHomeworkStreaming(
             });
           }
 
-          const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
+          const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
 
           try {
             const data = await requestQueue.add(() =>
@@ -720,7 +846,7 @@ export async function* fetchHomeworkStreaming(
       );
     } else {
       Logger.debug(
-        `Completed homework streaming for ${streamingKey} with ${allHomework.length} homework items (cache ${skipCache ? 'skipped' : 'not updated due to no data'})`
+        `Completed homework streaming for ${streamingKey} with ${allHomework.length} homework items (cache ${skipCache ? "skipped" : "not updated due to no data"})`
       );
     }
   }
@@ -1027,7 +1153,7 @@ export async function* fetchDocumentsStreaming(
       );
     } else {
       Logger.debug(
-        `Completed document streaming for ${streamingKey} with ${allDocuments.length} document items (cache ${skipCache ? 'skipped' : 'not updated due to no data'})`
+        `Completed document streaming for ${streamingKey} with ${allDocuments.length} document items (cache ${skipCache ? "skipped" : "not updated due to no data"})`
       );
     }
   }
@@ -1040,7 +1166,7 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   }
 
   // Get semester info first to get xqCode
-  const semesterUrl = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+  const semesterUrl = `${API_CONFIG.API_BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
   const semesterData = await authenticatedRequest(semesterUrl);
 
   if (!semesterData.result || semesterData.result.length === 0) {
@@ -1065,7 +1191,7 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   const xkhId = course.facilityId || `${xqCode}-${courseCode}`;
 
   // Construct the course documents URL with specific docType
-  const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=${docType}&up_id=0&searchName=`;
+  const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=${docType}&up_id=0&searchName=`;
 
   const data = await authenticatedRequest(url, true); // Use session ID
 
@@ -1100,17 +1226,16 @@ export async function fetchScheduleData(
     }
   }
 
-  const url = `${API_CONFIG.BASE_URL}/back/rp/common/myTimeTableDetail.shtml?method=skipIndex&sessionId=${sessionId}`;
+  const url = `/rp/common/myTimeTableDetail.shtml?method=skipIndex&sessionId=${sessionId}`;
 
   try {
-    const response = await axios.get(url, {
+    const response = await courseAPI.get(url, {
       headers: {
         Accept:
           "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
         Cookie: captchaSession ? captchaSession.cookies.join("; ") : "",
-        Referer: `${API_CONFIG.BASE_URL}/ve/`,
-        "User-Agent": API_CONFIG.USER_AGENT,
+        Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
+        "User-Agent": API_CONFIG.HEADERS["User-Agent"],
       },
       responseType: "arraybuffer", // Get raw bytes for GBK decoding
       validateStatus: () => true,

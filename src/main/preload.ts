@@ -165,6 +165,21 @@ export interface ElectronAPI {
   showUpdateDialog: (updateInfo: UpdateInfo) => Promise<boolean>;
   onUpdateStatus: (callback: (event: any, data: any) => void) => void;
   onUpdateDownload: (callback: (event: any, data: any) => void) => void;
+  // homework submission
+  submitHomework: (submission: {
+    homeworkId: string;
+    courseId: string;
+    content?: string;
+    files?: Array<{
+      filePath: string;
+      fileName: string;
+    }>;
+  }) => Promise<{
+    success: boolean;
+    message: string;
+    submissionTime: string;
+    filesSubmitted: number;
+  }>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -234,6 +249,8 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("show-update-dialog", updateInfo),
   onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
   onUpdateDownload: (callback) => ipcRenderer.on("update-download", callback),
+  // homework submission
+  submitHomework: (submission) => ipcRenderer.invoke("submit-homework", submission),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);
