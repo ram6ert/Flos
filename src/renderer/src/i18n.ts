@@ -200,6 +200,7 @@ const resources = {
       sunday: "Sunday",
 
       // Document types
+      allDocumentTypes: "All Document Types",
       electronicCourseware: "Electronic Courseware",
       experimentGuide: "Experiment Guide",
       unknownDocumentType: "Unknown Document Type",
@@ -399,6 +400,7 @@ const resources = {
       sunday: "星期日",
 
       // Document types
+      allDocumentTypes: "所有文档类型",
       electronicCourseware: "电子课件",
       experimentGuide: "实验指导书",
       unknownDocumentType: "未知文档类型",

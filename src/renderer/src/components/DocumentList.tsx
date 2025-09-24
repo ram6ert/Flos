@@ -5,6 +5,7 @@ import {
   CourseDocument,
   DocumentStreamChunk,
   DocumentStreamProgress,
+  CourseDocumentType,
 } from "../../../shared/types";
 import { LoadingState, LoadingStateData } from "../types/ui";
 import {
@@ -36,6 +37,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   });
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [selectedDocType, setSelectedDocType] = useState<CourseDocumentType | "all">("all");
   const currentRequestRef = useRef<string | null>(null);
   const streamingAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -332,14 +334,16 @@ const DocumentList: React.FC<DocumentListProps> = ({
       );
     }
 
-    const filteredDocuments = realDocuments.filter((doc) =>
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredDocuments = realDocuments.filter((doc) => {
+      const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = selectedDocType === "all" || doc.documentType === selectedDocType;
+      return matchesSearch && matchesType;
+    });
 
-    if (filteredDocuments.length === 0 && searchTerm) {
+    if (filteredDocuments.length === 0 && (searchTerm || selectedDocType !== "all")) {
       return (
         <p className="text-gray-600">
-          No documents found matching "{searchTerm}".
+          No documents found matching your filters.
         </p>
       );
     }
@@ -508,14 +512,23 @@ const DocumentList: React.FC<DocumentListProps> = ({
         )}
 
       {selectedCourse && realDocuments.length > 0 && (
-        <div className="mb-4">
+        <div className="mb-4 flex gap-3">
           <input
             type="text"
             placeholder="Search documents by name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          <select
+            value={selectedDocType}
+            onChange={(e) => setSelectedDocType(e.target.value as CourseDocumentType | "all")}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">{t("allDocumentTypes")}</option>
+            <option value="courseware">{t("electronicCourseware")}</option>
+            <option value="experiment_guide">{t("experimentGuide")}</option>
+          </select>
         </div>
       )}
 
