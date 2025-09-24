@@ -149,6 +149,7 @@ export const courseAPI = axios.create({
   headers: {
     ...API_CONFIG.HEADERS,
   },
+  maxRedirects: 0,
 });
 
 export const courseVe = axios.create({
@@ -157,6 +158,7 @@ export const courseVe = axios.create({
   headers: {
     ...API_CONFIG.HEADERS,
   },
+  maxRedirects: 0,
 });
 
 export const courseBase = axios.create({
@@ -165,4 +167,5 @@ export const courseBase = axios.create({
   headers: {
     ...API_CONFIG.HEADERS,
   },
+  maxRedirects: 0,
 });

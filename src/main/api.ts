@@ -1,4 +1,4 @@
-import { API_CONFIG, courseAPI } from "./constants";
+import { API_CONFIG, courseAPI, courseBase, courseVe } from "./constants";
 import {
   currentSession,
   captchaSession,
@@ -15,6 +15,75 @@ import * as iconv from "iconv-lite";
 import { ScheduleParser } from "./schedule-parser";
 import { CourseDocumentType, ScheduleData } from "../shared/types";
 import { Logger } from "./logger";
+
+// Install axios interceptors to detect session expiration globally
+export function setupAxiosSessionInterceptors(): void {
+  const instances = [courseAPI, courseVe, courseBase];
+
+  const onResponse = async (response: any) => {
+    try {
+      // Allow opt-out per request
+      const cfg: any = response.config || {};
+      if (cfg.skipSessionInterceptor === true) return response;
+
+      // Ignore login endpoint redirects on courseVe
+      const urlStr: string = cfg.url || "";
+      if (urlStr.includes(API_CONFIG.ENDPOINTS.LOGIN)) {
+        return response;
+      }
+
+      // 3xx means redirect → treat as session expired
+      if (response.status >= 300 && response.status < 400) {
+        Logger.event("Session expiration detected (3xx)");
+        await handleSessionExpired();
+        return Promise.reject(new Error("SESSION_EXPIRED"));
+      }
+
+      // For 200 responses, sometimes HTML is returned instead of JSON → expired
+      const contentType = response.headers?.["content-type"] || "";
+      const isHtml = typeof contentType === "string" && contentType.includes("text/html");
+      if (response.status === 200 && isHtml) {
+        Logger.event("HTML response detected - possible session expired");
+        await handleSessionExpired();
+        return Promise.reject(new Error("SESSION_EXPIRED"));
+      }
+
+      // If body is string and looks like HTML, also consider expired
+      if (
+        response.status === 200 &&
+        typeof response.data === "string" &&
+        (response.data.includes("<!DOCTYPE") || response.data.includes("<html"))
+      ) {
+        Logger.event("HTML body detected - possible session expired");
+        await handleSessionExpired();
+        return Promise.reject(new Error("SESSION_EXPIRED"));
+      }
+    } catch (error) {
+      // fallthrough to reject below
+    }
+    return response;
+  };
+
+  const onError = async (error: any) => {
+    const status = error?.response?.status;
+    if (status >= 300 && status < 400) {
+      Logger.event("Session expiration detected (3xx error)");
+      await handleSessionExpired();
+      return Promise.reject(new Error("SESSION_EXPIRED"));
+    }
+
+    // Network or other errors pass through
+    return Promise.reject(error);
+  };
+
+  for (const instance of instances) {
+    // Avoid double installation
+    const hasMarker = (instance as any).__sessionInterceptorInstalled;
+    if (hasMarker) continue;
+    instance.interceptors.response.use(onResponse, onError);
+    (instance as any).__sessionInterceptorInstalled = true;
+  }
+}
 
 // File upload API function
 export async function uploadFile(filePath: string, fileName: string) {
@@ -42,7 +111,7 @@ export async function uploadFile(filePath: string, fileName: string) {
     validateStatus: () => true,
   });
 
-  if (response.status >= 200 && response.status < 400) {
+  if (response.status >= 200 && response.status < 300) {
     updateSessionCookies(response);
 
     if (typeof response.data === "object" && response.data.STATUS === "0") {
@@ -109,7 +178,7 @@ export async function submitHomework(submission: {
     validateStatus: () => true,
   });
 
-  if (response.status >= 200 && response.status < 400) {
+  if (response.status >= 200 && response.status < 300) {
     updateSessionCookies(response);
 
     // Empty response body indicates success
@@ -165,7 +234,7 @@ export async function fetchHomeworkDetails(
 
   if (data && data.homeWork) {
     // Process multiple attachments from picList and answerPicList
-    const attachments = [];
+    const attachments: any[] = [];
 
     // Add attachments from picList (homework files)
     if (data.picList && Array.isArray(data.picList)) {
@@ -317,22 +386,9 @@ export async function authenticatedAPIRequest(
     validateStatus: () => true,
   });
 
-  if (response.status >= 200 && response.status < 400) {
+  if (response.status >= 200 && response.status < 300) {
     // Always update session cookies from successful responses
     updateSessionCookies(response);
-
-    // Check for session expiration indicators
-    if (typeof response.data === "string") {
-      if (
-        response.data.includes("登录") ||
-        response.data.includes("login") ||
-        response.data.includes("not logged")
-      ) {
-        Logger.event("Session expiration detected");
-        await handleSessionExpired();
-        throw new Error("SESSION_EXPIRED");
-      }
-    }
 
     // Try to parse as JSON if it's expected to be JSON
     if (
@@ -346,15 +402,6 @@ export async function authenticatedAPIRequest(
           "Failed to parse JSON response, treating as string:",
           response.data.substring(0, 200)
         );
-        // If JSON parsing fails but we got a response, it might indicate session issues
-        if (
-          response.data.includes("html") ||
-          response.data.includes("<!DOCTYPE")
-        ) {
-          Logger.event("HTML response detected - session expired");
-          await handleSessionExpired();
-          throw new Error("SESSION_EXPIRED");
-        }
         return response.data;
       }
     }
@@ -567,7 +614,7 @@ export async function fetchHomeworkData(courseId?: string) {
   ];
   if (courseId) {
     // Get homework for specific course
-    const allHomework = [];
+    const allHomework: any[] = [];
     for (const type of homeworkTypes) {
       const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
 
@@ -607,7 +654,7 @@ export async function fetchHomeworkData(courseId?: string) {
 
     Logger.debug(`Found ${courseList.length} courses for homework fetching`);
 
-    const allHomework = [];
+    const allHomework: any[] = [];
     for (const course of courseList) {
       // Get homework for this course using the same method as above
       for (const type of homeworkTypes) {
@@ -1241,7 +1288,7 @@ export async function fetchScheduleData(
       validateStatus: () => true,
     });
 
-    if (response.status >= 200 && response.status < 400) {
+    if (response.status >= 200 && response.status < 300) {
       updateSessionCookies(response);
 
       // Decode GBK content to UTF-8

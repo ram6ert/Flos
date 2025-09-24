@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from "electron";
-import { currentSession } from "../auth";
+import { currentSession, handleSessionExpired } from "../auth";
 import {
   getCachedData,
   setCachedData,
@@ -67,7 +67,8 @@ export function setupScheduleHandlers() {
     "get-schedule",
     async (event, options?: { skipCache?: boolean }) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       const cacheKey = "schedule";
@@ -112,7 +113,8 @@ export function setupScheduleHandlers() {
 
   ipcMain.handle("refresh-schedule", async () => {
     if (!currentSession) {
-      throw new Error("Not logged in");
+      await handleSessionExpired();
+      throw new Error("SESSION_EXPIRED");
     }
 
     return requestQueue.add(async () => {

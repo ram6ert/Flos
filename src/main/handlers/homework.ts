@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import axios from "axios";
-import { currentSession, captchaSession } from "../auth";
+import { currentSession, captchaSession, handleSessionExpired } from "../auth";
 import {
   requestQueue,
   fetchHomeworkData,
@@ -23,7 +23,8 @@ export function setupHomeworkHandlers() {
     "get-homework",
     async (event, courseId?: string, options?: { skipCache?: boolean }) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       const cacheKey = courseId
@@ -58,7 +59,8 @@ export function setupHomeworkHandlers() {
 
   ipcMain.handle("refresh-homework", async (event, courseId?: string) => {
     if (!currentSession) {
-      throw new Error("Not logged in");
+      await handleSessionExpired();
+      throw new Error("SESSION_EXPIRED");
     }
 
     const cacheKey = courseId
@@ -108,7 +110,8 @@ export function setupHomeworkHandlers() {
   // Streaming homework handlers
   ipcMain.handle("stream-homework", async (event, courseId?: string) => {
     if (!currentSession) {
-      throw new Error("Not logged in");
+      await handleSessionExpired();
+      throw new Error("SESSION_EXPIRED");
     }
 
     const cacheKey = courseId
@@ -167,7 +170,8 @@ export function setupHomeworkHandlers() {
     "get-homework-details",
     async (event, homeworkId: string, courseId: string, teacherId: string) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       return requestQueue.add(async () => {
@@ -191,7 +195,8 @@ export function setupHomeworkHandlers() {
     "download-homework-attachment",
     async (event, attachmentUrl: string, fileName: string) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       try {
@@ -323,7 +328,8 @@ export function setupHomeworkHandlers() {
       }
     ) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       try {

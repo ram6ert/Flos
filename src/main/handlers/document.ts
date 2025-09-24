@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import axios from "axios";
-import { currentSession, captchaSession } from "../auth";
+import { currentSession, captchaSession, handleSessionExpired } from "../auth";
 import {
   requestQueue,
   fetchCourseDocuments,
@@ -21,7 +21,8 @@ export function setupDocumentHandlers() {
     "stream-documents",
     async (event, courseId?: string, options = {}) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       const { forceRefresh = false } = options;
@@ -82,7 +83,8 @@ export function setupDocumentHandlers() {
   // Refresh documents using streaming
   ipcMain.handle("refresh-documents", async (event, courseId?: string) => {
     if (!currentSession) {
-      throw new Error("Not logged in");
+      await handleSessionExpired();
+      throw new Error("SESSION_EXPIRED");
     }
 
     const cacheKey = courseId
@@ -131,7 +133,8 @@ export function setupDocumentHandlers() {
     "fetch-course-image",
     async (event, imagePath: string): Promise<string | null> => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       if (!imagePath) {
@@ -171,7 +174,8 @@ export function setupDocumentHandlers() {
     "get-course-documents",
     async (event, courseCode: string, options?: { skipCache?: boolean }) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       const cacheKey = `documents_${currentSession.username}_${courseCode}`;
@@ -203,7 +207,8 @@ export function setupDocumentHandlers() {
     "download-course-document",
     async (event, documentUrl: string, fileName: string) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       try {

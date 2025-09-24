@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from "electron";
-import { currentSession } from "../auth";
+import { currentSession, handleSessionExpired } from "../auth";
 import {
   getCachedData,
   setCachedData,
@@ -65,7 +65,8 @@ export function setupCourseHandlers() {
   // Course platform API handlers
   ipcMain.handle("get-semester-info", async () => {
     if (!currentSession) {
-      throw new Error("Not logged in");
+      await handleSessionExpired();
+      throw new Error("SESSION_EXPIRED");
     }
 
     return requestQueue.add(async () => {
@@ -83,7 +84,8 @@ export function setupCourseHandlers() {
     "get-courses",
     async (event, options?: { skipCache?: boolean }) => {
       if (!currentSession) {
-        throw new Error("Not logged in");
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
       }
 
       const cacheKey = "courses";
@@ -129,7 +131,8 @@ export function setupCourseHandlers() {
 
   ipcMain.handle("refresh-courses", async () => {
     if (!currentSession) {
-      throw new Error("Not logged in");
+      await handleSessionExpired();
+      throw new Error("SESSION_EXPIRED");
     }
 
     return requestQueue.add(async () => {

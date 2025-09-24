@@ -2,6 +2,7 @@ import { app, BrowserWindow } from "electron";
 import axios from "axios";
 import { API_CONFIG } from "./constants";
 import { createWindow } from "./window";
+import { setupAxiosSessionInterceptors } from "./api";
 import { setupAuthHandlers } from "./handlers/auth";
 import { setupCourseHandlers } from "./handlers/course";
 import { setupHomeworkHandlers } from "./handlers/homework";
@@ -17,6 +18,8 @@ axios.defaults.headers.common["User-Agent"] = API_CONFIG.USER_AGENT;
 axios.defaults.timeout = API_CONFIG.TIMEOUT;
 
 app.whenReady().then(() => {
+  // Setup axios interceptors to detect session expiration
+  setupAxiosSessionInterceptors();
   createWindow();
 
   // Setup all IPC handlers

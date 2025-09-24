@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { app } from "electron";
+import { app, BrowserWindow } from "electron";
 import * as iconv from "iconv-lite";
 import { API_CONFIG, courseAPI, courseVe } from "./constants";
 import { LoginCredentials, LoginResponse } from "../shared/types";
@@ -259,6 +259,16 @@ export const handleSessionExpired = async (): Promise<void> => {
     }
   } catch (error) {
     Logger.error("Failed to clear expired JSESSIONID", error);
+  }
+
+  try {
+    // Notify all renderer windows
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send("session-expired");
+    }
+  } catch (notifyError) {
+    Logger.warn("Failed to notify renderer about session expiration", notifyError);
   }
 };
 
