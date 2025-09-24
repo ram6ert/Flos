@@ -1,8 +1,94 @@
+import { platform, arch, release } from 'os';
+
+// Generate randomized User-Agent adapted to user's device
+function generateUserAgent(): string {
+  const currentPlatform = platform();
+  const currentArch = arch();
+  const osVersion = release();
+
+  // Chrome version variations (recent stable versions)
+  const chromeVersions = [
+    '131.0.0.0',
+    '130.0.0.0',
+    '129.0.0.0',
+    '128.0.0.0'
+  ];
+
+  // WebKit versions
+  const webkitVersions = [
+    '537.36',
+    '537.35',
+    '537.34'
+  ];
+
+  // Safari versions
+  const safariVersions = [
+    '537.36',
+    '537.35',
+    '537.34'
+  ];
+
+  // Edge versions
+  const edgeVersions = [
+    '131.0.0.0',
+    '130.0.0.0',
+    '129.0.0.0'
+  ];
+
+  // Randomly select versions
+  const chromeVersion = chromeVersions[Math.floor(Math.random() * chromeVersions.length)];
+  const webkitVersion = webkitVersions[Math.floor(Math.random() * webkitVersions.length)];
+  const safariVersion = safariVersions[Math.floor(Math.random() * safariVersions.length)];
+  const edgeVersion = edgeVersions[Math.floor(Math.random() * edgeVersions.length)];
+
+  // Generate OS-specific user agent
+  switch (currentPlatform) {
+    case 'darwin': {
+      // macOS detection
+      const macVersionMap: Record<string, string> = {
+        '24': '15_0',    // macOS 15 (Sequoia)
+        '23': '14_0',    // macOS 14 (Sonoma)
+        '22': '13_0',    // macOS 13 (Ventura)
+        '21': '12_0',    // macOS 12 (Monterey)
+        '20': '11_0',    // macOS 11 (Big Sur)
+        '19': '10_15_7', // macOS 10.15 (Catalina)
+      };
+
+      const majorVersion = osVersion.split('.')[0];
+      const macVersion = macVersionMap[majorVersion] || '10_15_7';
+      const architecture = currentArch === 'arm64' ? 'Intel' : 'Intel'; // Keep Intel for compatibility
+
+      return `Mozilla/5.0 (Macintosh; ${architecture} Mac OS X ${macVersion}) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Chrome/${chromeVersion} Safari/${safariVersion} Edg/${edgeVersion}`;
+    }
+
+    case 'win32': {
+      const windowsVersions = [
+        'Windows NT 10.0; Win64; x64',
+        'Windows NT 10.0; WOW64',
+        'Windows NT 6.3; Win64; x64',
+        'Windows NT 6.1; Win64; x64'
+      ];
+      const winVersion = windowsVersions[Math.floor(Math.random() * windowsVersions.length)];
+
+      return `Mozilla/5.0 (${winVersion}) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Chrome/${chromeVersion} Safari/${safariVersion} Edg/${edgeVersion}`;
+    }
+
+    case 'linux': {
+      const linuxArchs = currentArch === 'x64' ? 'X11; Linux x86_64' : 'X11; Linux i686';
+      return `Mozilla/5.0 (${linuxArchs}) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Chrome/${chromeVersion} Safari/${safariVersion}`;
+    }
+
+    default: {
+      // Fallback to a generic modern user agent
+      return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Chrome/${chromeVersion} Safari/${safariVersion}`;
+    }
+  }
+}
+
 export const API_CONFIG = {
   BASE_URL: "http://123.121.147.7:88/ve",
   DOCS_BASE_URL: "http://123.121.147.7:88", // Documents don't use /ve
-  USER_AGENT:
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/536.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
+  USER_AGENT: generateUserAgent(),
   TIMEOUT: 30000,
 
   ENDPOINTS: {
