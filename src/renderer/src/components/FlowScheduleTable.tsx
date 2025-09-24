@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Course, ScheduleData, ScheduleEntry } from "../../../shared/types";
 import {
@@ -25,7 +25,12 @@ interface CourseFlow {
   dayIndex: number;
 }
 
-const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, scheduleData, setScheduleData, selectedCourse }) => {
+const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({
+  onRefresh,
+  scheduleData,
+  setScheduleData,
+  selectedCourse,
+}) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +51,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, schedu
     { short: t("sun"), full: t("sunday"), index: 6 },
   ];
 
-  const loadSchedule = async (forceRefresh = false) => {
+  const loadSchedule = useCallback(async (forceRefresh = false) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -72,11 +77,11 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, schedu
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setScheduleData]);
 
   useEffect(() => {
     loadSchedule();
-  }, []);
+  }, [loadSchedule]);
 
   // Update current time every minute
   useEffect(() => {
@@ -385,10 +390,10 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, schedu
                       {getCoursesForDay(day.index).map((flow, index) => {
                         const color = blockColors[index % blockColors.length];
                         const isOngoing = isOngoingCourse(flow);
-                        const isSelected = !!selectedCourse && (
-                          selectedCourse.id === flow.course.course.id ||
-                          selectedCourse.name === flow.course.course.name
-                        );
+                        const isSelected =
+                          !!selectedCourse &&
+                          (selectedCourse.id === flow.course.course.id ||
+                            selectedCourse.name === flow.course.course.name);
                         return (
                           <div
                             key={`${flow.course.id}-${index}`}
@@ -397,11 +402,16 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, schedu
                               "hover:translate-x-2 hover:shadow-lg",
                               "backdrop-blur-sm",
                               "hover:z-50",
-                              isSelected && !isOngoing && "ring-4 ring-indigo-500/80 ring-offset-2 ring-offset-white border-2 border-indigo-500 bg-indigo-50/90 shadow-lg shadow-indigo-300",
-                              isSelected && isOngoing && "ring-4 ring-indigo-500/80 ring-offset-2",
-                              !isSelected && (isOngoing
-                                ? "bg-red-100/95 border-2 border-red-500 shadow-lg shadow-red-200 animate-pulse hover:bg-red-200/90"
-                                : "bg-white/95 hover:bg-blue-50/90")
+                              isSelected &&
+                                !isOngoing &&
+                                "ring-4 ring-indigo-500/80 ring-offset-2 ring-offset-white border-2 border-indigo-500 bg-indigo-50/90 shadow-lg shadow-indigo-300",
+                              isSelected &&
+                                isOngoing &&
+                                "ring-4 ring-indigo-500/80 ring-offset-2",
+                              !isSelected &&
+                                (isOngoing
+                                  ? "bg-red-100/95 border-2 border-red-500 shadow-lg shadow-red-200 animate-pulse hover:bg-red-200/90"
+                                  : "bg-white/95 hover:bg-blue-50/90")
                             )}
                             style={getFlowStyle(flow)}
                             title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\n${t("teacher")}: ${flow.course.course.teacher}\n${t("room")}: ${flow.course.course.classroom}${isOngoing ? `\n🔴 ${t("currentlyOngoing")}` : ""}`}
@@ -410,7 +420,11 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, schedu
                               <div
                                 className={cn(
                                   "font-semibold text-[13px] mb-1 leading-snug line-clamp-2",
-                                  isOngoing ? "text-red-900" : isSelected ? "text-indigo-900" : "text-gray-900"
+                                  isOngoing
+                                    ? "text-red-900"
+                                    : isSelected
+                                      ? "text-indigo-900"
+                                      : "text-gray-900"
                                 )}
                               >
                                 {isOngoing && "🔴 "}
@@ -435,7 +449,11 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, schedu
                               <div
                                 className={cn(
                                   "text-[10px] truncate",
-                                  isOngoing ? "text-red-700" : isSelected ? "text-indigo-700" : "text-gray-600"
+                                  isOngoing
+                                    ? "text-red-700"
+                                    : isSelected
+                                      ? "text-indigo-700"
+                                      : "text-gray-600"
                                 )}
                               >
                                 👨‍🏫 {flow.course.course.teacher}
@@ -443,7 +461,11 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, schedu
                               <div
                                 className={cn(
                                   "text-[10px] truncate",
-                                  isOngoing ? "text-red-700" : isSelected ? "text-indigo-700" : "text-gray-600"
+                                  isOngoing
+                                    ? "text-red-700"
+                                    : isSelected
+                                      ? "text-indigo-700"
+                                      : "text-gray-600"
                                 )}
                               >
                                 📍 {flow.course.course.classroom}

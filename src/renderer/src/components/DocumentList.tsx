@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Course } from "../../../shared/types";
 import {
@@ -34,7 +34,6 @@ const DocumentList: React.FC<DocumentListProps> = ({
   onCourseSelect,
 }) => {
   const { t } = useTranslation();
-  //const [documents, setDocuments] = useState<CourseDocument[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingStateData>({
     state: LoadingState.IDLE,
   });
@@ -43,20 +42,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [selectedDocType, setSelectedDocType] = useState<
     CourseDocumentType | "all"
   >("all");
-  const currentRequestRef = useRef<string | null>(null);
-  const streamingAbortControllerRef = useRef<AbortController | null>(null);
 
   // Handler functions for document streaming events
   const handleDocumentStreamChunk = useCallback(
     (_event: any, chunk: DocumentStreamChunk) => {
-      // Check if request was aborted or is not current
-      if (
-        streamingAbortControllerRef.current?.signal.aborted ||
-        !currentRequestRef.current
-      ) {
-        return;
-      }
-
       // If streaming data, append to existing documents
       setDocuments((prev) => {
         const newDocs = [...(prev || []), ...chunk.documents];
@@ -73,12 +62,6 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const handleDocumentStreamProgress = useCallback(
     (_event: any, progress: DocumentStreamProgress) => {
       // Check if request was aborted or is not current
-      if (
-        streamingAbortControllerRef.current?.signal.aborted ||
-        !currentRequestRef.current
-      ) {
-        return;
-      }
       setLoadingState({
         state: LoadingState.LOADING,
         progress: {
@@ -94,12 +77,6 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const handleDocumentStreamComplete = useCallback(
     (_event: any, _payload: any) => {
       // Check if request was aborted or is not current
-      if (
-        streamingAbortControllerRef.current?.signal.aborted ||
-        !currentRequestRef.current
-      ) {
-        return;
-      }
       setLoadingState({ state: LoadingState.SUCCESS });
     },
     []
@@ -107,13 +84,6 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   const handleDocumentStreamError = useCallback(
     (_event: any, errorData: { error: string }) => {
-      // Check if request was aborted or is not current
-      if (
-        streamingAbortControllerRef.current?.signal.aborted ||
-        !currentRequestRef.current
-      ) {
-        return;
-      }
       console.error("Document streaming error:", errorData.error);
       setLoadingState({
         state: LoadingState.ERROR,
@@ -125,16 +95,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   const handleDocumentRefreshStart = useCallback(
     (_event: any, _payload: any) => {
-      // Check if request was aborted or is not current
-      if (
-        streamingAbortControllerRef.current?.signal.aborted ||
-        !currentRequestRef.current
-      ) {
-        return;
-      }
-      // Clear current documents and reset loading state for refresh
-      setDocuments(null);
-      setLoadingState({ state: LoadingState.LOADING });
+      // Clear current documents for refresh (loading state already set by fetchDocuments)
+      setDocuments([]);
     },
     [setDocuments]
   );
@@ -143,25 +105,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
     async (forceRefresh = false) => {
       if (!selectedCourse) return;
 
-      // Abort any ongoing streaming request
-      if (streamingAbortControllerRef.current) {
-        streamingAbortControllerRef.current.abort();
-      }
-
-      // Create a unique request ID to track this request
-      const requestId = `${selectedCourse.courseNumber}-${Date.now()}`;
-      currentRequestRef.current = requestId;
-
-      // Create new abort controller for this request
-      const abortController = new AbortController();
-      streamingAbortControllerRef.current = abortController;
-
       try {
         setLoadingState({ state: LoadingState.LOADING });
 
         setDocuments(null); // Clear existing documents for streaming
-
-        // Event listeners are now set up in useEffect
 
         if (forceRefresh) {
           await window.electronAPI.refreshDocuments(
@@ -172,13 +119,6 @@ const DocumentList: React.FC<DocumentListProps> = ({
           await window.electronAPI.streamDocuments(selectedCourse.courseNumber);
         }
       } catch (error) {
-        // Don't show error if request was aborted or is not current
-        if (
-          abortController.signal.aborted ||
-          currentRequestRef.current !== requestId
-        ) {
-          return;
-        }
         console.error("Failed to fetch documents:", error);
         setLoadingState({
           state: LoadingState.ERROR,
@@ -191,18 +131,12 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   useEffect(() => {
     if (selectedCourse) {
-      if (!documents) {
-        fetchDocuments(false); // Use streaming for initial load
-      }
+      fetchDocuments(false); // Always fetch when course changes
     } else {
-      // Abort any ongoing request when course is deselected
-      if (streamingAbortControllerRef.current) {
-        streamingAbortControllerRef.current.abort();
-      }
       setDocuments(null);
       setLoadingState({ state: LoadingState.IDLE });
     }
-  }, [selectedCourse, fetchDocuments, setDocuments, documents]);
+  }, [selectedCourse, fetchDocuments, setDocuments]);
 
   // Set up event listeners and cleanup on unmount
   useEffect(() => {
@@ -214,11 +148,6 @@ const DocumentList: React.FC<DocumentListProps> = ({
     window.electronAPI.onDocumentRefreshStart?.(handleDocumentRefreshStart);
 
     return () => {
-      // Abort any ongoing streaming request
-      if (streamingAbortControllerRef.current) {
-        streamingAbortControllerRef.current.abort();
-      }
-
       // Clean up event listeners
       window.electronAPI.removeAllListeners?.("document-stream-chunk");
       window.electronAPI.removeAllListeners?.("document-stream-progress");

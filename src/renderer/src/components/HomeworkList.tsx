@@ -86,7 +86,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         if (forceRefresh) {
           // For force refresh, use streaming refresh (clears display first)
           await window.electronAPI.refreshHomework();
-        } else if (!homework) {
+        } else {
           // Use streaming for normal loads
           setLoadingState({ state: LoadingState.LOADING });
 
@@ -107,7 +107,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         isFetchingRef.current = false;
       }
     },
-    [homework, t]
+    [t]
   );
 
   useEffect(() => {
