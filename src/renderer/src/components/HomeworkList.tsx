@@ -142,12 +142,10 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         courseId?: string;
         courseName?: string;
         fromCache: boolean;
-        responseId?: string; // TODO: Will be added by main process
+        responseId?: string;
       }
     ) => {
-      // TODO: When main process includes responseId, check if chunk.responseId matches currentRequestIdRef.current
-      // For now, we accept all chunks since main process will handle deduplication
-
+      // Main process already handles request cancellation, so we trust all incoming chunks
       // Streaming data - append new homework
       setHomework((prev) => {
         const existingIds = new Set((prev || []).map((hw) => hw.id));
@@ -183,22 +181,18 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
 
     const handleStreamComplete = (
       _event: any,
-      _payload: { courseId?: string; responseId?: string } // TODO: responseId will be added by main process
+      payload: { courseId?: string; responseId?: string }
     ) => {
-      // TODO: When main process includes responseId, check if payload.responseId matches currentRequestIdRef.current
-      // For now, we accept completion events since main process will handle this
-
+      // Main process already handles request cancellation, so we trust all completions
       setLoadingState({ state: LoadingState.SUCCESS });
       setCacheInfo(t("showingFreshData"));
     };
 
     const handleStreamError = (
       _event: any,
-      error: { error: string; responseId?: string } // TODO: responseId will be added by main process
+      error: { error: string; responseId?: string }
     ) => {
-      // TODO: When main process includes responseId, check if error.responseId matches currentRequestIdRef.current
-      // For now, we accept error events since main process will handle this
-
+      // Main process already handles request cancellation, so we trust all errors
       console.error("Streaming error:", error.error);
       setLoadingState({ state: LoadingState.ERROR, error: error.error });
     };
