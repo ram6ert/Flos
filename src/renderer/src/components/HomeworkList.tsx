@@ -1070,11 +1070,20 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
                           ) : null}
 
                           {/* Homework Submission Section */}
-                          {hw.submissionStatus === "not_submitted" &&
-                            !isOverdue(hw) && (
+                          {(() => {
+                            const details = homeworkDetails.get(hw.id);
+                            const canSubmit =
+                              !isOverdue(hw) &&
+                              (hw.submissionStatus === "not_submitted" ||
+                                (hw.submissionStatus === "submitted" &&
+                                  details?.isRepeatAllowed));
+                            if (!canSubmit) return null;
+                            return (
                               <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                                 <h5 className="mb-3 text-blue-800 font-semibold">
-                                  {t("submitHomework")}
+                                  {hw.submissionStatus === "submitted"
+                                    ? t("submitHomework")
+                                    : t("submitHomework")}
                                 </h5>
 
                                 {/* Text Content Input */}
@@ -1148,7 +1157,9 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
                                   >
                                     {submitting.has(hw.id)
                                       ? t("submitting")
-                                      : t("submitHomework")}
+                                      : hw.submissionStatus === "submitted"
+                                        ? t("submitHomework")
+                                        : t("submitHomework")}
                                   </button>
 
                                   {submitting.has(hw.id) && (
@@ -1163,7 +1174,8 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
                                   {t("submissionNote")}
                                 </div>
                               </div>
-                            )}
+                            );
+                          })()}
                         </>
                       );
                     })()}
