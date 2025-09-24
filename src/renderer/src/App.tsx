@@ -39,12 +39,15 @@ const App: React.FC = () => {
   } | null>(null);
 
   // Helper function to translate error codes
-  const getErrorMessage = useCallback((error: string, errorCode?: string): string => {
-    if (errorCode && t(errorCode) !== errorCode) {
-      return t(errorCode);
-    }
-    return error;
-  }, [t]);
+  const getErrorMessage = useCallback(
+    (error: string, errorCode?: string): string => {
+      if (errorCode && t(errorCode) !== errorCode) {
+        return t(errorCode);
+      }
+      return error;
+    },
+    [t]
+  );
 
   useEffect(() => {
     checkLoginStatus();

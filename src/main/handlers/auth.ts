@@ -12,11 +12,7 @@ import {
   getCurrentSession,
   getCredentialsPath,
 } from "../auth";
-import {
-  loadCacheFromFile,
-  saveCacheToFile,
-  clearCache,
-} from "../cache";
+import { loadCacheFromFile, saveCacheToFile, clearCache } from "../cache";
 import * as fs from "fs";
 
 export function setupAuthHandlers() {

@@ -115,14 +115,17 @@ export function setupUpdateHandlers() {
     }
   });
 
-  ipcMain.handle("show-update-dialog", async (event, updateInfo: UpdateInfo) => {
-    try {
-      return await showUpdateDialog(updateInfo);
-    } catch (error) {
-      Logger.error("Show update dialog failed", error);
-      return false;
+  ipcMain.handle(
+    "show-update-dialog",
+    async (event, updateInfo: UpdateInfo) => {
+      try {
+        return await showUpdateDialog(updateInfo);
+      } catch (error) {
+        Logger.error("Show update dialog failed", error);
+        return false;
+      }
     }
-  });
+  );
 }
 
 export function notifyRendererAboutUpdate(updateInfo: UpdateInfo) {

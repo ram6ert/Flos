@@ -6,8 +6,7 @@ import {
   saveCacheToFile,
   COURSE_CACHE_DURATION,
 } from "../cache";
-import { requestQueue, authenticatedRequest, fetchCourseList } from "../api";
-import { API_CONFIG } from "../constants";
+import { requestQueue, authenticatedAPIRequest, fetchCourseList } from "../api";
 
 // Track ongoing refresh operations to prevent duplicate requests
 const ongoingRefreshes = new Set<string>();
@@ -70,8 +69,8 @@ export function setupCourseHandlers() {
     }
 
     return requestQueue.add(async () => {
-      const url = `${API_CONFIG.API_BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
-      const data = await authenticatedRequest(url);
+      const url = `/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+      const data = await authenticatedAPIRequest(url);
 
       if (data.result && data.result.length > 0) {
         return data.result[0].xqCode;

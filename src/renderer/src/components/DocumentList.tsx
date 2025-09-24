@@ -37,7 +37,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
   });
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [selectedDocType, setSelectedDocType] = useState<CourseDocumentType | "all">("all");
+  const [selectedDocType, setSelectedDocType] = useState<
+    CourseDocumentType | "all"
+  >("all");
   const currentRequestRef = useRef<string | null>(null);
   const streamingAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -335,12 +337,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
     }
 
     const filteredDocuments = realDocuments.filter((doc) => {
-      const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = selectedDocType === "all" || doc.documentType === selectedDocType;
+      const matchesSearch = doc.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesType =
+        selectedDocType === "all" || doc.documentType === selectedDocType;
       return matchesSearch && matchesType;
     });
 
-    if (filteredDocuments.length === 0 && (searchTerm || selectedDocType !== "all")) {
+    if (
+      filteredDocuments.length === 0 &&
+      (searchTerm || selectedDocType !== "all")
+    ) {
       return (
         <p className="text-gray-600">
           No documents found matching your filters.
@@ -522,7 +530,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
           />
           <select
             value={selectedDocType}
-            onChange={(e) => setSelectedDocType(e.target.value as CourseDocumentType | "all")}
+            onChange={(e) =>
+              setSelectedDocType(e.target.value as CourseDocumentType | "all")
+            }
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">{t("allDocumentTypes")}</option>

@@ -539,10 +539,12 @@ const HomeworkList: React.FC = () => {
       });
 
       if (result.success) {
-        alert(t("homeworkSubmittedSuccessfully", {
-          message: result.message,
-          files: result.filesSubmitted
-        }));
+        alert(
+          t("homeworkSubmittedSuccessfully", {
+            message: result.message,
+            files: result.filesSubmitted,
+          })
+        );
 
         // Clear the form
         setSubmissionText("");
@@ -553,9 +555,11 @@ const HomeworkList: React.FC = () => {
       }
     } catch (error) {
       console.error("Homework submission failed:", error);
-      alert(t("homeworkSubmissionFailed", {
-        error: error instanceof Error ? error.message : "Unknown error"
-      }));
+      alert(
+        t("homeworkSubmissionFailed", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        })
+      );
     } finally {
       const newSubmitting = new Set(submitting);
       newSubmitting.delete(hw.id);
@@ -1021,87 +1025,100 @@ const HomeworkList: React.FC = () => {
                           ) : null}
 
                           {/* Homework Submission Section */}
-                          {hw.submissionStatus === "not_submitted" && !isOverdue(hw) && (
-                            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                              <h5 className="mb-3 text-blue-800 font-semibold">
-                                {t("submitHomework")}
-                              </h5>
+                          {hw.submissionStatus === "not_submitted" &&
+                            !isOverdue(hw) && (
+                              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <h5 className="mb-3 text-blue-800 font-semibold">
+                                  {t("submitHomework")}
+                                </h5>
 
-                              {/* Text Content Input */}
-                              <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  {t("submissionContent")} ({t("optional")})
-                                </label>
-                                <textarea
-                                  value={submissionText}
-                                  onChange={(e) => setSubmissionText(e.target.value)}
-                                  placeholder={t("enterSubmissionText")}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
-                                  rows={4}
-                                  disabled={submitting.has(hw.id)}
-                                />
-                              </div>
+                                {/* Text Content Input */}
+                                <div className="mb-4">
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {t("submissionContent")} ({t("optional")})
+                                  </label>
+                                  <textarea
+                                    value={submissionText}
+                                    onChange={(e) =>
+                                      setSubmissionText(e.target.value)
+                                    }
+                                    placeholder={t("enterSubmissionText")}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
+                                    rows={4}
+                                    disabled={submitting.has(hw.id)}
+                                  />
+                                </div>
 
-                              {/* File Upload */}
-                              <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  {t("attachFiles")} ({t("optional")})
-                                </label>
-                                <input
-                                  type="file"
-                                  multiple
-                                  onChange={handleFileSelection}
-                                  disabled={submitting.has(hw.id)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                />
-                                {selectedFiles && (
-                                  <div className="mt-2 text-sm text-gray-600">
-                                    {t("selectedFiles", { count: selectedFiles.length })}:
-                                    <ul className="list-disc list-inside mt-1">
-                                      {Array.from(selectedFiles).map((file, index) => (
-                                        <li key={index} className="truncate">
-                                          {file.name} ({formatFileSize(file.size)})
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Submit Button */}
-                              <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => handleHomeworkSubmission(hw)}
-                                  disabled={
-                                    submitting.has(hw.id) ||
-                                    (!submissionText.trim() && !selectedFiles)
-                                  }
-                                  className={cn(
-                                    "px-6 py-2 text-white border-none rounded-md text-sm font-medium transition-colors",
-                                    submitting.has(hw.id) ||
-                                    (!submissionText.trim() && !selectedFiles)
-                                      ? "bg-gray-400 cursor-not-allowed"
-                                      : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                                {/* File Upload */}
+                                <div className="mb-4">
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {t("attachFiles")} ({t("optional")})
+                                  </label>
+                                  <input
+                                    type="file"
+                                    multiple
+                                    onChange={handleFileSelection}
+                                    disabled={submitting.has(hw.id)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                  />
+                                  {selectedFiles && (
+                                    <div className="mt-2 text-sm text-gray-600">
+                                      {t("selectedFiles", {
+                                        count: selectedFiles.length,
+                                      })}
+                                      :
+                                      <ul className="list-disc list-inside mt-1">
+                                        {Array.from(selectedFiles).map(
+                                          (file, index) => (
+                                            <li
+                                              key={index}
+                                              className="truncate"
+                                            >
+                                              {file.name} (
+                                              {formatFileSize(file.size)})
+                                            </li>
+                                          )
+                                        )}
+                                      </ul>
+                                    </div>
                                   )}
-                                >
-                                  {submitting.has(hw.id)
-                                    ? t("submitting")
-                                    : t("submitHomework")}
-                                </button>
+                                </div>
 
-                                {submitting.has(hw.id) && (
-                                  <div className="text-sm text-blue-600 flex items-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                    {t("submittingHomework")}
-                                  </div>
-                                )}
-                              </div>
+                                {/* Submit Button */}
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => handleHomeworkSubmission(hw)}
+                                    disabled={
+                                      submitting.has(hw.id) ||
+                                      (!submissionText.trim() && !selectedFiles)
+                                    }
+                                    className={cn(
+                                      "px-6 py-2 text-white border-none rounded-md text-sm font-medium transition-colors",
+                                      submitting.has(hw.id) ||
+                                        (!submissionText.trim() &&
+                                          !selectedFiles)
+                                        ? "bg-gray-400 cursor-not-allowed"
+                                        : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                                    )}
+                                  >
+                                    {submitting.has(hw.id)
+                                      ? t("submitting")
+                                      : t("submitHomework")}
+                                  </button>
 
-                              <div className="mt-2 text-xs text-gray-500">
-                                {t("submissionNote")}
+                                  {submitting.has(hw.id) && (
+                                    <div className="text-sm text-blue-600 flex items-center gap-2">
+                                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                      {t("submittingHomework")}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="mt-2 text-xs text-gray-500">
+                                  {t("submissionNote")}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </>
                       );
                     })()}

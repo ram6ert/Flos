@@ -123,7 +123,7 @@ export async function submitHomework(submission: {
 }
 
 // Sanitization function for upload response
-const sanitizeUploadResponse = (uploadData: any): any => {
+const _sanitizeUploadResponse = (uploadData: any): any => {
   return {
     id: uploadData.resSerId,
     fileName: decodeURIComponent(uploadData.fileNameNoExt),
@@ -137,7 +137,7 @@ const sanitizeUploadResponse = (uploadData: any): any => {
 };
 
 // Sanitization function for submission response
-const sanitizeSubmissionResponse = (
+const _sanitizeSubmissionResponse = (
   responseData: any,
   uploadedFilesCount: number
 ): any => {
@@ -159,9 +159,9 @@ export async function fetchHomeworkDetails(
     throw new Error("Not logged in");
   }
 
-  const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=queryStudentCourseNote&id=${homeworkId}&courseId=${courseId}&teacherId=${teacherId}`;
+  const url = `/coursePlatform/homeWork.shtml?method=queryStudentCourseNote&id=${homeworkId}&courseId=${courseId}&teacherId=${teacherId}`;
 
-  const data = await authenticatedRequest(url, true); // Use session ID
+  const data = await authenticatedAPIRequest(url, true); // Use session ID
 
   if (data && data.homeWork) {
     // Process multiple attachments from picList and answerPicList
@@ -265,7 +265,7 @@ class RateLimitedQueue {
 export const requestQueue = new RateLimitedQueue();
 
 // Helper function for authenticated requests
-export async function authenticatedRequest(
+export async function authenticatedAPIRequest(
   url: string,
   useSessionId: boolean = false
 ): Promise<any> {
@@ -368,16 +368,16 @@ export async function authenticatedRequest(
 // Helper function to fetch course list with proper semester code
 export async function fetchCourseList() {
   // First get semester info
-  const semesterUrl = `${API_CONFIG.API_BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
-  const semesterData = await authenticatedRequest(semesterUrl);
+  const semesterUrl = `/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+  const semesterData = await authenticatedAPIRequest(semesterUrl);
 
   if (!semesterData.result || semesterData.result.length === 0) {
     throw new Error("Failed to get semester info");
   }
 
   const xqCode = semesterData.result[0].xqCode;
-  const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/course.shtml?method=getCourseList&pagesize=100&page=1&xqCode=${xqCode}`;
-  const data = await authenticatedRequest(url, true); // Use dynamic session ID
+  const url = `/coursePlatform/course.shtml?method=getCourseList&pagesize=100&page=1&xqCode=${xqCode}`;
+  const data = await authenticatedAPIRequest(url, true); // Use dynamic session ID
 
   if (data.courseList) {
     // Try to enrich course data with schedule information
@@ -569,10 +569,10 @@ export async function fetchHomeworkData(courseId?: string) {
     // Get homework for specific course
     const allHomework = [];
     for (const type of homeworkTypes) {
-      const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
+      const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
 
       try {
-        const data = await authenticatedRequest(url, true); // Use dynamic session ID
+        const data = await authenticatedAPIRequest(url, true); // Use dynamic session ID
         if (data.courseNoteList && data.courseNoteList.length > 0) {
           const homework = data.courseNoteList.map((hw: any) =>
             sanitizeHomeworkItem({
@@ -611,10 +611,10 @@ export async function fetchHomeworkData(courseId?: string) {
     for (const course of courseList) {
       // Get homework for this course using the same method as above
       for (const type of homeworkTypes) {
-        const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
+        const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
 
         try {
-          const data = await authenticatedRequest(url, true); // Use dynamic session ID
+          const data = await authenticatedAPIRequest(url, true); // Use dynamic session ID
           if (data.courseNoteList && data.courseNoteList.length > 0) {
             const homework = data.courseNoteList.map((hw: any) =>
               sanitizeHomeworkItem({
@@ -694,10 +694,10 @@ export async function* fetchHomeworkStreaming(
           onProgress({ completed, total: totalTasks, currentCourse: courseId });
         }
 
-        const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
+        const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
 
         try {
-          const data = await authenticatedRequest(url, true);
+          const data = await authenticatedAPIRequest(url, true);
           if (data.courseNoteList && data.courseNoteList.length > 0) {
             const homework = data.courseNoteList.map((hw: any) =>
               sanitizeHomeworkItem({
@@ -780,11 +780,11 @@ export async function* fetchHomeworkStreaming(
             });
           }
 
-          const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
+          const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
 
           try {
             const data = await requestQueue.add(() =>
-              authenticatedRequest(url, true)
+              authenticatedAPIRequest(url, true)
             );
             if (data.courseNoteList && data.courseNoteList.length > 0) {
               const homework = data.courseNoteList.map((hw: any) =>
@@ -1166,8 +1166,8 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   }
 
   // Get semester info first to get xqCode
-  const semesterUrl = `${API_CONFIG.API_BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
-  const semesterData = await authenticatedRequest(semesterUrl);
+  const semesterUrl = `/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+  const semesterData = await authenticatedAPIRequest(semesterUrl);
 
   if (!semesterData.result || semesterData.result.length === 0) {
     throw new Error("Failed to get semester info");
@@ -1191,9 +1191,9 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   const xkhId = course.facilityId || `${xqCode}-${courseCode}`;
 
   // Construct the course documents URL with specific docType
-  const url = `${API_CONFIG.API_BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=${docType}&up_id=0&searchName=`;
+  const url = `/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=${docType}&up_id=0&searchName=`;
 
-  const data = await authenticatedRequest(url, true); // Use session ID
+  const data = await authenticatedAPIRequest(url, true); // Use session ID
 
   if (data && Array.isArray(data.resList)) {
     // Sanitize all documents

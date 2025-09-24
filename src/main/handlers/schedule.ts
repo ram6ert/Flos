@@ -6,10 +6,7 @@ import {
   saveCacheToFile,
   COURSE_CACHE_DURATION,
 } from "../cache";
-import {
-  requestQueue,
-  fetchScheduleData,
-} from "../api";
+import { requestQueue, fetchScheduleData } from "../api";
 
 // Track ongoing refresh operations to prevent duplicate requests
 const ongoingRefreshes = new Set<string>();

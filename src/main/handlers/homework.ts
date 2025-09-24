@@ -362,7 +362,7 @@ export function setupHomeworkHandlers() {
         }
 
         // Step 2: Submit homework with uploaded files
-        const submissionResult = await submitHomework({
+        const _submissionResult = await submitHomework({
           upId: submission.homeworkId,
           courseId: submission.courseId,
           content: submission.content,
