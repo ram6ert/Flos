@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { UpdateInfo } from "./updater";
 import { LoginCredentials, LoginResponse } from "../shared/types";
 
 export interface ElectronAPI {
@@ -25,6 +26,16 @@ export interface ElectronAPI {
   }>;
   refreshHomework: (
     courseId?: string
+  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  refreshDocuments: (
+    courseId?: string
+  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  streamHomework: (
+    courseId?: string
+  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  streamDocuments: (
+    courseId?: string,
+    options?: { forceRefresh?: boolean }
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   getSchedule: (options?: { skipCache?: boolean }) => Promise<any>;
   refreshSchedule: () => Promise<any>;
@@ -81,7 +92,79 @@ export interface ElectronAPI {
     callback: (event: any, payload: { key: string; data: any }) => void
   ) => void;
   onSessionExpired: (callback: () => void) => void;
+  onHomeworkStreamChunk: (
+    callback: (event: any, chunk: {
+      homework: any[];
+      courseId?: string;
+      courseName?: string;
+      type: string;
+      isComplete: boolean;
+      fromCache: boolean;
+    }) => void
+  ) => void;
+  onHomeworkStreamProgress: (
+    callback: (event: any, progress: {
+      completed: number;
+      total: number;
+      currentCourse?: string;
+    }) => void
+  ) => void;
+  onHomeworkStreamComplete: (
+    callback: (event: any, payload: { courseId?: string }) => void
+  ) => void;
+  onHomeworkStreamError: (
+    callback: (event: any, error: { error: string }) => void
+  ) => void;
+  onDocumentStreamChunk: (
+    callback: (event: any, chunk: {
+      documents: any[];
+      courseId?: string;
+      courseName?: string;
+      type: string;
+      isComplete: boolean;
+      fromCache: boolean;
+    }) => void
+  ) => void;
+  onDocumentStreamProgress: (
+    callback: (event: any, progress: {
+      completed: number;
+      total: number;
+      currentCourse?: string;
+    }) => void
+  ) => void;
+  onDocumentStreamComplete: (
+    callback: (event: any, payload: { courseId?: string }) => void
+  ) => void;
+  onDocumentStreamError: (
+    callback: (event: any, error: { error: string }) => void
+  ) => void;
+  onHomeworkRefreshStart: (
+    callback: (event: any, payload: { courseId?: string }) => void
+  ) => void;
+  onDocumentRefreshStart: (
+    callback: (event: any, payload: { courseId?: string }) => void
+  ) => void;
   removeAllListeners: (channel: string) => void;
+  // update related APIs
+  checkForUpdates: () => Promise<{
+    hasUpdate: boolean;
+    currentVersion: string;
+    latestVersion?: string;
+    updateInfo?: UpdateInfo;
+    error?: string;
+  }>;
+  downloadUpdate: (updateInfo: UpdateInfo) => Promise<{
+    success: boolean;
+    filePath?: string;
+    error?: string;
+  }>;
+  installUpdate: (filePath: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  showUpdateDialog: (updateInfo: UpdateInfo) => Promise<boolean>;
+  onUpdateStatus: (callback: (event: any, data: any) => void) => void;
+  onUpdateDownload: (callback: (event: any, data: any) => void) => void;
 }
 
 const electronAPI: ElectronAPI = {
@@ -99,7 +182,13 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("get-course-documents", courseId, options),
   refreshCourses: () => ipcRenderer.invoke("get-courses", { skipCache: true }),
   refreshHomework: (courseId?: string) =>
-    ipcRenderer.invoke("get-homework", courseId, { skipCache: true }),
+    ipcRenderer.invoke("refresh-homework", courseId),
+  refreshDocuments: (courseId?: string) =>
+    ipcRenderer.invoke("refresh-documents", courseId),
+  streamHomework: (courseId?: string) =>
+    ipcRenderer.invoke("stream-homework", courseId),
+  streamDocuments: (courseId?: string, options?: { forceRefresh?: boolean }) =>
+    ipcRenderer.invoke("stream-documents", courseId, options),
   getSchedule: (options?: { skipCache?: boolean }) =>
     ipcRenderer.invoke("get-schedule", options),
   refreshSchedule: () => ipcRenderer.invoke("refresh-schedule"),
@@ -124,7 +213,27 @@ const electronAPI: ElectronAPI = {
   clearStoredCredentials: () => ipcRenderer.invoke("clear-stored-credentials"),
   onCacheUpdate: (callback) => ipcRenderer.on("cache-updated", callback),
   onSessionExpired: (callback) => ipcRenderer.on("session-expired", callback),
+  onHomeworkStreamChunk: (callback) => ipcRenderer.on("homework-stream-chunk", callback),
+  onHomeworkStreamProgress: (callback) => ipcRenderer.on("homework-stream-progress", callback),
+  onHomeworkStreamComplete: (callback) => ipcRenderer.on("homework-stream-complete", callback),
+  onHomeworkStreamError: (callback) => ipcRenderer.on("homework-stream-error", callback),
+  onDocumentStreamChunk: (callback) => ipcRenderer.on("document-stream-chunk", callback),
+  onDocumentStreamProgress: (callback) => ipcRenderer.on("document-stream-progress", callback),
+  onDocumentStreamComplete: (callback) => ipcRenderer.on("document-stream-complete", callback),
+  onDocumentStreamError: (callback) => ipcRenderer.on("document-stream-error", callback),
+  onHomeworkRefreshStart: (callback) => ipcRenderer.on("homework-refresh-start", callback),
+  onDocumentRefreshStart: (callback) => ipcRenderer.on("document-refresh-start", callback),
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+  // update related APIs
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  downloadUpdate: (updateInfo: UpdateInfo) =>
+    ipcRenderer.invoke("download-update", updateInfo),
+  installUpdate: (filePath: string) =>
+    ipcRenderer.invoke("install-update", filePath),
+  showUpdateDialog: (updateInfo: UpdateInfo) =>
+    ipcRenderer.invoke("show-update-dialog", updateInfo),
+  onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
+  onUpdateDownload: (callback) => ipcRenderer.on("update-download", callback),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

@@ -6,12 +6,12 @@ export interface Homework {
   content: string;
   dueDate: string; // ISO string from main process
   maxScore: number;
-  submissionStatus: 'submitted' | 'not_submitted' | 'graded';
+  submissionStatus: "submitted" | "not_submitted" | "graded";
   studentScore: number | null;
   submitDate: string | null; // ISO string from main process
   submittedCount: number;
   totalStudents: number;
-  type: 'homework' | 'report' | 'experiment' | 'quiz' | 'assessment';
+  type: "homework" | "report" | "experiment" | "quiz" | "assessment";
 }
 
 export interface HomeworkDetails {

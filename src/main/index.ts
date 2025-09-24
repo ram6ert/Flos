@@ -32,10 +32,21 @@ import {
   authenticatedRequest,
   fetchCourseList,
   fetchHomeworkData,
+  fetchHomeworkStreaming,
   fetchCourseDocuments,
+  fetchDocumentsStreaming,
   fetchHomeworkDetails,
   fetchScheduleData,
 } from "./api";
+import {
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+  showUpdateDialog,
+  autoCheckForUpdates,
+  UpdateInfo,
+} from "./updater";
+import { Logger } from "./logger";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -124,6 +135,13 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // Auto update check after 5 second delay to avoid affecting app startup speed
+  setTimeout(() => {
+    autoCheckForUpdates().catch((error) => {
+      Logger.error("Auto update check failed", error);
+    });
+  }, 5000);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -365,12 +383,198 @@ ipcMain.handle("refresh-homework", async (event, courseId?: string) => {
 
   const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
 
-  return requestQueue.add(async () => {
-    const data = await fetchHomeworkData(courseId);
-    setCachedData(cacheKey, data);
-    saveCacheToFile(currentSession?.username);
-    return { data, fromCache: false, age: 0 };
-  });
+  // Clear existing cache for this key
+  setCachedData(cacheKey, null);
+
+  // Signal renderer to clear display and start streaming fresh data
+  try {
+    // Signal renderer to clear display
+    event.sender.send("homework-refresh-start", { courseId });
+
+    const generator = fetchHomeworkStreaming(
+      courseId,
+      (progress) => {
+        // Send progress updates
+        event.sender.send("homework-stream-progress", progress);
+      },
+      false
+    ); // false = allow caching of the fresh data
+
+    for await (const chunk of generator) {
+      // Send each chunk as it arrives
+      event.sender.send("homework-stream-chunk", {
+        ...chunk,
+        fromCache: false,
+      });
+    }
+
+    // Send completion signal
+    event.sender.send("homework-stream-complete", { courseId });
+
+    return { data: [], fromCache: false, age: 0 };
+  } catch (error) {
+    event.sender.send("homework-stream-error", {
+      error: error instanceof Error ? error.message : "Streaming failed",
+    });
+    throw error;
+  }
+});
+
+// Streaming homework handlers
+ipcMain.handle("stream-homework", async (event, courseId?: string) => {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  const cacheKey = courseId ? `homework_${courseId}` : "all_homework";
+
+  // Check cache first - if we have recent data, return it immediately
+  const cachedData = getCachedData(cacheKey, CACHE_DURATION);
+  if (cachedData) {
+    // Send cached data immediately
+    event.sender.send("homework-stream-chunk", {
+      homework: cachedData,
+      courseId: courseId || null,
+      courseName: "Cached Data",
+      type: "cached",
+      isComplete: true,
+      fromCache: true,
+    });
+
+    return { data: cachedData, fromCache: true, age: 0 };
+  }
+
+  // No cache or expired - start streaming
+  try {
+    const generator = fetchHomeworkStreaming(courseId, (progress) => {
+      // Send progress updates
+      event.sender.send("homework-stream-progress", progress);
+    });
+
+    for await (const chunk of generator) {
+      // Send each chunk as it arrives
+      event.sender.send("homework-stream-chunk", {
+        ...chunk,
+        fromCache: false,
+      });
+    }
+
+    // Send completion signal
+    event.sender.send("homework-stream-complete", { courseId });
+
+    // Return final cached data
+    const finalData = getCachedData(cacheKey, CACHE_DURATION);
+    return { data: finalData || [], fromCache: false, age: 0 };
+  } catch (error) {
+    event.sender.send("homework-stream-error", {
+      error: error instanceof Error ? error.message : "Streaming failed",
+    });
+    throw error;
+  }
+});
+
+// Streaming document handlers
+ipcMain.handle(
+  "stream-documents",
+  async (event, courseId?: string, options = {}) => {
+    if (!currentSession) {
+      throw new Error("Not logged in");
+    }
+
+    const { forceRefresh = false } = options;
+    const cacheKey = courseId ? `documents_${courseId}` : "all_documents";
+
+    // Check cache first - if we have recent data and not forcing refresh, return it immediately
+    if (!forceRefresh) {
+      const cachedData = getCachedData(cacheKey, CACHE_DURATION);
+      if (cachedData) {
+        // Send cached data immediately
+        event.sender.send("document-stream-chunk", {
+          documents: cachedData,
+          courseId: courseId,
+          courseName: "Cached Data",
+          type: "cached",
+          isComplete: true,
+          fromCache: true,
+        });
+
+        return { data: cachedData, fromCache: true, age: 0 };
+      }
+    }
+
+    // No cache, expired, or forced refresh - start streaming
+    try {
+      const generator = fetchDocumentsStreaming(courseId, (progress) => {
+        // Send progress updates
+        event.sender.send("document-stream-progress", progress);
+      });
+
+      for await (const chunk of generator) {
+        // Send each chunk as it arrives
+        event.sender.send("document-stream-chunk", {
+          ...chunk,
+          fromCache: false,
+        });
+      }
+
+      // Send completion signal
+      event.sender.send("document-stream-complete", { courseId });
+
+      // Return final cached data
+      const finalData = getCachedData(cacheKey, CACHE_DURATION);
+      return { data: finalData || [], fromCache: false, age: 0 };
+    } catch (error) {
+      event.sender.send("document-stream-error", {
+        error: error instanceof Error ? error.message : "Streaming failed",
+      });
+      throw error;
+    }
+  }
+);
+
+// Refresh documents using streaming
+ipcMain.handle("refresh-documents", async (event, courseId?: string) => {
+  if (!currentSession) {
+    throw new Error("Not logged in");
+  }
+
+  const cacheKey = courseId ? `documents_${courseId}` : "all_documents";
+
+  // Clear existing cache for this key
+  setCachedData(cacheKey, null);
+
+  // Signal renderer to clear display and start streaming fresh data
+  try {
+    // Signal renderer to clear display
+    event.sender.send("document-refresh-start", { courseId });
+
+    const generator = fetchDocumentsStreaming(
+      courseId,
+      (progress) => {
+        // Send progress updates
+        event.sender.send("document-stream-progress", progress);
+      },
+      false
+    ); // false = allow caching of the fresh data
+
+    for await (const chunk of generator) {
+      // Send each chunk as it arrives
+      event.sender.send("document-stream-chunk", {
+        ...chunk,
+        fromCache: false,
+      });
+    }
+
+    // Send completion signal
+    event.sender.send("document-stream-complete", { courseId });
+
+    return { data: [], fromCache: false, age: 0 };
+  } catch (error) {
+    event.sender.send("document-stream-error", {
+      error: error instanceof Error ? error.message : "Streaming failed",
+    });
+    throw error;
+  }
 });
 
 // Fetch homework details
@@ -772,3 +976,125 @@ ipcMain.handle("refresh-schedule", async () => {
     return scheduleData;
   });
 });
+
+// Update-related IPC handlers
+ipcMain.handle("check-for-updates", async () => {
+  try {
+    // Send update check start notification
+    const allWindows = BrowserWindow.getAllWindows();
+    allWindows.forEach((window) => {
+      window.webContents.send("update-status", {
+        type: "checking",
+        currentVersion: app.getVersion(),
+      });
+    });
+
+    const result = await checkForUpdates();
+
+    // Send feedback to renderer process
+    allWindows.forEach((window) => {
+      if (result.hasUpdate && result.updateInfo) {
+        // Update available
+        window.webContents.send("update-status", {
+          type: "available",
+          updateInfo: result.updateInfo,
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+        });
+      } else if (result.error) {
+        // Check failed
+        window.webContents.send("update-status", {
+          type: "error",
+          error: result.error,
+          errorCode: result.errorCode,
+          currentVersion: result.currentVersion,
+        });
+      } else {
+        // Already latest version
+        window.webContents.send("update-status", {
+          type: "up-to-date",
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+        });
+      }
+    });
+
+    return result;
+  } catch (error) {
+    Logger.error("Update check failed", error);
+    const errorResult = {
+      hasUpdate: false,
+      currentVersion: app.getVersion(),
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update check",
+    };
+
+    // Send error feedback to renderer process
+    const allWindows = BrowserWindow.getAllWindows();
+    allWindows.forEach((window) => {
+      window.webContents.send("update-status", {
+        type: "error",
+        error: errorResult.error,
+        errorCode: "UNKNOWN_CHECK_ERROR",
+        currentVersion: errorResult.currentVersion,
+      });
+    });
+
+    return errorResult;
+  }
+});
+
+ipcMain.handle("download-update", async (event, updateInfo: UpdateInfo) => {
+  try {
+    return await downloadUpdate(updateInfo);
+  } catch (error) {
+    Logger.error("Download update failed", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update download",
+    };
+  }
+});
+
+ipcMain.handle("install-update", async (event, filePath: string) => {
+  try {
+    const result = await installUpdate(filePath);
+    if (result.success) {
+      // Exit app after successful installation
+      setTimeout(() => {
+        app.quit();
+      }, 1000);
+    }
+    return result;
+  } catch (error) {
+    Logger.error("Install update failed", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during update installation",
+    };
+  }
+});
+
+ipcMain.handle("show-update-dialog", async (event, updateInfo: UpdateInfo) => {
+  try {
+    return await showUpdateDialog(updateInfo);
+  } catch (error) {
+    Logger.error("Show update dialog failed", error);
+    return false;
+  }
+});
+
+export function notifyRendererAboutUpdate(updateInfo: UpdateInfo) {
+  const allWindows = BrowserWindow.getAllWindows();
+  allWindows.forEach((window) => {
+    window.webContents.send("update-available", updateInfo);
+  });
+}

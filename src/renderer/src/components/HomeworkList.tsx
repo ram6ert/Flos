@@ -11,6 +11,7 @@ import {
   HomeworkDetails,
   HomeworkAttachment,
 } from "../../../shared/types";
+import { LoadingState, LoadingStateData } from "../types/ui";
 import {
   Container,
   PageHeader,
@@ -31,13 +32,14 @@ interface HomeworkResponse {
 const HomeworkList: React.FC = () => {
   const { t } = useTranslation();
   const [homework, setHomework] = useState<Homework[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loadingState, setLoadingState] = useState<LoadingStateData>({
+    state: LoadingState.IDLE,
+  });
   const [filter, setFilter] = useState<
     "all" | "pending" | "submitted" | "graded" | "overdue"
   >("all");
   const [cacheInfo, setCacheInfo] = useState<string>("");
-  const [error, setError] = useState<string>("");
+  // Removed error state - using loadingState.error instead
   const [expandedHomework, setExpandedHomework] = useState<Set<number>>(
     new Set()
   );
@@ -51,60 +53,45 @@ const HomeworkList: React.FC = () => {
 
   const isFetchingRef = useRef(false);
 
-  const fetchHomework = useCallback(async (forceRefresh = false) => {
-    // Prevent duplicate requests
-    if (isFetchingRef.current) {
-      console.log(
-        "Homework fetch already in progress, skipping duplicate request"
-      );
-      return;
-    }
-
-    try {
-      isFetchingRef.current = true;
-      if (forceRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError("");
-
-      const response: HomeworkResponse = forceRefresh
-        ? await window.electronAPI.refreshHomework()
-        : await window.electronAPI.getHomework();
-
-      if (response.data && Array.isArray(response.data)) {
-        setHomework(response.data);
-
-        const ageMinutes = Math.floor(response.age / (1000 * 60));
-        setCacheInfo(
-          response.fromCache
-            ? t("showingCachedData", { minutes: ageMinutes })
-            : t("showingFreshData")
+  const fetchHomework = useCallback(
+    async (forceRefresh = false) => {
+      // Prevent duplicate requests
+      if (isFetchingRef.current) {
+        console.log(
+          "Homework fetch already in progress, skipping duplicate request"
         );
-      } else {
-        setHomework([]);
-        setCacheInfo(t("noHomeworkDataAvailable"));
+        return;
       }
-    } catch (error) {
-      console.error("Failed to fetch homework:", error);
-      if (error instanceof Error) {
-        if (error.message.includes("404") || error.message.includes("502")) {
-          setError(t("authenticationRequired"));
-        } else if (error.message.includes("Session expired")) {
-          setError(t("sessionExpired"));
+
+      isFetchingRef.current = true;
+
+      try {
+        if (forceRefresh) {
+          // For force refresh, use streaming refresh (clears display first)
+          await window.electronAPI.refreshHomework();
         } else {
-          setError(t("failedToFetchHomework"));
+          // Use streaming for normal loads
+          setLoadingState({ state: LoadingState.LOADING });
+
+          // Start streaming
+          const response: HomeworkResponse =
+            await window.electronAPI.streamHomework();
+
+          // Handle final response (may be cached data)
+          if (response.fromCache) {
+            const ageMinutes = Math.floor(response.age / (1000 * 60));
+            setCacheInfo(t("showingCachedData", { minutes: ageMinutes }));
+          }
         }
-      } else {
-        setError(t("unexpectedError"));
+      } finally {
+        if (!forceRefresh) {
+          setLoadingState({ state: LoadingState.SUCCESS });
+        }
+        isFetchingRef.current = false;
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      isFetchingRef.current = false;
-    }
-  }, [t]);
+    },
+    [t]
+  );
 
   useEffect(() => {
     fetchHomework();
@@ -126,10 +113,94 @@ const HomeworkList: React.FC = () => {
       }
     };
 
+    const handleStreamChunk = (
+      _event: any,
+      chunk: {
+        homework: any[];
+        courseId?: string;
+        courseName?: string;
+        type: string;
+        isComplete: boolean;
+        fromCache: boolean;
+      }
+    ) => {
+      if (chunk.fromCache && chunk.isComplete) {
+        // Cached data - replace all homework
+        setHomework(chunk.homework);
+        setLoadingState({ state: LoadingState.SUCCESS });
+      } else {
+        // Streaming data - append new homework
+        setHomework((prev) => {
+          const existingIds = new Set(prev.map((hw) => hw.id));
+          const newHomework = chunk.homework.filter(
+            (hw) => !existingIds.has(hw.id)
+          );
+          return [...prev, ...newHomework];
+        });
+
+        // Update cache info to show we're receiving fresh data
+        if (!chunk.fromCache) {
+          setCacheInfo(t("showingFreshData"));
+        }
+      }
+    };
+
+    const handleStreamProgress = (
+      _event: any,
+      progress: {
+        completed: number;
+        total: number;
+        currentCourse?: string;
+      }
+    ) => {
+      setLoadingState({
+        state: LoadingState.LOADING,
+        progress: {
+          completed: progress.completed,
+          total: progress.total,
+          currentItem: progress.currentCourse,
+        },
+      });
+    };
+
+    const handleStreamComplete = (
+      _event: any,
+      _payload: { courseId?: string }
+    ) => {
+      setLoadingState({ state: LoadingState.SUCCESS });
+      setCacheInfo(t("showingFreshData"));
+    };
+
+    const handleStreamError = (_event: any, error: { error: string }) => {
+      console.error("Streaming error:", error.error);
+      setLoadingState({ state: LoadingState.ERROR, error: error.error });
+    };
+
+    const handleRefreshStart = (
+      _event: any,
+      _payload: { courseId?: string }
+    ) => {
+      // Clear current homework and reset loading state for refresh
+      setHomework([]);
+      setLoadingState({ state: LoadingState.LOADING });
+      setCacheInfo("");
+    };
+
+    // Set up event listeners
     window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
+    window.electronAPI.onHomeworkStreamChunk?.(handleStreamChunk);
+    window.electronAPI.onHomeworkStreamProgress?.(handleStreamProgress);
+    window.electronAPI.onHomeworkStreamComplete?.(handleStreamComplete);
+    window.electronAPI.onHomeworkStreamError?.(handleStreamError);
+    window.electronAPI.onHomeworkRefreshStart?.(handleRefreshStart);
 
     return () => {
       window.electronAPI.removeAllListeners?.("cache-updated");
+      window.electronAPI.removeAllListeners?.("homework-stream-chunk");
+      window.electronAPI.removeAllListeners?.("homework-stream-progress");
+      window.electronAPI.removeAllListeners?.("homework-stream-complete");
+      window.electronAPI.removeAllListeners?.("homework-stream-error");
+      window.electronAPI.removeAllListeners?.("homework-refresh-start");
     };
   }, [t]);
 
@@ -284,7 +355,10 @@ const HomeworkList: React.FC = () => {
       setHomeworkDetails(newDetails);
     } catch (error) {
       console.error("Failed to fetch homework details:", error);
-      setError(t("failedToLoadHomeworkDetails"));
+      setLoadingState({
+        state: LoadingState.ERROR,
+        error: t("failedToLoadHomeworkDetails"),
+      });
     } finally {
       setDetailsLoading(false);
       const newFetching = new Set(fetchingDetails);
@@ -511,7 +585,7 @@ const HomeworkList: React.FC = () => {
       });
   }, [homework, filter, sortBy, sortOrder]);
 
-  if (loading) {
+  if (loadingState.state === LoadingState.LOADING && !loadingState.progress) {
     return (
       <Container padding="lg">
         <Loading message={t("loadingHomework")} />
@@ -519,16 +593,14 @@ const HomeworkList: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (loadingState.state === LoadingState.ERROR) {
     return (
       <Container padding="lg">
         <ErrorDisplay
           title={t("unableToLoadHomework")}
-          message={error}
+          message={loadingState.error || "Unknown error"}
           onRetry={() => fetchHomework(true)}
-          retryLabel={
-            refreshing ? t("refreshing") : loading ? t("loading") : t("retry")
-          }
+          retryLabel={t("retry")}
         />
       </Container>
     );
@@ -541,20 +613,51 @@ const HomeworkList: React.FC = () => {
         actions={
           <Button
             onClick={() => fetchHomework(true)}
-            disabled={loading || refreshing}
+            disabled={loadingState.state === LoadingState.LOADING}
             variant="primary"
             size="sm"
           >
-            {refreshing
-              ? t("refreshing")
-              : loading
-                ? t("loading")
-                : t("refresh")}
+            {loadingState.state === LoadingState.LOADING
+              ? t("loading")
+              : t("refresh")}
           </Button>
         }
       />
 
       {cacheInfo && <InfoBanner variant="info">{cacheInfo}</InfoBanner>}
+
+      {/* Loading Progress */}
+      {loadingState.state === LoadingState.LOADING && loadingState.progress && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-blue-800">
+              {t("loadingHomework")} ({loadingState.progress.completed}/
+              {loadingState.progress.total})
+            </span>
+            <span className="text-xs text-blue-600">
+              {Math.round(
+                (loadingState.progress.completed /
+                  loadingState.progress.total) *
+                  100
+              )}
+              %
+            </span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+              style={{
+                width: `${(loadingState.progress.completed / loadingState.progress.total) * 100}%`,
+              }}
+            />
+          </div>
+          {loadingState.progress.currentItem && (
+            <div className="text-xs text-blue-700 mt-1">
+              {t("currentlyFetching")}: {loadingState.progress.currentItem}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-6">
         <div className="mb-4">

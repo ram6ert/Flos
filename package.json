@@ -1,6 +1,6 @@
 {
   "name": "smart-course-platform",
-  "version": "1.4.15",
+  "version": "1.4.16",
   "description": "An Electron app for convenient access to course information, homework, and documents",
   "main": "dist/main/index.min.js",
   "scripts": {
@@ -9,7 +9,7 @@
     "dev:electron": "cross-env NODE_ENV=development electron .",
     "build": "cross-env NODE_ENV=production yarn build:vite && yarn build:electron",
     "build:vite": "cross-env NODE_ENV=production vite build",
-    "build:electron": "esbuild src/main/index.ts --bundle --platform=node --target=node16 --format=cjs --outfile=dist/main/index.min.js --external:electron --sourcemap && esbuild src/main/preload.ts --bundle --target=chrome58 --outfile=dist/main/preload.js --external:electron --sourcemap",
+    "build:electron": "esbuild src/main/index.ts --bundle --platform=node --target=node16 --format=cjs --outfile=dist/main/index.min.js --external:electron --sourcemap && esbuild src/main/preload.ts --bundle --minify --target=chrome58 --outfile=dist/main/preload.js --external:electron --sourcemap",
     "build:dist": "cross-env NODE_ENV=production yarn build && electron-builder",
     "build:win": "cross-env NODE_ENV=production yarn build && electron-builder --win",
     "build:mac": "cross-env NODE_ENV=production yarn build && electron-builder --mac",
@@ -77,9 +77,31 @@
       "assets/**/*",
       "package.json"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "Baka-Course-Platform",
+      "repo": "Baka-Course-Platform"
+    },
     "mac": {
       "category": "public.app-category.education",
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.icns",
+      "identity": null,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
     },
     "win": {
       "target": [
@@ -102,6 +124,10 @@
     "linux": {
       "target": "AppImage",
       "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }

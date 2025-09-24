@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { UserSession } from "../../shared/types";
 import { Course } from "../../shared/types";
@@ -9,6 +9,8 @@ import DocumentList from "./components/DocumentList";
 import Sidebar from "./components/Sidebar";
 import Login from "./components/Login";
 import FlowScheduleTable from "./components/FlowScheduleTable";
+import UpdateNotification from "./components/UpdateNotification";
+import UpdateStatusNotification from "./components/UpdateStatusNotification";
 import { Button, Loading } from "./components/common/StyledComponents";
 
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
@@ -23,6 +25,26 @@ const App: React.FC = () => {
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<{
+    type: "success" | "error" | "info";
+    title: string;
+    message: string;
+  } | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    percent: number;
+    downloadedMB: string;
+    totalMB: string;
+  } | null>(null);
+
+  // Helper function to translate error codes
+  const getErrorMessage = useCallback((error: string, errorCode?: string): string => {
+    if (errorCode && t(errorCode) !== errorCode) {
+      return t(errorCode);
+    }
+    return error;
+  }, [t]);
 
   useEffect(() => {
     checkLoginStatus();
@@ -36,18 +58,27 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setShowLogoutDropdown(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   useEffect(() => {
+    const api = window.electronAPI;
+
+    if (!api) {
+      return undefined;
+    }
+
     // Listen for cache updates
     const handleCacheUpdate = (
       _event: any,
@@ -67,14 +98,96 @@ const App: React.FC = () => {
       setActiveView("courses");
     };
 
-    window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
-    window.electronAPI.onSessionExpired?.(handleSessionExpired);
+    // Listen for update status changes
+    const handleUpdateStatus = (_event: any, data: any) => {
+      console.log("Update status:", data);
+
+      switch (data.type) {
+        case "checking":
+          setUpdateStatus({
+            type: "info",
+            title: t("checkingForUpdates"),
+            message: `${t("currentVersion")}: v${data.currentVersion}, ${t("checkingForUpdates").toLowerCase()}...`,
+          });
+          break;
+
+        case "available":
+          setUpdateInfo(data);
+          setShowUpdateNotification(true);
+          break;
+
+        case "up-to-date":
+          setUpdateStatus({
+            type: "success",
+            title: t("updateCheckComplete"),
+            message: `${t("currentVersion")}: v${data.currentVersion}${data.latestVersion ? `, ${t("latestVersion")}: v${data.latestVersion}` : ""}`,
+          });
+          break;
+
+        case "error":
+          setUpdateStatus({
+            type: "error",
+            title: t("updateCheckFailed"),
+            message: getErrorMessage(
+              data.error || t("unknownUpdateError"),
+              data.errorCode
+            ),
+          });
+          break;
+      }
+    };
+
+    // Listen for download events
+    const handleUpdateDownload = (_event: any, data: any) => {
+      console.log("Update download:", data);
+
+      switch (data.type) {
+        case "started":
+          setDownloadProgress({
+            percent: 0,
+            downloadedMB: "0",
+            totalMB: (data.fileSize / 1024 / 1024).toFixed(1),
+          });
+          break;
+
+        case "progress":
+          setDownloadProgress({
+            percent: data.percent,
+            downloadedMB: data.downloadedMB,
+            totalMB: data.totalMB,
+          });
+          break;
+
+        case "completed":
+          setDownloadProgress(null);
+          break;
+
+        case "error":
+          setDownloadProgress(null);
+          setUpdateStatus({
+            type: "error",
+            title: t("downloadFailed"),
+            message: getErrorMessage(
+              data.error || t("unknownUpdateError"),
+              data.errorCode
+            ),
+          });
+          break;
+      }
+    };
+
+    api.onCacheUpdate?.(handleCacheUpdate);
+    api.onSessionExpired?.(handleSessionExpired);
+    api.onUpdateStatus?.(handleUpdateStatus);
+    api.onUpdateDownload?.(handleUpdateDownload);
 
     return () => {
-      window.electronAPI.removeAllListeners?.("cache-updated");
-      window.electronAPI.removeAllListeners?.("session-expired");
+      api.removeAllListeners?.("cache-updated");
+      api.removeAllListeners?.("session-expired");
+      api.removeAllListeners?.("update-status");
+      api.removeAllListeners?.("update-download");
     };
-  }, []);
+  }, [t, getErrorMessage]);
 
   const checkLoginStatus = async () => {
     try {
@@ -160,6 +273,19 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Error during logout:", error);
     }
+  };
+
+  const handleUpdateClose = () => {
+    setShowUpdateNotification(false);
+    setUpdateInfo(null);
+  };
+
+  const handleUpdate = () => {
+    console.log("Starting update process...");
+  };
+
+  const handleUpdateStatusClose = () => {
+    setUpdateStatus(null);
   };
 
   const handleLogoutAndClearCredentials = async () => {
@@ -248,7 +374,7 @@ const App: React.FC = () => {
               size="sm"
               className="bg-white/20 hover:bg-white/30 border-white/30"
             >
-              {t('logout')} ▼
+              {t("logout")} ▼
             </Button>
             {showLogoutDropdown && (
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg z-10 border border-gray-200">
@@ -257,13 +383,13 @@ const App: React.FC = () => {
                     onClick={handleLogout}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >
-                    {t('logout')}
+                    {t("logout")}
                   </button>
                   <button
                     onClick={handleLogoutAndClearCredentials}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >
-                    {t('logoutAndClear')}
+                    {t("logoutAndClear")}
                   </button>
                 </div>
               </div>
@@ -276,6 +402,26 @@ const App: React.FC = () => {
         <Sidebar activeView={activeView} onViewChange={setActiveView} />
         <main className="content">{renderContent()}</main>
       </div>
+
+      {/* notification */}
+      {showUpdateNotification && updateInfo && (
+        <UpdateNotification
+          updateInfo={updateInfo.updateInfo}
+          onClose={handleUpdateClose}
+          onUpdate={handleUpdate}
+          downloadProgress={downloadProgress}
+        />
+      )}
+
+      {/* status notification */}
+      {updateStatus && (
+        <UpdateStatusNotification
+          type={updateStatus.type}
+          title={updateStatus.title}
+          message={updateStatus.message}
+          onClose={handleUpdateStatusClose}
+        />
+      )}
     </div>
   );
 };
