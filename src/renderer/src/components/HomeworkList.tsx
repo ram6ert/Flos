@@ -34,15 +34,18 @@ interface HomeworkListProps {
   selectedCourse: Course | null;
   courses: Course[];
   onCourseSelect: (course: Course | null) => void;
+  homework: Homework[];
+  setHomework: React.Dispatch<React.SetStateAction<Homework[]>>;
 }
 
 const HomeworkList: React.FC<HomeworkListProps> = ({
   selectedCourse,
   courses,
   onCourseSelect,
+  homework,
+  setHomework,
 }) => {
   const { t } = useTranslation();
-  const [homework, setHomework] = useState<Homework[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingStateData>({
     state: LoadingState.IDLE,
   });

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { UserSession } from "../../shared/types";
 import { Course } from "../../shared/types";
 import { CourseDocument } from "../../shared/types";
+import { Homework } from "../../shared/types";
 import CourseList from "./components/CourseList";
 import HomeworkList from "./components/HomeworkList";
 import DocumentList from "./components/DocumentList";
@@ -21,6 +22,7 @@ const App: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [documents, setDocuments] = useState<CourseDocument[]>([]);
+  const [homework, setHomework] = useState<Homework[]>([]);
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
@@ -322,6 +324,8 @@ const App: React.FC = () => {
             selectedCourse={selectedCourse}
             courses={courses}
             onCourseSelect={handleCourseSelect}
+            homework={homework}
+            setHomework={setHomework}
           />
         );
       case "documents":
