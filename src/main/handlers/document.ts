@@ -8,6 +8,7 @@ import {
 } from "../api";
 import { API_CONFIG as APP_CONFIG } from "../constants";
 import NodeCache from "node-cache";
+import { CourseDocument } from "../../shared/types";
 
 const CACHE_TTL = 30 * 60;
 const cachedDocuments = new NodeCache({
@@ -53,19 +54,21 @@ export function setupDocumentHandlers() {
           event.sender.send("document-stream-progress", progress);
         });
 
+        let finalData: CourseDocument[] = [];
         for await (const chunk of generator) {
           // Send each chunk as it arrives
           event.sender.send("document-stream-chunk", {
             ...chunk,
             fromCache: false,
           });
+          finalData = finalData.concat(chunk.documents);
         }
 
         // Send completion signal
         event.sender.send("document-stream-complete", { courseId });
 
         // Return final cached data
-        const finalData = cachedDocuments.get(cacheKey);
+        cachedDocuments.set(cacheKey, finalData);
         return { data: finalData || [], fromCache: false, age: 0 };
       } catch (error) {
         event.sender.send("document-stream-error", {
@@ -86,9 +89,6 @@ export function setupDocumentHandlers() {
       ? `documents_${currentSession.username}_${courseId}`
       : "all_documents";
 
-    // Clear existing cache for this key
-    cachedDocuments.del(cacheKey);
-
     // Signal renderer to clear display and start streaming fresh data
     try {
       // Signal renderer to clear display
@@ -103,18 +103,21 @@ export function setupDocumentHandlers() {
         false
       ); // false = allow caching of the fresh data
 
+      let finalData: CourseDocument[] = [];
       for await (const chunk of generator) {
         // Send each chunk as it arrives
         event.sender.send("document-stream-chunk", {
           ...chunk,
           fromCache: false,
         });
+        finalData = finalData.concat(chunk.documents);
       }
 
       // Send completion signal
       event.sender.send("document-stream-complete", { courseId });
 
-      return { data: [], fromCache: false, age: 0 };
+      cachedDocuments.set(cacheKey, finalData);
+      return { data: finalData, fromCache: false, age: 0 };
     } catch (error) {
       event.sender.send("document-stream-error", {
         error: error instanceof Error ? error.message : "Streaming failed",

@@ -11,6 +11,7 @@ import {
 } from "../api";
 import { API_CONFIG } from "../constants";
 import NodeCache from "node-cache";
+import { Homework } from "../../shared/types";
 
 const CACHE_TTL = 30 * 60;
 const cachedHomework = new NodeCache({
@@ -81,18 +82,21 @@ export function setupHomeworkHandlers() {
         false
       ); // false = allow caching of the fresh data
 
+      let finalData: Homework[] = [];
       for await (const chunk of generator) {
         // Send each chunk as it arrives
         event.sender.send("homework-stream-chunk", {
           ...chunk,
           fromCache: false,
         });
+        finalData = finalData.concat(chunk.homework);
       }
 
       // Send completion signal
       event.sender.send("homework-stream-complete", { courseId });
 
-      return { data: [], fromCache: false, age: 0 };
+      cachedHomework.set(cacheKey, finalData);
+      return { data: finalData, fromCache: false, age: 0 };
     } catch (error) {
       event.sender.send("homework-stream-error", {
         error: error instanceof Error ? error.message : "Streaming failed",
@@ -134,19 +138,21 @@ export function setupHomeworkHandlers() {
         event.sender.send("homework-stream-progress", progress);
       });
 
+      let finalData: Homework[] = [];
       for await (const chunk of generator) {
         // Send each chunk as it arrives
         event.sender.send("homework-stream-chunk", {
           ...chunk,
           fromCache: false,
         });
+        finalData = finalData.concat(chunk.homework);
       }
 
       // Send completion signal
       event.sender.send("homework-stream-complete", { courseId });
 
       // Return final cached data
-      const finalData = cachedHomework.get(cacheKey);
+      cachedHomework.set(cacheKey, finalData);
       return { data: finalData || [], fromCache: false, age: 0 };
     } catch (error) {
       event.sender.send("homework-stream-error", {
