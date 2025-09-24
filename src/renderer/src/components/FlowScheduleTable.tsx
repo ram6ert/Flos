@@ -13,6 +13,8 @@ import {
 
 interface FlowScheduleTableProps {
   onRefresh?: () => void;
+  scheduleData: ScheduleData | null;
+  setScheduleData: React.Dispatch<React.SetStateAction<ScheduleData | null>>;
 }
 
 interface CourseFlow {
@@ -22,9 +24,8 @@ interface CourseFlow {
   dayIndex: number;
 }
 
-const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh }) => {
+const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({ onRefresh, scheduleData, setScheduleData }) => {
   const { t } = useTranslation();
-  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());

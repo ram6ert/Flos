@@ -4,6 +4,7 @@ import { UserSession } from "../../shared/types";
 import { Course } from "../../shared/types";
 import { CourseDocument } from "../../shared/types";
 import { Homework } from "../../shared/types";
+import { ScheduleData } from "../../shared/types";
 import CourseList from "./components/CourseList";
 import HomeworkList from "./components/HomeworkList";
 import DocumentList from "./components/DocumentList";
@@ -23,6 +24,7 @@ const App: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [documents, setDocuments] = useState<CourseDocument[]>([]);
   const [homework, setHomework] = useState<Homework[]>([]);
+  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
@@ -338,7 +340,12 @@ const App: React.FC = () => {
           />
         );
       case "flow-schedule":
-        return <FlowScheduleTable />;
+        return (
+          <FlowScheduleTable
+            scheduleData={scheduleData}
+            setScheduleData={setScheduleData}
+          />
+        );
       default:
         return (
           <CourseList
