@@ -11,6 +11,10 @@ import NodeCache from "node-cache";
 import { CourseDocument } from "../../shared/types";
 
 const CACHE_TTL = 30 * 60;
+
+// Active request tracking to prevent race conditions
+const activeRequests = new Map<string, string>(); // requestKey -> responseId
+const generateResponseId = () => `resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 const cachedDocuments = new NodeCache({
   stdTTL: CACHE_TTL,
   checkperiod: CACHE_TTL / 2,
@@ -25,7 +29,17 @@ export function setupDocumentHandlers() {
         throw new Error("SESSION_EXPIRED");
       }
 
-      const { forceRefresh = false } = options;
+      const { forceRefresh = false, requestId } = options;
+      const requestKey = courseId || 'all_documents';
+      // Use the requestId passed from renderer, or generate one if not provided
+      const responseId = requestId || generateResponseId();
+
+      // Check for existing request and cancel it
+      if (activeRequests.has(requestKey)) {
+        console.log(`Cancelling previous document request for ${requestKey}`);
+      }
+      activeRequests.set(requestKey, responseId);
+
       const cacheKey = courseId
         ? `documents_${currentSession.username}_${courseId}`
         : `all_documents_${currentSession.username}`;
@@ -34,16 +48,21 @@ export function setupDocumentHandlers() {
       if (!forceRefresh) {
         const cachedData = cachedDocuments.get(cacheKey);
         if (cachedData) {
-          // Send cached data immediately
-          event.sender.send("document-stream-chunk", {
-            documents: cachedData,
-            courseId: courseId,
-            courseName: "Cached Data",
-            type: "cached",
-            fromCache: true,
-          });
+          // Only send if this is still the current request
+          if (activeRequests.get(requestKey) === responseId) {
+            // Send cached data immediately
+            event.sender.send("document-stream-chunk", {
+              documents: cachedData,
+              courseId: courseId,
+              courseName: "Cached Data",
+              type: "cached",
+              fromCache: true,
+              responseId,
+            });
 
-          event.sender.send("document-stream-complete", { courseId });
+            event.sender.send("document-stream-complete", { courseId, responseId });
+            activeRequests.delete(requestKey);
+          }
           return { data: cachedData, fromCache: true, age: 0 };
         }
       }
@@ -51,30 +70,46 @@ export function setupDocumentHandlers() {
       // No cache, expired, or forced refresh - start streaming
       try {
         const generator = fetchDocumentsStreaming(courseId, (progress) => {
-          // Send progress updates
-          event.sender.send("document-stream-progress", progress);
+          // Only send progress if this is still the current request
+          if (activeRequests.get(requestKey) === responseId) {
+            event.sender.send("document-stream-progress", { ...progress, responseId });
+          }
         });
 
         let finalData: CourseDocument[] = [];
         for await (const chunk of generator) {
-          // Send each chunk as it arrives
-          event.sender.send("document-stream-chunk", {
-            ...chunk,
-            fromCache: false,
-          });
-          finalData = finalData.concat(chunk.documents);
+          // Only send chunk if this is still the current request
+          if (activeRequests.get(requestKey) === responseId) {
+            event.sender.send("document-stream-chunk", {
+              ...chunk,
+              fromCache: false,
+              responseId,
+            });
+            finalData = finalData.concat(chunk.documents);
+          } else {
+            // Request was cancelled, stop streaming
+            console.log(`Document streaming cancelled for ${requestKey}`);
+            break;
+          }
         }
 
-        // Send completion signal
-        event.sender.send("document-stream-complete", { courseId });
+        // Only complete if this is still the current request
+        if (activeRequests.get(requestKey) === responseId) {
+          event.sender.send("document-stream-complete", { courseId, responseId });
+          cachedDocuments.set(cacheKey, finalData);
+          activeRequests.delete(requestKey);
+        }
 
-        // Return final cached data
-        cachedDocuments.set(cacheKey, finalData);
         return { data: finalData || [], fromCache: false, age: 0 };
       } catch (error) {
-        event.sender.send("document-stream-error", {
-          error: error instanceof Error ? error.message : "Streaming failed",
-        });
+        // Only send error if this is still the current request
+        if (activeRequests.get(requestKey) === responseId) {
+          event.sender.send("document-stream-error", {
+            error: error instanceof Error ? error.message : "Streaming failed",
+            responseId,
+          });
+          activeRequests.delete(requestKey);
+        }
         throw error;
       }
     }
@@ -87,6 +122,15 @@ export function setupDocumentHandlers() {
       throw new Error("SESSION_EXPIRED");
     }
 
+    const requestKey = courseId || 'all_documents';
+    const responseId = generateResponseId();
+
+    // Cancel any existing request
+    if (activeRequests.has(requestKey)) {
+      console.log(`Cancelling previous document refresh for ${requestKey}`);
+    }
+    activeRequests.set(requestKey, responseId);
+
     const cacheKey = courseId
       ? `documents_${currentSession.username}_${courseId}`
       : "all_documents";
@@ -94,36 +138,53 @@ export function setupDocumentHandlers() {
     // Signal renderer to clear display and start streaming fresh data
     try {
       // Signal renderer to clear display
-      event.sender.send("document-refresh-start", { courseId });
+      event.sender.send("document-refresh-start", { courseId, responseId });
 
       const generator = fetchDocumentsStreaming(
         courseId,
         (progress) => {
-          // Send progress updates
-          event.sender.send("document-stream-progress", progress);
+          // Only send progress if this is still the current request
+          if (activeRequests.get(requestKey) === responseId) {
+            event.sender.send("document-stream-progress", { ...progress, responseId });
+          }
         },
         false
       ); // false = allow caching of the fresh data
 
       let finalData: CourseDocument[] = [];
       for await (const chunk of generator) {
-        // Send each chunk as it arrives
-        event.sender.send("document-stream-chunk", {
-          ...chunk,
-          fromCache: false,
-        });
-        finalData = finalData.concat(chunk.documents);
+        // Only send chunk if this is still the current request
+        if (activeRequests.get(requestKey) === responseId) {
+          event.sender.send("document-stream-chunk", {
+            ...chunk,
+            fromCache: false,
+            responseId,
+          });
+          finalData = finalData.concat(chunk.documents);
+        } else {
+          // Request was cancelled
+          console.log(`Document refresh cancelled for ${requestKey}`);
+          break;
+        }
       }
 
-      // Send completion signal
-      event.sender.send("document-stream-complete", { courseId });
+      // Only complete if this is still the current request
+      if (activeRequests.get(requestKey) === responseId) {
+        event.sender.send("document-stream-complete", { courseId, responseId });
+        cachedDocuments.set(cacheKey, finalData);
+        activeRequests.delete(requestKey);
+      }
 
-      cachedDocuments.set(cacheKey, finalData);
       return { data: finalData, fromCache: false, age: 0 };
     } catch (error) {
-      event.sender.send("document-stream-error", {
-        error: error instanceof Error ? error.message : "Streaming failed",
-      });
+      // Only send error if this is still the current request
+      if (activeRequests.get(requestKey) === responseId) {
+        event.sender.send("document-stream-error", {
+          error: error instanceof Error ? error.message : "Streaming failed",
+          responseId,
+        });
+        activeRequests.delete(requestKey);
+      }
       throw error;
     }
   });

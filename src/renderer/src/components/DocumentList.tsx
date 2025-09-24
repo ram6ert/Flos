@@ -48,9 +48,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   // Handler functions for document streaming events
   const handleDocumentStreamChunk = useCallback(
-    (_event: any, chunk: DocumentStreamChunk) => {
-      // TODO: When main process includes responseId, check if chunk.responseId matches currentRequestIdRef.current
-      // For now, we accept all chunks since main process will handle deduplication
+    (_event: any, chunk: DocumentStreamChunk & { responseId?: string }) => {
+      // Check if this chunk is from the current request
+      if (chunk.responseId && currentRequestIdRef.current) {
+        if (chunk.responseId !== currentRequestIdRef.current) {
+          console.log('Ignoring document chunk from outdated request');
+          return;
+        }
+      }
 
       // If streaming data, append to existing documents
       setDocuments((prev) => {
@@ -66,8 +71,15 @@ const DocumentList: React.FC<DocumentListProps> = ({
   );
 
   const handleDocumentStreamProgress = useCallback(
-    (_event: any, progress: DocumentStreamProgress) => {
-      // Check if request was aborted or is not current
+    (_event: any, progress: DocumentStreamProgress & { responseId?: string }) => {
+      // Check if this progress is from the current request
+      if (progress.responseId && currentRequestIdRef.current) {
+        if (progress.responseId !== currentRequestIdRef.current) {
+          console.log('Ignoring document progress from outdated request');
+          return;
+        }
+      }
+
       setLoadingState({
         state: LoadingState.LOADING,
         progress: {
@@ -81,27 +93,38 @@ const DocumentList: React.FC<DocumentListProps> = ({
   );
 
   const handleDocumentStreamComplete = useCallback(
-    (_event: any, _payload: any) => {
-      // TODO: When main process includes responseId, check if payload.responseId matches currentRequestIdRef.current
-      // For now, we accept completion events since main process will handle this
+    (_event: any, payload: { courseId?: string; responseId?: string }) => {
+      // Check if this completion is from the current request
+      if (payload.responseId && currentRequestIdRef.current) {
+        if (payload.responseId !== currentRequestIdRef.current) {
+          console.log('Ignoring document completion from outdated request');
+          return;
+        }
+      }
 
       setLoadingState({ state: LoadingState.SUCCESS });
-      currentRequestIdRef.current = null; // Clear current request
+      // Don't clear currentRequestIdRef.current here - let the next request handle it
+      // This prevents issues with late events or immediate subsequent requests
     },
     []
   );
 
   const handleDocumentStreamError = useCallback(
-    (_event: any, errorData: { error: string }) => {
-      // TODO: When main process includes responseId, check if errorData.responseId matches currentRequestIdRef.current
-      // For now, we accept error events since main process will handle this
+    (_event: any, errorData: { error: string; responseId?: string }) => {
+      // Check if this error is from the current request
+      if (errorData.responseId && currentRequestIdRef.current) {
+        if (errorData.responseId !== currentRequestIdRef.current) {
+          console.log('Ignoring document error from outdated request');
+          return;
+        }
+      }
 
       console.error("Document streaming error:", errorData.error);
       setLoadingState({
         state: LoadingState.ERROR,
         error: `Failed to fetch documents: ${errorData.error}`,
       });
-      currentRequestIdRef.current = null; // Clear current request
+      // Don't clear currentRequestIdRef.current here either - let the next request handle it
     },
     []
   );
@@ -118,21 +141,29 @@ const DocumentList: React.FC<DocumentListProps> = ({
     async (forceRefresh = false) => {
       if (!selectedCourse) return;
 
-      // Generate unique request ID for this fetch
+      // Generate unique request ID for this fetch and set it IMMEDIATELY
       const requestId = `${selectedCourse.courseNumber}-${Date.now()}-${Math.random()}`;
+
+      // Set the request ID BEFORE making any API calls
       currentRequestIdRef.current = requestId;
 
-      try {
-        setLoadingState({ state: LoadingState.LOADING });
-        setDocuments(null); // Clear existing documents for streaming
+      // Set loading state BEFORE API call so events can start arriving
+      setLoadingState({ state: LoadingState.LOADING });
+      setDocuments(null); // Clear existing documents for streaming
 
+      try {
         if (forceRefresh) {
-          await window.electronAPI.refreshDocuments(
-            selectedCourse.courseNumber
-          );
+          // For refresh, we need to pass the requestId too - but refreshDocuments doesn't support it yet
+          // For now, let's use streamDocuments with forceRefresh option
+          await window.electronAPI.streamDocuments(selectedCourse.courseNumber, {
+            forceRefresh: true,
+            requestId: requestId
+          });
         } else {
           // Start streaming for this specific course (will fetch all document types)
-          await window.electronAPI.streamDocuments(selectedCourse.courseNumber);
+          await window.electronAPI.streamDocuments(selectedCourse.courseNumber, {
+            requestId: requestId
+          });
         }
       } catch (error) {
         // Only handle error if this is still the current request
@@ -150,9 +181,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   useEffect(() => {
     if (selectedCourse) {
-      // Cancel previous request when course changes
-      currentRequestIdRef.current = null;
-      fetchDocuments(false); // Always fetch when course changes
+      fetchDocuments(false); // Always fetch when course changes - fetchDocuments will handle request ID
     } else {
       // Cancel any ongoing request
       currentRequestIdRef.current = null;

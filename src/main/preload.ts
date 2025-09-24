@@ -35,7 +35,7 @@ export interface ElectronAPI {
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   streamDocuments: (
     courseId?: string,
-    options?: { forceRefresh?: boolean }
+    options?: { forceRefresh?: boolean; requestId?: string }
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   getSchedule: (options?: { skipCache?: boolean }) => Promise<any>;
   refreshSchedule: () => Promise<any>;
@@ -100,6 +100,7 @@ export interface ElectronAPI {
         courseId?: string;
         courseName?: string;
         fromCache: boolean;
+        responseId?: string;
       }
     ) => void
   ) => void;
@@ -110,14 +111,15 @@ export interface ElectronAPI {
         completed: number;
         total: number;
         currentCourse?: string;
+        responseId?: string;
       }
     ) => void
   ) => void;
   onHomeworkStreamComplete: (
-    callback: (event: any, payload: { courseId?: string }) => void
+    callback: (event: any, payload: { courseId?: string; responseId?: string }) => void
   ) => void;
   onHomeworkStreamError: (
-    callback: (event: any, error: { error: string }) => void
+    callback: (event: any, error: { error: string; responseId?: string }) => void
   ) => void;
   onDocumentStreamChunk: (
     callback: (
@@ -127,6 +129,7 @@ export interface ElectronAPI {
         courseId?: string;
         courseName?: string;
         fromCache: boolean;
+        responseId?: string;
       }
     ) => void
   ) => void;
@@ -137,20 +140,21 @@ export interface ElectronAPI {
         completed: number;
         total: number;
         currentCourse?: string;
+        responseId?: string;
       }
     ) => void
   ) => void;
   onDocumentStreamComplete: (
-    callback: (event: any, payload: { courseId?: string }) => void
+    callback: (event: any, payload: { courseId?: string; responseId?: string }) => void
   ) => void;
   onDocumentStreamError: (
-    callback: (event: any, error: { error: string }) => void
+    callback: (event: any, error: { error: string; responseId?: string }) => void
   ) => void;
   onHomeworkRefreshStart: (
-    callback: (event: any, payload: { courseId?: string }) => void
+    callback: (event: any, payload: { courseId?: string; responseId?: string }) => void
   ) => void;
   onDocumentRefreshStart: (
-    callback: (event: any, payload: { courseId?: string }) => void
+    callback: (event: any, payload: { courseId?: string; responseId?: string }) => void
   ) => void;
   removeAllListeners: (channel: string) => void;
   // update related APIs
@@ -210,7 +214,7 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("refresh-documents", courseId),
   streamHomework: (courseId?: string) =>
     ipcRenderer.invoke("stream-homework", courseId),
-  streamDocuments: (courseId?: string, options?: { forceRefresh?: boolean }) =>
+  streamDocuments: (courseId?: string, options?: { forceRefresh?: boolean; requestId?: string }) =>
     ipcRenderer.invoke("stream-documents", courseId, options),
   getSchedule: (options?: { skipCache?: boolean }) =>
     ipcRenderer.invoke("get-schedule", options),
