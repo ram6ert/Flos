@@ -436,7 +436,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       }
     } catch (error) {
       console.error("Download error:", error);
-      alert("Download failed. Please try again.");
+      alert(t("downloadFailedTryAgain"));
     } finally {
       setDownloadingAttachment(null);
     }
@@ -444,7 +444,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
 
   const getFileExtension = (url: string) => {
     const match = url.match(/\.([^.]+)$/);
-    return match ? match[1] : "unknown";
+    return match ? match[1] : t("unknown");
   };
 
   const formatFileSize = (size: number) => {
@@ -571,7 +571,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       console.error("Homework submission failed:", error);
       alert(
         t("homeworkSubmissionFailed", {
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: error instanceof Error ? error.message : t("unknownError"),
         })
       );
     } finally {
@@ -687,7 +687,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       <Container padding="lg">
         <ErrorDisplay
           title={t("unableToLoadHomework")}
-          message={loadingState.error || "Unknown error"}
+          message={loadingState.error || t("unknownError")}
           onRetry={() => fetchHomework(true)}
           retryLabel={t("retry")}
         />
@@ -784,7 +784,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
               }}
               className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
             >
-              <option value="">All courses</option>
+              <option value="">{t("allCourses")}</option>
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
                   {course.courseNumber} - {course.name}
@@ -1060,7 +1060,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
                                       )}
                                     >
                                       {downloadingAttachment === details.url
-                                        ? "Downloading..."
+                                        ? t("downloading")
                                         : t("download")}
                                     </button>
                                   </div>
