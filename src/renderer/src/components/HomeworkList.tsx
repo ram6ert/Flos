@@ -127,7 +127,6 @@ const HomeworkList: React.FC = () => {
       if (chunk.fromCache && chunk.isComplete) {
         // Cached data - replace all homework
         setHomework(chunk.homework);
-        setCacheInfo(t("showingCachedData"));
         setLoadingState({ state: LoadingState.SUCCESS });
       } else {
         // Streaming data - append new homework
