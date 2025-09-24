@@ -181,7 +181,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
 
     const handleStreamComplete = (
       _event: any,
-      payload: { courseId?: string; responseId?: string }
+      _payload: { courseId?: string; responseId?: string }
     ) => {
       // Main process already handles request cancellation, so we trust all completions
       setLoadingState({ state: LoadingState.SUCCESS });
