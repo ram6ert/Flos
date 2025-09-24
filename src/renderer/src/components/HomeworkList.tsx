@@ -34,8 +34,8 @@ interface HomeworkListProps {
   selectedCourse: Course | null;
   courses: Course[];
   onCourseSelect: (course: Course | null) => void;
-  homework: Homework[];
-  setHomework: React.Dispatch<React.SetStateAction<Homework[]>>;
+  homework: Homework[] | null;
+  setHomework: React.Dispatch<React.SetStateAction<Homework[] | null>>;
 }
 
 const HomeworkList: React.FC<HomeworkListProps> = ({
@@ -86,7 +86,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         if (forceRefresh) {
           // For force refresh, use streaming refresh (clears display first)
           await window.electronAPI.refreshHomework();
-        } else {
+        } else if(!homework) {
           // Use streaming for normal loads
           setLoadingState({ state: LoadingState.LOADING });
 
@@ -148,11 +148,11 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       } else {
         // Streaming data - append new homework
         setHomework((prev) => {
-          const existingIds = new Set(prev.map((hw) => hw.id));
+          const existingIds = new Set((prev || []).map((hw) => hw.id));
           const newHomework = chunk.homework.filter(
             (hw) => !existingIds.has(hw.id)
           );
-          return [...prev, ...newHomework];
+          return [...(prev || []), ...newHomework];
         });
 
         // Update cache info to show we're receiving fresh data
@@ -608,7 +608,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const filteredAndSortedHomework = useMemo(() => {
-    return homework
+    return (homework || [])
       .filter((hw) => {
         // Filter by selected course if provided
         if (selectedCourse) {

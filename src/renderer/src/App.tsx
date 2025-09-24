@@ -22,8 +22,8 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ActiveView>("courses");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [documents, setDocuments] = useState<CourseDocument[]>([]);
-  const [homework, setHomework] = useState<Homework[]>([]);
+  const [documents, setDocuments] = useState<CourseDocument[] | null>(null);
+  const [homework, setHomework] = useState<Homework[] | null>(null);
   const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
@@ -273,7 +273,7 @@ const App: React.FC = () => {
       await window.electronAPI.logout();
       setUserSession(null);
       setCourses([]);
-      setDocuments([]);
+      setDocuments(null);
       setSelectedCourse(null);
       setActiveView("courses");
       setShowLogoutDropdown(false);
@@ -301,7 +301,7 @@ const App: React.FC = () => {
       await window.electronAPI.clearStoredCredentials?.();
       setUserSession(null);
       setCourses([]);
-      setDocuments([]);
+      setDocuments(null);
       setSelectedCourse(null);
       setActiveView("courses");
       setShowLogoutDropdown(false);
@@ -334,6 +334,7 @@ const App: React.FC = () => {
         return (
           <DocumentList
             documents={documents}
+            setDocuments={setDocuments}
             selectedCourse={selectedCourse}
             courses={courses}
             onCourseSelect={handleCourseSelect}

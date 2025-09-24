@@ -19,19 +19,22 @@ import {
 } from "./common/StyledComponents";
 
 interface DocumentListProps {
-  documents: CourseDocument[];
+  documents: CourseDocument[] | null;
+  setDocuments: React.Dispatch<React.SetStateAction<CourseDocument[] | null>>;
   selectedCourse: Course | null;
-  courses: Course[];
+  courses: Course[] | null;
   onCourseSelect: (course: Course | null) => void;
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
   selectedCourse,
+  documents,
+  setDocuments,
   courses,
   onCourseSelect,
 }) => {
   const { t } = useTranslation();
-  const [realDocuments, setRealDocuments] = useState<CourseDocument[]>([]);
+  //const [documents, setDocuments] = useState<CourseDocument[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingStateData>({
     state: LoadingState.IDLE,
   });
@@ -63,7 +66,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       try {
         setLoadingState({ state: LoadingState.LOADING });
 
-        setRealDocuments([]); // Clear existing documents for streaming
+        setDocuments(null); // Clear existing documents for streaming
 
         // Set up event listeners for streaming with race condition protection
         const cleanupListeners = () => {
@@ -89,7 +92,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
             if (chunk.fromCache) {
               // If cached data, replace all documents
-              setRealDocuments(chunk.documents);
+              setDocuments(chunk.documents);
               setLoadingState({ state: LoadingState.SUCCESS });
               cleanupListeners();
             } else if (chunk.isComplete || chunk.type === "complete") {
@@ -98,8 +101,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
               cleanupListeners();
             } else {
               // If streaming data, append to existing documents
-              setRealDocuments((prev) => {
-                const newDocs = [...prev, ...chunk.documents];
+              setDocuments((prev) => {
+                const newDocs = [...(prev || []), ...chunk.documents];
                 // Remove duplicates based on document ID
                 const uniqueDocs = newDocs.filter(
                   (doc, index, arr) =>
@@ -168,7 +171,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
             return;
           }
           // Clear current documents and reset loading state for refresh
-          setRealDocuments([]);
+          setDocuments(null);
           setLoadingState({ state: LoadingState.LOADING });
         });
 
@@ -200,13 +203,15 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   useEffect(() => {
     if (selectedCourse) {
-      fetchDocuments(false); // Use streaming for initial load
+      if(!documents) {
+        fetchDocuments(false); // Use streaming for initial load
+      }
     } else {
       // Abort any ongoing request when course is deselected
       if (streamingAbortControllerRef.current) {
         streamingAbortControllerRef.current.abort();
       }
-      setRealDocuments([]);
+      setDocuments(null);
       setLoadingState({ state: LoadingState.IDLE });
     }
   }, [selectedCourse, fetchDocuments]);
@@ -330,13 +335,13 @@ const DocumentList: React.FC<DocumentListProps> = ({
       );
     }
 
-    if (realDocuments.length === 0) {
+    if (documents && documents.length === 0) {
       return (
         <p className="text-gray-600">No documents available for this course.</p>
       );
     }
 
-    const filteredDocuments = realDocuments.filter((doc) => {
+    const filteredDocuments = (documents || []).filter((doc) => {
       const matchesSearch = doc.name
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
@@ -426,25 +431,25 @@ const DocumentList: React.FC<DocumentListProps> = ({
       <PageHeader
         title={`${t("documents")}${
           selectedCourse
-            ? ` - ${selectedCourse.name} (${loadingState.state === LoadingState.LOADING ? "..." : realDocuments.length})`
+            ? ` - ${selectedCourse.name} (${loadingState.state === LoadingState.LOADING ? "..." : documents?.length || 0})`
             : ""
         }`}
         actions={
           <div className="flex gap-3 items-center">
             <select
-              value={courses.some((c) => c.id === (selectedCourse?.id || "")) ? selectedCourse?.id || "" : ""}
+              value={(courses || []).some((c) => c.id === (selectedCourse?.id || "")) ? selectedCourse?.id || "" : ""}
               onChange={(e) => {
                 if (e.target.value === "") {
                   onCourseSelect(null);
                   return;
                 }
-                const course = courses.find((c) => c.id === e.target.value);
+                const course = (courses || []).find((c) => c.id === e.target.value);
                 if (course) onCourseSelect(course);
               }}
               className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All courses</option>
-              {courses.map((course) => (
+              {(courses || []).map((course) => (
                 <option key={course.id} value={course.id}>
                   {course.courseNumber} - {course.name}
                 </option>
@@ -523,7 +528,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           </div>
         )}
 
-      {selectedCourse && realDocuments.length > 0 && (
+      {selectedCourse && (documents?.length || 0) > 0 && (
         <div className="mb-4 flex gap-3">
           <input
             type="text"
