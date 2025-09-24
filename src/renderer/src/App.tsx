@@ -325,6 +325,7 @@ const App: React.FC = () => {
             onCourseSelect={handleCourseSelect}
             onRefresh={handleRefreshCourses}
             selectedCourse={selectedCourse_All}
+            onNavigate={setActiveView}
           />
         );
       case "homework":
@@ -362,6 +363,7 @@ const App: React.FC = () => {
             onCourseSelect={handleCourseSelect}
             onRefresh={handleRefreshCourses}
             selectedCourse={selectedCourse_Documents}
+            onNavigate={setActiveView}
           />
         );
     }
