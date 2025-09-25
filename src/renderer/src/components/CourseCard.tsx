@@ -192,7 +192,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
                 }
                 return (
                   <div className="rounded-xl border border-indigo-200/60 bg-gradient-to-b from-white to-indigo-50/40 p-3 w-full overflow-hidden">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start min-w-0">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch min-w-0">
                       {/* Documents summary */}
                       <div className="rounded-lg border border-indigo-200/70 bg-white p-3 flex flex-col min-w-0 overflow-hidden">
                         <div className="flex-1 min-h-0">
