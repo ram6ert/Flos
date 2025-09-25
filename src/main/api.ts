@@ -281,13 +281,7 @@ export async function fetchHomeworkDetails(
     const sanitizedDetails = sanitizeHomeworkDetails(data.homeWork);
 
     // Sanitize the response structure
-    return {
-      homeWork: sanitizedDetails,
-      picList: data.picList?.map(sanitizeHomeworkAttachment) || [],
-      answerPicList: data.answerPicList?.map(sanitizeHomeworkAttachment) || [],
-      STATUS: data.STATUS,
-      message: data.message,
-    };
+    return sanitizedDetails;
   }
 
   throw new Error("Failed to fetch homework details");
