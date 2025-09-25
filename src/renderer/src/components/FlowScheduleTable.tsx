@@ -16,6 +16,7 @@ interface FlowScheduleTableProps {
   scheduleData: ScheduleData | null;
   setScheduleData: React.Dispatch<React.SetStateAction<ScheduleData | null>>;
   selectedCourse: Course | null;
+  onCourseSelect?: (course: Course | null) => void;
 }
 
 interface CourseFlow {
@@ -30,6 +31,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({
   scheduleData,
   setScheduleData,
   selectedCourse,
+  onCourseSelect,
 }) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
@@ -98,6 +100,19 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({
   const handleRefresh = () => {
     loadSchedule(true);
     onRefresh?.();
+  };
+
+  const handleCourseClick = (courseEntry: ScheduleEntry) => {
+    if (!onCourseSelect) return;
+
+    const courseData = courseEntry.course;
+    const isCurrentlySelected =
+      selectedCourse &&
+      (selectedCourse.id === courseData.id ||
+        selectedCourse.name === courseData.name);
+
+    // Toggle selection - if already selected, deselect; otherwise select
+    onCourseSelect(isCurrentlySelected ? null : courseData);
   };
 
   // Convert time string to minutes since midnight
@@ -418,6 +433,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({
                             )}
                             style={getFlowStyle(flow)}
                             title={`${flow.course.course.name}\n${formatTimeFromMinutes(flow.startMinutes)}-${formatTimeFromMinutes(flow.startMinutes + flow.durationMinutes)}\n${t("teacher")}: ${flow.course.course.teacher}\n${t("room")}: ${flow.course.course.classroom}${isOngoing ? `\n🔴 ${t("currentlyOngoing")}` : ""}`}
+                            onClick={() => handleCourseClick(flow.course)}
                           >
                             <div className="h-full flex flex-col justify-between relative">
                               <div

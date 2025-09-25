@@ -358,6 +358,7 @@ const App: React.FC = () => {
             scheduleData={scheduleData}
             setScheduleData={setScheduleData}
             selectedCourse={selectedCourse_Schedule}
+            onCourseSelect={handleCourseSelect}
           />
         );
       default:

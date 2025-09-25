@@ -11,7 +11,7 @@ import {
 
 interface CourseListProps {
   courses: Course[];
-  onCourseSelect: (course: Course) => void;
+  onCourseSelect: (course: Course | null) => void;
   onRefresh?: () => Promise<void>;
   selectedCourse?: Course | null;
 }
@@ -119,7 +119,13 @@ const CourseList: React.FC<CourseListProps> = ({
             return (
               <Card
                 key={course.id}
-                onClick={() => onCourseSelect(course)}
+                onClick={() => {
+                  const isCurrentlySelected =
+                    selectedCourse &&
+                    (selectedCourse.id === course.id ||
+                      selectedCourse.name === course.name);
+                  onCourseSelect(isCurrentlySelected ? null : course);
+                }}
                 className={`course-card flex flex-col relative ${
                   isSelected
                     ? "ring-4 ring-indigo-500/80 ring-offset-2 ring-offset-white border-2 border-indigo-500 bg-indigo-50/70 shadow-lg shadow-indigo-300"
