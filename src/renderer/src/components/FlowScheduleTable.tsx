@@ -16,7 +16,7 @@ interface FlowScheduleTableProps {
   scheduleData: ScheduleData | null;
   setScheduleData: React.Dispatch<React.SetStateAction<ScheduleData | null>>;
   selectedCourse: Course | null;
-  onCourseSelect?: (course: Course | null) => void;
+  onCourseSelect?: (course: string | null) => void;
 }
 
 interface CourseFlow {
@@ -112,7 +112,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({
         selectedCourse.name === courseData.name);
 
     // Toggle selection - if already selected, deselect; otherwise select
-    onCourseSelect(isCurrentlySelected ? null : courseData);
+    onCourseSelect(isCurrentlySelected ? null : courseData.id);
   };
 
   // Convert time string to minutes since midnight

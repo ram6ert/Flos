@@ -264,11 +264,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCourseSelect = (course: Course | null) => {
-    setSelectedCourse_Documents(course);
-    setSelectedCourse_Homework(course);
-    setSelectedCourse_Schedule(course);
-    setSelectedCourse_All(course);
+  const handleCourseSelect = (course: string | null) => {
+    const selected = courses.find((c) => c.courseNumber === course) || null;
+    setSelectedCourse_Documents(selected);
+    setSelectedCourse_Homework(selected);
+    setSelectedCourse_Schedule(selected);
+    setSelectedCourse_All(selected);
   };
 
   const handleRefreshCourses = async () => {
