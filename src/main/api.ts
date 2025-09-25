@@ -21,6 +21,8 @@ import {
   ScheduleData,
 } from "../shared/types";
 import { Logger } from "./logger";
+import * as cheerio from "cheerio";
+import axios from "axios";
 
 // Install axios interceptors to detect session expiration globally
 export function setupAxiosSessionInterceptors(): void {
@@ -413,6 +415,172 @@ export async function authenticatedAPIRequest(
   throw new Error(`Request failed with status: ${response.status}`);
 }
 
+// Helper function to get homework download HTML page
+export async function fetchHomeworkDownloadPage(
+  upId: string,
+  id: string,
+  userId: string,
+  score: string
+) {
+  if (!currentSession || !captchaSession) {
+    throw new Error("Not logged in");
+  }
+
+  const url = `/course/courseWorkInfo.shtml?method=piGaiDiv&upId=${upId}&id=${id}&userId=${userId}&score=${score}&uLevel=1&type=1&username=null`;
+
+  const response = await courseAPI.get(url, {
+    headers: {
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      Cookie: captchaSession.cookies.join("; "),
+      Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
+      "User-Agent": API_CONFIG.HEADERS["User-Agent"],
+      sessionId: currentSession.sessionId,
+    },
+    responseType: "arraybuffer",
+    validateStatus: () => true,
+  });
+
+  if (response.status >= 200 && response.status < 300) {
+    updateSessionCookies(response);
+
+    // Decode GBK content to UTF-8
+    const decodedHtml = iconv.decode(Buffer.from(response.data), "gbk");
+    return decodedHtml;
+  }
+
+  throw new Error(`Request failed with status: ${response.status}`);
+}
+
+// Helper function to parse HTML and extract homework download URLs
+export function parseHomeworkDownloadUrls(html: string) {
+  const $ = cheerio.load(html);
+  const downloadUrls: Array<{
+    fileName: string;
+    url: string;
+    id: string;
+    type: "my_homework";
+  }> = [];
+
+  // Look for download links in the HTML
+  // Based on the example HTML, we need to find the downloadFile function calls
+  const downloadFileRegex = /downloadFile\('([^']+)','([^']+)','([^']+)'\)/g;
+  let match;
+
+  while ((match = downloadFileRegex.exec(html)) !== null) {
+    const [, url, fileName, id] = match;
+    downloadUrls.push({
+      fileName,
+      url,
+      id,
+      type: "my_homework",
+    });
+  }
+
+  // Also look for direct file links
+  $('.homeworkContent[onclick*="downloadFile"]').each((index, element) => {
+    const onclickAttr = $(element).attr("onclick");
+    if (onclickAttr) {
+      const match = onclickAttr.match(
+        /downloadFile\('([^']+)','([^']+)','([^']+)'\)/
+      );
+      if (match) {
+        const [, url, fileName, id] = match;
+        // Check if we don't already have this URL
+        if (!downloadUrls.some((item) => item.url === url)) {
+          downloadUrls.push({
+            fileName,
+            url,
+            id,
+            type: "my_homework",
+          });
+        }
+      }
+    }
+  });
+
+  // Look for attachment divs with picUrlaaa class
+  $(".picUrlaaa").each((index, element) => {
+    const url = $(element).text().trim();
+    if (url) {
+      // Find corresponding file name
+      const fileName =
+        $(element).siblings(".homeworkContent").text().trim() ||
+        `homework_${index + 1}`;
+      // Find corresponding ID
+      const idElement = $(element).siblings(".picIdaaa");
+      const id =
+        idElement.length > 0 ? idElement.text().trim() : `id_${index + 1}`;
+
+      // Check if we don't already have this URL
+      if (!downloadUrls.some((item) => item.url === url)) {
+        downloadUrls.push({
+          fileName,
+          url,
+          id,
+          type: "my_homework",
+        });
+      }
+    }
+  });
+
+  return downloadUrls;
+}
+
+// Function to download submitted homework file
+export async function downloadSubmittedHomeworkFile(
+  url: string,
+  fileName: string,
+  _id: string
+) {
+  if (!currentSession || !captchaSession) {
+    throw new Error("Not logged in");
+  }
+
+  try {
+    // Construct the download URL using the pattern from the HTML example
+    //const downloadUrl = `/downloadZyFj.shtml?path=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}&id=${id}`;
+    if (!url.startsWith("/") && !url.startsWith(API_CONFIG.VE_BASE_URL)) {
+      throw new Error("Invalid download URL");
+    }
+
+    const response = await axios.get(url, {
+      responseType: "arraybuffer",
+      headers: {
+        Cookie: captchaSession.cookies.join("; "),
+        sessionId: currentSession.sessionId,
+        ...API_CONFIG.HEADERS,
+      },
+      timeout: 60000,
+    });
+
+    if (response.status >= 200 && response.status < 300) {
+      updateSessionCookies(response);
+
+      const buffer = Buffer.from(response.data);
+      const base64 = buffer.toString("base64");
+      const contentType =
+        response.headers["content-type"] || "application/octet-stream";
+
+      return {
+        success: true,
+        data: base64,
+        contentType,
+        fileName,
+        fileSize: buffer.length,
+      };
+    }
+
+    throw new Error(`Download failed with status: ${response.status}`);
+  } catch (error) {
+    Logger.error("Failed to download submitted homework file:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Download failed",
+    };
+  }
+}
+
 // Sanitization function for courses
 const sanitizeCourse = (course: any): any => {
   // Map course type numbers to readable strings
@@ -595,7 +763,7 @@ const sanitizeHomeworkItem = (hw: any): Homework => {
     submittedCount: hw.submitCount,
     totalStudents: hw.allCount,
     type: convertHomeworkType(hw.homeworkType || 0),
-    submissionId: hw.subId || null,
+    submissionId: hw.snId || hw.subId || null,
     userId: hw.user_id || "0",
   };
 };

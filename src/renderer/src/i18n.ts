@@ -234,6 +234,7 @@ const resources = {
       unknown: "Unknown",
       unknownError: "Unknown error",
       allCourses: "All courses",
+      myHomework: "My Homework",
     },
   },
   zh: {
@@ -461,6 +462,7 @@ const resources = {
       unknown: "未知",
       unknownError: "未知错误",
       allCourses: "所有课程",
+      myHomework: "我的作业",
     },
   },
 };

@@ -256,7 +256,54 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
     if (details) return;
 
     setDetailsLoading(true);
-    setDetails(await fetchHomeworkDetails(homework.id, homework.courseId));
+    const homeworkDetails = await fetchHomeworkDetails(
+      homework.id,
+      homework.courseId
+    );
+
+    // If homework is submitted, fetch "My Homework" attachments
+    if (
+      homework.submissionStatus === "submitted" &&
+      homework.submissionId &&
+      homework.userId
+    ) {
+      try {
+        const downloadUrlsResponse =
+          await window.electronAPI.getHomeworkDownloadUrls(
+            homework.id.toString(),
+            homework.submissionId,
+            homework.userId,
+            homework.maxScore.toString()
+          );
+
+        if (
+          downloadUrlsResponse.success &&
+          downloadUrlsResponse.data.length > 0
+        ) {
+          // Add "My Homework" attachments to the existing attachments
+          const myHomeworkAttachments = downloadUrlsResponse.data.map(
+            (file) => ({
+              id: parseInt(file.id) || 0,
+              url: file.url,
+              fileName: file.fileName,
+              convertUrl: "",
+              fileSize: 0, // We don't have file size info from the HTML parsing
+              type: "my_homework" as const,
+            })
+          );
+
+          if (homeworkDetails && homeworkDetails.attachments) {
+            homeworkDetails.attachments.push(...myHomeworkAttachments);
+          } else if (homeworkDetails) {
+            homeworkDetails.attachments = myHomeworkAttachments;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch my homework files:", error);
+      }
+    }
+
+    setDetails(homeworkDetails);
     setDetailsLoading(false);
   };
 
@@ -553,7 +600,7 @@ interface AttachmentCardProps {
 const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
   const [downloading, setDownloading] = useState<boolean>(false);
 
-  const getFileExtension = (url: string) => {
+  const _getFileExtension = (url: string) => {
     const match = url.match(/\.([^.]+)$/);
     return match ? match[1] : t("unknown");
   };
@@ -561,10 +608,23 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
   const handleDownloadAttachment = async (attachment: HomeworkAttachment) => {
     setDownloading(true);
     try {
-      const result = await window.electronAPI.downloadHomeworkAttachment(
-        attachment.url,
-        attachment.fileName
-      );
+      let result;
+
+      if (attachment.type === "my_homework") {
+        // Use the new API for submitted homework files
+        result = await window.electronAPI.downloadSubmittedHomework(
+          attachment.url,
+          attachment.fileName,
+          attachment.id.toString()
+        );
+      } else {
+        // Use existing API for regular attachments
+        result = await window.electronAPI.downloadHomeworkAttachment(
+          attachment.url,
+          attachment.fileName
+        );
+      }
+
       if (result.savedToFile) {
         // Large file saved directly to disk
         alert(`File downloaded successfully to: ${result.filePath}`);
@@ -579,14 +639,17 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${attachment.fileName}.${getFileExtension(attachment.url)}`;
+        a.download = attachment.fileName || `download_${attachment.id}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+      } else if (!result.success) {
+        alert(`Download failed: ${result.error || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Failed to download attachment:", error);
+      alert("Failed to download attachment");
     } finally {
       setDownloading(false);
     }
@@ -600,10 +663,18 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
             <span
               className={cn(
                 "ml-2 text-xs px-1.5 py-0.5 text-white rounded",
-                attachment.type === "answer" ? "bg-cyan-600" : "bg-gray-600"
+                attachment.type === "answer"
+                  ? "bg-cyan-600"
+                  : attachment.type === "my_homework"
+                    ? "bg-green-600"
+                    : "bg-gray-600"
               )}
             >
-              {attachment.type === "answer" ? t("answer") : t("homework")}
+              {attachment.type === "answer"
+                ? t("answer")
+                : attachment.type === "my_homework"
+                  ? t("myHomework")
+                  : t("homework")}
             </span>
           )}
         </div>

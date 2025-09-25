@@ -55,7 +55,7 @@ export interface HomeworkAttachment {
   fileName: string;
   convertUrl: string;
   fileSize: number;
-  type?: "homework" | "answer";
+  type?: "homework" | "answer" | "my_homework";
 }
 
 export interface HomeworkDetailsResponse {

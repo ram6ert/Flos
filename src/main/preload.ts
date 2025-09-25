@@ -213,6 +213,33 @@ export interface ElectronAPI {
     submissionTime: string;
     filesSubmitted: number;
   }>;
+  // submitted homework download
+  getHomeworkDownloadUrls: (
+    upId: string,
+    id: string,
+    userId: string,
+    score: string
+  ) => Promise<{
+    data: Array<{
+      fileName: string;
+      url: string;
+      id: string;
+      type: "my_homework";
+    }>;
+    success: boolean;
+  }>;
+  downloadSubmittedHomework: (
+    url: string,
+    fileName: string,
+    id: string
+  ) => Promise<{
+    success: boolean;
+    data?: string;
+    contentType?: string;
+    fileName?: string;
+    fileSize?: number;
+    error?: string;
+  }>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -297,6 +324,16 @@ const electronAPI: ElectronAPI = {
   // homework submission
   submitHomework: (submission) =>
     ipcRenderer.invoke("submit-homework", submission),
+  // submitted homework download
+  getHomeworkDownloadUrls: (
+    upId: string,
+    id: string,
+    userId: string,
+    score: string
+  ) =>
+    ipcRenderer.invoke("get-homework-download-urls", upId, id, userId, score),
+  downloadSubmittedHomework: (url: string, fileName: string, id: string) =>
+    ipcRenderer.invoke("download-submitted-homework", url, fileName, id),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

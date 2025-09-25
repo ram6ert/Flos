@@ -8,6 +8,9 @@ import {
   fetchHomeworkDetails,
   uploadFile,
   submitHomework,
+  fetchHomeworkDownloadPage,
+  parseHomeworkDownloadUrls,
+  downloadSubmittedHomeworkFile,
 } from "../api";
 import { API_CONFIG } from "../constants";
 import NodeCache from "node-cache";
@@ -421,6 +424,50 @@ export function setupHomeworkHandlers() {
       } catch (error) {
         console.error("Failed to submit homework:", error);
         throw error;
+      }
+    }
+  );
+
+  // Get homework download URLs from HTML page
+  ipcMain.handle(
+    "get-homework-download-urls",
+    async (event, upId: string, id: string, userId: string, score: string) => {
+      if (!currentSession) {
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
+      }
+
+      return requestQueue.add(async () => {
+        try {
+          const html = await fetchHomeworkDownloadPage(upId, id, userId, score);
+          const downloadUrls = parseHomeworkDownloadUrls(html);
+          return { data: downloadUrls, success: true };
+        } catch (error) {
+          console.error("Failed to get homework download URLs:", error);
+          throw error;
+        }
+      });
+    }
+  );
+
+  // Download submitted homework file
+  ipcMain.handle(
+    "download-submitted-homework",
+    async (event, url: string, fileName: string, id: string) => {
+      if (!currentSession) {
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
+      }
+
+      try {
+        const result = await downloadSubmittedHomeworkFile(url, fileName, id);
+        return result;
+      } catch (error) {
+        console.error("Failed to download submitted homework:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Download failed",
+        };
       }
     }
   );
