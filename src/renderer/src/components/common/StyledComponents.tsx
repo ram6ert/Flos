@@ -111,11 +111,11 @@ export const Button: React.FC<ButtonProps> = ({
       onClick={onClick}
       disabled={disabled}
       className={cn(
+        ...className.split(" "),
         baseClasses,
         !disabled && variantClasses[variant],
         sizeClasses[size],
-        disabledClasses,
-        ...className.split(" ")
+        disabledClasses
       )}
     >
       {children}
@@ -329,6 +329,70 @@ export const Input: React.FC<InputProps> = ({
         "w-full px-3 py-2 border border-gray-300 rounded-md text-base text-gray-700",
         "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
         disabled ? "bg-gray-100 cursor-not-allowed" : "bg-white"
+      )}
+    />
+  );
+};
+
+// Checkbox component
+interface CheckboxProps {
+  checked: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+export const Checkbox: React.FC<CheckboxProps> = ({
+  checked,
+  onChange,
+  disabled = false,
+  className = "",
+}) => {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      disabled={disabled}
+      className={cn(
+        "w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+        className
+      )}
+    />
+  );
+};
+
+// FileInput component
+interface FileInputProps {
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
+  multiple?: boolean;
+  accept?: string;
+  className?: string;
+}
+
+export const FileInput: React.FC<FileInputProps> = ({
+  onChange,
+  disabled = false,
+  multiple = false,
+  accept,
+  className = "",
+}) => {
+  return (
+    <input
+      type="file"
+      multiple={multiple}
+      accept={accept}
+      onChange={onChange}
+      disabled={disabled}
+      className={cn(
+        "w-full px-3 py-2 border border-gray-300 rounded-md text-base text-gray-700",
+        "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+        "file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium",
+        "file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100",
+        disabled ? "bg-gray-100 cursor-not-allowed" : "bg-white",
+        className
       )}
     />
   );

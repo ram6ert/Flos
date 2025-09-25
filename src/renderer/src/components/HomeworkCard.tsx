@@ -1,5 +1,5 @@
 import { t } from "i18next";
-import { Card, cn } from "./common/StyledComponents";
+import { Card, Button, FileInput, cn } from "./common/StyledComponents";
 import {
   Homework,
   HomeworkAttachment,
@@ -410,23 +410,18 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
 
       {/* View Details Button */}
       <div className="mt-3 pt-3 border-t border-gray-200">
-        <button
+        <Button
           onClick={handleExpandDetails}
           disabled={detailsLoading && expanded}
-          className={cn(
-            "px-4 py-2 text-white border-none rounded cursor-pointer text-sm transition-colors",
-            expanded
-              ? "bg-red-600 hover:bg-red-700"
-              : "bg-blue-600 hover:bg-blue-700",
-            detailsLoading && expanded && "opacity-50 cursor-not-allowed"
-          )}
+          variant={expanded ? "danger" : "primary"}
+          size="sm"
         >
           {detailsLoading && expanded
             ? t("loading")
             : expanded
               ? t("hideDetails")
               : t("viewDetails")}
-        </button>
+        </Button>
       </div>
 
       {/* Expanded Details View */}
@@ -523,12 +518,10 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           {t("attachFiles")} ({t("optional")})
                         </label>
-                        <input
-                          type="file"
+                        <FileInput
                           multiple
                           onChange={(e) => setSelectedFiles(e.target.files)}
                           disabled={submitting}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                         />
                         {selectedFiles && (
                           <div className="mt-2 text-sm text-gray-600">
@@ -549,26 +542,21 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
 
                       {/* Submit Button */}
                       <div className="flex items-center gap-3">
-                        <button
+                        <Button
                           onClick={handleHomeworkSubmission}
                           disabled={
                             submitting ||
                             (!submissionText.trim() && !selectedFiles)
                           }
-                          className={cn(
-                            "px-6 py-2 text-white border-none rounded-md text-sm font-medium transition-colors",
-                            submitting ||
-                              (!submissionText.trim() && !selectedFiles)
-                              ? "bg-gray-400 cursor-not-allowed"
-                              : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
-                          )}
+                          variant="primary"
+                          size="md"
                         >
                           {submitting
                             ? t("submitting")
                             : homework.submissionStatus === "submitted"
                               ? t("submitHomework")
                               : t("submitHomework")}
-                        </button>
+                        </Button>
 
                         {submitting && (
                           <div className="text-sm text-blue-600 flex items-center gap-2">
@@ -682,18 +670,15 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
           {t("size")}: {formatFileSize(attachment.fileSize)}
         </div>
       </div>
-      <button
+      <Button
         onClick={() => handleDownloadAttachment(attachment)}
         disabled={downloading}
-        className={cn(
-          "px-3 py-1.5 text-white border-none rounded text-xs transition-colors",
-          downloading
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-green-600 hover:bg-green-700 cursor-pointer"
-        )}
+        variant="success"
+        size="sm"
+        className="text-xs"
       >
         {downloading ? t("downloading") : t("download")}
-      </button>
+      </Button>
     </div>
   );
 };

@@ -4,6 +4,7 @@ import CryptoJS from "crypto-js";
 import {
   Button,
   Input,
+  Checkbox,
   FormGroup,
   ErrorDisplay,
 } from "./common/StyledComponents";
@@ -210,8 +211,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
           <div className="mb-6">
             <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={rememberCredentials}
                 onChange={(e) => setRememberCredentials(e.target.checked)}
                 className="mr-2"

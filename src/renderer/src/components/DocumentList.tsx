@@ -12,6 +12,7 @@ import {
   Container,
   PageHeader,
   Button,
+  Input,
   Card,
   Loading,
   ErrorDisplay,
@@ -526,12 +527,12 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
       {selectedCourse && (documents?.length || 0) > 0 && (
         <div className="mb-4 flex gap-3">
-          <input
+          <Input
             type="text"
             placeholder="Search documents by name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1"
           />
           <select
             value={selectedDocType}

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "./common/StyledComponents";
 
 interface UpdateInfo {
   version: string;
@@ -124,12 +125,14 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
               {t("updateAvailable")}
             </h3>
           </div>
-          <button
+          <Button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-xl"
+            variant="secondary"
+            size="sm"
+            className="text-gray-400 hover:text-gray-600 transition-colors bg-transparent border-none hover:bg-gray-100"
           >
             ✕
-          </button>
+          </Button>
         </div>
 
         <div className="mb-4">
@@ -194,10 +197,12 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
         )}
 
         <div className="flex space-x-2">
-          <button
+          <Button
             onClick={handleDownloadAndInstall}
             disabled={isDownloading || isInstalling}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            variant="primary"
+            size="md"
+            className="flex-1 flex items-center justify-center"
           >
             {isDownloading ? (
               <>{t("downloadingUpdate")}</>
@@ -206,23 +211,27 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
             ) : (
               <>{t("updateNow")}</>
             )}
-          </button>
+          </Button>
 
-          <button
+          <Button
             onClick={handleLater}
             disabled={isDownloading || isInstalling}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            variant="secondary"
+            size="md"
+            className="text-gray-700 bg-gray-100 hover:bg-gray-200"
           >
             {t("remindLater")}
-          </button>
+          </Button>
 
-          <button
+          <Button
             onClick={handleSkip}
             disabled={isDownloading || isInstalling}
-            className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            variant="secondary"
+            size="md"
+            className="text-gray-500 hover:text-gray-700 bg-transparent border-none hover:bg-gray-100"
           >
             {t("skipVersion")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

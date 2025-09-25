@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "./common/StyledComponents";
 
 interface UpdateStatusNotificationProps {
   type: "success" | "error" | "info";
@@ -65,12 +66,14 @@ const UpdateStatusNotification: React.FC<UpdateStatusNotificationProps> = ({
               <p className={`text-sm mt-1 ${getTextColor()}`}>{message}</p>
             </div>
           </div>
-          <button
+          <Button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-lg ml-2"
+            variant="secondary"
+            size="sm"
+            className="text-gray-400 hover:text-gray-600 transition-colors ml-2 bg-transparent border-none hover:bg-gray-100"
           >
             ✕
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -425,18 +425,19 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
             <strong className="mr-1">{t("filter")}: </strong>
             {["all", "pending", "submitted", "graded", "overdue"].map(
               (filterType) => (
-                <button
+                <Button
                   key={filterType}
                   onClick={() => setFilter(filterType as any)}
+                  variant={filter === filterType ? "primary" : "secondary"}
+                  size="sm"
                   className={cn(
-                    "px-3 py-1.5 border border-gray-300 rounded-md cursor-pointer text-sm font-medium transition-colors",
                     filter === filterType
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      ? ""
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-300"
                   )}
                 >
                   {t(filterType)}
-                </button>
+                </Button>
               )
             )}
           </div>
@@ -483,12 +484,14 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
             <option value="type">{t("type")}</option>
           </select>
 
-          <button
+          <Button
             onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-            className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
+            variant="secondary"
+            size="sm"
+            className="bg-gray-50 border border-gray-300 hover:bg-gray-100"
           >
             {sortOrder === "asc" ? "↑" : "↓"}
-          </button>
+          </Button>
         </div>
       </div>
 
