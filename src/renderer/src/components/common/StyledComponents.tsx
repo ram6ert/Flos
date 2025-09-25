@@ -1,4 +1,4 @@
-import React from "react";
+import React, { MouseEventHandler } from "react";
 
 // Common utility functions for conditional classes
 export const cn = (
@@ -69,7 +69,7 @@ interface ButtonProps {
   variant?: "primary" | "secondary" | "success" | "danger" | "warning";
   size?: "sm" | "md" | "lg";
   disabled?: boolean;
-  onClick?: () => void;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
   type?: "button" | "submit" | "reset";
   className?: string;
 }
