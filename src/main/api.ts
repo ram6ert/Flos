@@ -45,7 +45,7 @@ export function setupAxiosSessionInterceptors(): void {
         return Promise.reject(new Error("SESSION_EXPIRED"));
       }
 
-      // For 200 responses, sometimes HTML is returned instead of JSON → expired
+      /*// For 200 responses, sometimes HTML is returned instead of JSON → expired
       const contentType = response.headers?.["content-type"] || "";
       const isHtml =
         typeof contentType === "string" && contentType.includes("text/html");
@@ -64,7 +64,7 @@ export function setupAxiosSessionInterceptors(): void {
         Logger.event("HTML body detected - possible session expired");
         await handleSessionExpired();
         return Promise.reject(new Error("SESSION_EXPIRED"));
-      }
+      }*/
     } catch (error) {
       // fallthrough to reject below
     }
