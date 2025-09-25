@@ -531,7 +531,7 @@ export function parseHomeworkDownloadUrls(html: string) {
 export async function downloadSubmittedHomeworkFile(
   url: string,
   fileName: string,
-  _id: string
+  id: string
 ) {
   if (!currentSession || !captchaSession) {
     throw new Error("Not logged in");
@@ -539,12 +539,15 @@ export async function downloadSubmittedHomeworkFile(
 
   try {
     // Construct the download URL using the pattern from the HTML example
-    //const downloadUrl = `/downloadZyFj.shtml?path=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}&id=${id}`;
-    if (!url.startsWith("/") && !url.startsWith(API_CONFIG.VE_BASE_URL)) {
+    const downloadUrl = `${API_CONFIG.VE_BASE_URL}//downloadZyFj.shtml?path=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}&id=${id}`;
+    if (
+      !downloadUrl.startsWith("/") &&
+      !downloadUrl.startsWith(API_CONFIG.VE_BASE_URL)
+    ) {
       throw new Error("Invalid download URL");
     }
 
-    const response = await axios.get(url, {
+    const response = await axios.get(downloadUrl, {
       responseType: "arraybuffer",
       headers: {
         Cookie: captchaSession.cookies.join("; "),
