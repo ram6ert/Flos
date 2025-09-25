@@ -6,22 +6,18 @@ import React, {
   useRef,
 } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Homework,
-  HomeworkDetails,
-  HomeworkAttachment,
-} from "../../../shared/types";
+import { Homework, Course } from "../../../shared/types";
 import { LoadingState, LoadingStateData } from "../types/ui";
 import {
   Container,
   PageHeader,
   Button,
-  Card,
   Loading,
   ErrorDisplay,
   InfoBanner,
   cn,
 } from "./common/StyledComponents";
+import HomeworkCard from "./HomeworkCard";
 
 interface HomeworkResponse {
   data: Homework[];
@@ -29,9 +25,22 @@ interface HomeworkResponse {
   age: number;
 }
 
-const HomeworkList: React.FC = () => {
+interface HomeworkListProps {
+  selectedCourse: Course | null;
+  courses: Course[];
+  onCourseSelect: (course: Course | null) => void;
+  homework: Homework[] | null;
+  setHomework: React.Dispatch<React.SetStateAction<Homework[] | null>>;
+}
+
+const HomeworkList: React.FC<HomeworkListProps> = ({
+  selectedCourse,
+  courses,
+  onCourseSelect,
+  homework,
+  setHomework,
+}) => {
   const { t } = useTranslation();
-  const [homework, setHomework] = useState<Homework[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingStateData>({
     state: LoadingState.IDLE,
   });
@@ -39,19 +48,9 @@ const HomeworkList: React.FC = () => {
     "all" | "pending" | "submitted" | "graded" | "overdue"
   >("all");
   const [cacheInfo, setCacheInfo] = useState<string>("");
-  // Removed error state - using loadingState.error instead
-  const [expandedHomework, setExpandedHomework] = useState<Set<number>>(
-    new Set()
-  );
-  const [homeworkDetails, setHomeworkDetails] = useState<
-    Map<number, HomeworkDetails>
-  >(new Map());
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [downloadingAttachment, setDownloadingAttachment] = useState<
-    string | null
-  >(null);
 
   const isFetchingRef = useRef(false);
+  const currentRequestIdRef = useRef<string | null>(null);
 
   const fetchHomework = useCallback(
     async (forceRefresh = false) => {
@@ -63,19 +62,27 @@ const HomeworkList: React.FC = () => {
         return;
       }
 
+      // Generate unique request ID for this fetch and set it IMMEDIATELY
+      const requestId = `homework-${Date.now()}-${Math.random()}`;
+
+      // Set the request ID BEFORE making any API calls
+      currentRequestIdRef.current = requestId;
       isFetchingRef.current = true;
+
+      // Set loading state BEFORE API call so events can start arriving
+      setLoadingState({ state: LoadingState.LOADING });
+      if (!forceRefresh) {
+        setHomework(null); // Clear existing homework for streaming
+      }
 
       try {
         if (forceRefresh) {
           // For force refresh, use streaming refresh (clears display first)
-          await window.electronAPI.refreshHomework();
+          await window.electronAPI.refreshHomework(undefined, { requestId });
         } else {
-          // Use streaming for normal loads
-          setLoadingState({ state: LoadingState.LOADING });
-
           // Start streaming
           const response: HomeworkResponse =
-            await window.electronAPI.streamHomework();
+            await window.electronAPI.streamHomework(undefined, { requestId });
 
           // Handle final response (may be cached data)
           if (response.fromCache) {
@@ -83,20 +90,142 @@ const HomeworkList: React.FC = () => {
             setCacheInfo(t("showingCachedData", { minutes: ageMinutes }));
           }
         }
-      } finally {
-        if (!forceRefresh) {
-          setLoadingState({ state: LoadingState.SUCCESS });
+      } catch (error) {
+        // Only handle error if this is still the current request
+        if (currentRequestIdRef.current === requestId) {
+          console.error("Failed to fetch homework:", error);
+          setLoadingState({
+            state: LoadingState.ERROR,
+            error: "Failed to fetch homework. Please try again later.",
+          });
         }
+      } finally {
         isFetchingRef.current = false;
+        // Don't clear currentRequestIdRef.current here - let the next request handle it
+        // This prevents issues with late events or immediate subsequent requests
       }
     },
-    [t]
+    [t, setHomework]
   );
 
   useEffect(() => {
     fetchHomework();
   }, [fetchHomework]);
 
+  // Handler functions for homework streaming events
+  const handleHomeworkStreamChunk = useCallback(
+    (
+      _event: any,
+      chunk: {
+        homework: any[];
+        courseId?: string;
+        courseName?: string;
+        fromCache: boolean;
+        responseId?: string;
+      }
+    ) => {
+      // Check if this chunk is from the current request
+      if (chunk.responseId && currentRequestIdRef.current) {
+        if (chunk.responseId !== currentRequestIdRef.current) {
+          console.log("Ignoring homework chunk from outdated request");
+          return;
+        }
+      }
+
+      // Streaming data - append new homework
+      setHomework((prev) => {
+        const existingIds = new Set((prev || []).map((hw) => hw.id));
+        const newHomework = chunk.homework.filter(
+          (hw) => !existingIds.has(hw.id)
+        );
+        return [...(prev || []), ...newHomework];
+      });
+
+      // Update cache info to show we're receiving fresh data
+      if (!chunk.fromCache) {
+        setCacheInfo(t("showingFreshData"));
+      }
+    },
+    [setHomework, t]
+  );
+
+  const handleHomeworkStreamProgress = useCallback(
+    (
+      _event: any,
+      progress: {
+        completed: number;
+        total: number;
+        currentCourse?: string;
+        responseId?: string;
+      }
+    ) => {
+      // Check if this progress is from the current request
+      if (progress.responseId && currentRequestIdRef.current) {
+        if (progress.responseId !== currentRequestIdRef.current) {
+          console.log("Ignoring homework progress from outdated request");
+          return;
+        }
+      }
+
+      setLoadingState({
+        state: LoadingState.LOADING,
+        progress: {
+          completed: progress.completed,
+          total: progress.total,
+          currentItem: progress.currentCourse,
+        },
+      });
+    },
+    []
+  );
+
+  const handleHomeworkStreamComplete = useCallback(
+    (_event: any, payload: { courseId?: string; responseId?: string }) => {
+      // Check if this completion is from the current request
+      if (payload.responseId && currentRequestIdRef.current) {
+        if (payload.responseId !== currentRequestIdRef.current) {
+          console.log("Ignoring homework completion from outdated request");
+          return;
+        }
+      }
+
+      setLoadingState({ state: LoadingState.SUCCESS });
+      setCacheInfo(t("showingFreshData"));
+      // Don't clear currentRequestIdRef.current here - let the next request handle it
+      // This prevents issues with late events or immediate subsequent requests
+    },
+    [t]
+  );
+
+  const handleHomeworkStreamError = useCallback(
+    (_event: any, errorData: { error: string; responseId?: string }) => {
+      // Check if this error is from the current request
+      if (errorData.responseId && currentRequestIdRef.current) {
+        if (errorData.responseId !== currentRequestIdRef.current) {
+          console.log("Ignoring homework error from outdated request");
+          return;
+        }
+      }
+
+      console.error("Homework streaming error:", errorData.error);
+      setLoadingState({
+        state: LoadingState.ERROR,
+        error: `Failed to fetch homework: ${errorData.error}`,
+      });
+      // Don't clear currentRequestIdRef.current here either - let the next request handle it
+    },
+    []
+  );
+
+  const handleHomeworkRefreshStart = useCallback(
+    (_event: any, _payload: { courseId?: string; responseId?: string }) => {
+      // Clear current homework and reset loading state for refresh (loading state already set by fetchHomework)
+      setHomework([]);
+    },
+    [setHomework]
+  );
+
+  // Set up event listeners and cleanup on unmount
   useEffect(() => {
     const handleCacheUpdate = (
       _event: any,
@@ -113,86 +242,13 @@ const HomeworkList: React.FC = () => {
       }
     };
 
-    const handleStreamChunk = (
-      _event: any,
-      chunk: {
-        homework: any[];
-        courseId?: string;
-        courseName?: string;
-        type: string;
-        isComplete: boolean;
-        fromCache: boolean;
-      }
-    ) => {
-      if (chunk.fromCache && chunk.isComplete) {
-        // Cached data - replace all homework
-        setHomework(chunk.homework);
-        setLoadingState({ state: LoadingState.SUCCESS });
-      } else {
-        // Streaming data - append new homework
-        setHomework((prev) => {
-          const existingIds = new Set(prev.map((hw) => hw.id));
-          const newHomework = chunk.homework.filter(
-            (hw) => !existingIds.has(hw.id)
-          );
-          return [...prev, ...newHomework];
-        });
-
-        // Update cache info to show we're receiving fresh data
-        if (!chunk.fromCache) {
-          setCacheInfo(t("showingFreshData"));
-        }
-      }
-    };
-
-    const handleStreamProgress = (
-      _event: any,
-      progress: {
-        completed: number;
-        total: number;
-        currentCourse?: string;
-      }
-    ) => {
-      setLoadingState({
-        state: LoadingState.LOADING,
-        progress: {
-          completed: progress.completed,
-          total: progress.total,
-          currentItem: progress.currentCourse,
-        },
-      });
-    };
-
-    const handleStreamComplete = (
-      _event: any,
-      _payload: { courseId?: string }
-    ) => {
-      setLoadingState({ state: LoadingState.SUCCESS });
-      setCacheInfo(t("showingFreshData"));
-    };
-
-    const handleStreamError = (_event: any, error: { error: string }) => {
-      console.error("Streaming error:", error.error);
-      setLoadingState({ state: LoadingState.ERROR, error: error.error });
-    };
-
-    const handleRefreshStart = (
-      _event: any,
-      _payload: { courseId?: string }
-    ) => {
-      // Clear current homework and reset loading state for refresh
-      setHomework([]);
-      setLoadingState({ state: LoadingState.LOADING });
-      setCacheInfo("");
-    };
-
     // Set up event listeners
     window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
-    window.electronAPI.onHomeworkStreamChunk?.(handleStreamChunk);
-    window.electronAPI.onHomeworkStreamProgress?.(handleStreamProgress);
-    window.electronAPI.onHomeworkStreamComplete?.(handleStreamComplete);
-    window.electronAPI.onHomeworkStreamError?.(handleStreamError);
-    window.electronAPI.onHomeworkRefreshStart?.(handleRefreshStart);
+    window.electronAPI.onHomeworkStreamChunk?.(handleHomeworkStreamChunk);
+    window.electronAPI.onHomeworkStreamProgress?.(handleHomeworkStreamProgress);
+    window.electronAPI.onHomeworkStreamComplete?.(handleHomeworkStreamComplete);
+    window.electronAPI.onHomeworkStreamError?.(handleHomeworkStreamError);
+    window.electronAPI.onHomeworkRefreshStart?.(handleHomeworkRefreshStart);
 
     return () => {
       window.electronAPI.removeAllListeners?.("cache-updated");
@@ -202,321 +258,19 @@ const HomeworkList: React.FC = () => {
       window.electronAPI.removeAllListeners?.("homework-stream-error");
       window.electronAPI.removeAllListeners?.("homework-refresh-start");
     };
-  }, [t]);
-
-  const getStatusColor = (hw: Homework) => {
-    if (hw.submissionStatus === "graded") return "#28a745"; // green
-    if (hw.submissionStatus === "submitted") return "#007bff"; // blue
-    return "#dc3545"; // red for pending
-  };
-
-  const formatDeadline = (dateString: string) => {
-    return new Date(dateString).toLocaleString("zh-CN");
-  };
+  }, [
+    setHomework,
+    t,
+    handleHomeworkStreamChunk,
+    handleHomeworkStreamProgress,
+    handleHomeworkStreamComplete,
+    handleHomeworkStreamError,
+    handleHomeworkRefreshStart,
+  ]);
 
   const isOverdue = (hw: Homework) => {
     const now = new Date();
-    return new Date(hw.dueDate) < now && hw.submissionStatus !== "submitted";
-  };
-
-  const getRemainingTime = (hw: Homework) => {
-    const now = new Date();
-    const timeDiff = new Date(hw.dueDate).getTime() - now.getTime();
-
-    if (hw.submissionStatus === "submitted") {
-      return { text: t("submitted"), color: "#28a745", isOverdue: false };
-    }
-
-    if (timeDiff < 0) {
-      const overdueDays = Math.floor(
-        Math.abs(timeDiff) / (1000 * 60 * 60 * 24)
-      );
-      const overdueHours = Math.floor(
-        (Math.abs(timeDiff) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-      );
-      if (overdueDays > 0) {
-        return {
-          text: t("overdueDaysHours", {
-            days: overdueDays,
-            hours: overdueHours,
-          }),
-          color: "#dc3545",
-          isOverdue: true,
-        };
-      } else {
-        return {
-          text: t("overdueHours", { hours: overdueHours }),
-          color: "#dc3545",
-          isOverdue: true,
-        };
-      }
-    }
-
-    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor(
-      (timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-    );
-    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (days > 0) {
-      return {
-        text: t("daysHoursLeft", { days, hours }),
-        color: "#007bff",
-        isOverdue: false,
-      };
-    } else if (hours > 0) {
-      return {
-        text: t("hoursMinutesLeft", { hours, minutes }),
-        color: "#ffc107",
-        isOverdue: false,
-      };
-    } else {
-      return {
-        text: t("minutesLeft", { minutes }),
-        color: "#dc3545",
-        isOverdue: false,
-      };
-    }
-  };
-
-  const translateStatus = (
-    status: "submitted" | "not_submitted" | "graded"
-  ) => {
-    switch (status) {
-      case "submitted":
-        return t("submitted");
-      case "not_submitted":
-        return t("notSubmitted");
-      case "graded":
-        return t("graded");
-      default:
-        return status;
-    }
-  };
-
-  const formatScore = (score: number | null) => {
-    if (score === null) {
-      return t("gradeNotPublished");
-    }
-    return score.toString();
-  };
-
-  const getHomeworkTypeText = (
-    type: "homework" | "report" | "experiment" | "quiz" | "assessment"
-  ) => {
-    switch (type) {
-      case "homework":
-        return t("normalHomework");
-      case "report":
-        return t("courseReport");
-      case "experiment":
-        return t("experimentHomework");
-      case "quiz":
-        return t("regularQuiz");
-      case "assessment":
-        return t("finalAssessment");
-      default:
-        return t("unknownType");
-    }
-  };
-
-  const [fetchingDetails, setFetchingDetails] = useState<Set<number>>(
-    new Set()
-  );
-
-  const fetchHomeworkDetails = async (
-    homeworkId: number,
-    courseId: number,
-    teacherId?: string
-  ) => {
-    // Prevent duplicate detail fetches
-    if (fetchingDetails.has(homeworkId)) {
-      console.log(
-        `Homework details fetch already in progress for ID ${homeworkId}, skipping duplicate request`
-      );
-      return;
-    }
-
-    setDetailsLoading(true);
-    const newFetching = new Set(fetchingDetails);
-    newFetching.add(homeworkId);
-    setFetchingDetails(newFetching);
-
-    try {
-      // We need to extract teacher ID from homework data or make an assumption
-      // For now, we'll use a default or extract from existing data
-      const response = await window.electronAPI.getHomeworkDetails(
-        homeworkId.toString(),
-        courseId.toString(),
-        teacherId || "0" // Default teacher ID if not available
-      );
-      const newDetails = new Map(homeworkDetails);
-      newDetails.set(homeworkId, response.data.homeWork);
-      setHomeworkDetails(newDetails);
-    } catch (error) {
-      console.error("Failed to fetch homework details:", error);
-      setLoadingState({
-        state: LoadingState.ERROR,
-        error: t("failedToLoadHomeworkDetails"),
-      });
-    } finally {
-      setDetailsLoading(false);
-      const newFetching = new Set(fetchingDetails);
-      newFetching.delete(homeworkId);
-      setFetchingDetails(newFetching);
-    }
-  };
-
-  const handleToggleDetails = async (hw: Homework) => {
-    if (expandedHomework.has(hw.id)) {
-      // Collapse
-      const newExpanded = new Set(expandedHomework);
-      newExpanded.delete(hw.id);
-      setExpandedHomework(newExpanded);
-      const newDetails = new Map(homeworkDetails);
-      newDetails.delete(hw.id);
-      setHomeworkDetails(newDetails);
-    } else {
-      // Expand
-      const newExpanded = new Set(expandedHomework);
-      newExpanded.add(hw.id);
-      setExpandedHomework(newExpanded);
-      await fetchHomeworkDetails(hw.id, hw.courseId);
-    }
-  };
-
-  const handleDownloadAttachment = async (attachment: HomeworkAttachment) => {
-    setDownloadingAttachment(attachment.url);
-    try {
-      const result = await window.electronAPI.downloadHomeworkAttachment(
-        attachment.url,
-        `${attachment.fileName}.${getFileExtension(attachment.url)}`
-      );
-
-      if (result.success) {
-        if (result.savedToFile) {
-          // Large file saved directly to disk
-          alert(`File downloaded successfully to: ${result.filePath}`);
-        } else if (result.data) {
-          // Small file - create download link
-          const blob = new Blob(
-            [Uint8Array.from(atob(result.data), (c) => c.charCodeAt(0))],
-            {
-              type: result.contentType,
-            }
-          );
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${attachment.fileName}.${getFileExtension(attachment.url)}`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-        }
-      } else {
-        alert(`Download failed: ${result.error}`);
-      }
-    } catch (error) {
-      console.error("Download error:", error);
-      alert("Download failed. Please try again.");
-    } finally {
-      setDownloadingAttachment(null);
-    }
-  };
-
-  const getFileExtension = (url: string) => {
-    const match = url.match(/\.([^.]+)$/);
-    return match ? match[1] : "unknown";
-  };
-
-  const formatFileSize = (size: number) => {
-    if (size < 1024) return `${size} B`;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const sanitizeContent = (content: string) => {
-    if (!content) return "";
-
-    let sanitized = content;
-
-    // Remove dangerous elements first
-    sanitized = sanitized
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<link[^>]*>/gi, "")
-      .replace(/<meta[^>]*>/gi, "");
-
-    // Replace img tags with placeholder text
-    sanitized = sanitized.replace(
-      /<img[^>]*>/gi,
-      "**[Image removed for security]**"
-    );
-
-    // Preserve formatting by converting common HTML tags to text equivalents
-    sanitized = sanitized
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>/gi, "\n\n")
-      .replace(/<p[^>]*>/gi, "")
-      .replace(/<\/div>/gi, "\n")
-      .replace(/<div[^>]*>/gi, "")
-      .replace(/<h[1-6][^>]*>/gi, "\n**")
-      .replace(/<\/h[1-6]>/gi, "**\n")
-      .replace(/<strong[^>]*>/gi, "**")
-      .replace(/<\/strong>/gi, "**")
-      .replace(/<b[^>]*>/gi, "**")
-      .replace(/<\/b>/gi, "**")
-      .replace(/<em[^>]*>/gi, "*")
-      .replace(/<\/em>/gi, "*")
-      .replace(/<i[^>]*>/gi, "*")
-      .replace(/<\/i>/gi, "*")
-      .replace(/<ul[^>]*>/gi, "\n")
-      .replace(/<\/ul>/gi, "\n")
-      .replace(/<ol[^>]*>/gi, "\n")
-      .replace(/<\/ol>/gi, "\n")
-      .replace(/<li[^>]*>/gi, "• ")
-      .replace(/<\/li>/gi, "\n");
-
-    // Remove any remaining HTML tags
-    sanitized = sanitized.replace(/<[^>]*>/g, "");
-
-    // Decode HTML entities
-    sanitized = sanitized
-      .replace(/&nbsp;/g, " ")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&amp;/g, "&")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&hellip;/g, "...")
-      .replace(/&mdash;/g, "—")
-      .replace(/&ndash;/g, "–");
-
-    // Clean up excessive whitespace
-    sanitized = sanitized
-      .replace(/\n{3,}/g, "\n\n")
-      .replace(/[ \t]+/g, " ")
-      .trim();
-
-    return sanitized;
-  };
-
-  const renderContentWithBold = (content: string) => {
-    // Split by **text** patterns and render bold text
-    // whitespace-pre-wrap CSS class handles newlines automatically
-    const parts = content.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        const boldText = part.slice(2, -2);
-        return (
-          <strong key={index} className="text-red-600">
-            {boldText}
-          </strong>
-        );
-      }
-      return part;
-    });
+    return new Date(hw.dueDate) < now;
   };
 
   const [sortBy, setSortBy] = useState<
@@ -525,8 +279,14 @@ const HomeworkList: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const filteredAndSortedHomework = useMemo(() => {
-    return homework
+    return (homework || [])
       .filter((hw) => {
+        // Filter by selected course if provided
+        if (selectedCourse) {
+          const selectedCourseIdAsNumber = Number(selectedCourse.id);
+          if (hw.courseId !== selectedCourseIdAsNumber) return false;
+        }
+
         const hwIsOverdue = isOverdue(hw);
 
         switch (filter) {
@@ -583,7 +343,7 @@ const HomeworkList: React.FC = () => {
 
         return sortOrder === "asc" ? comparison : -comparison;
       });
-  }, [homework, filter, sortBy, sortOrder]);
+  }, [homework, selectedCourse, filter, sortBy, sortOrder]);
 
   if (loadingState.state === LoadingState.LOADING && !loadingState.progress) {
     return (
@@ -598,7 +358,7 @@ const HomeworkList: React.FC = () => {
       <Container padding="lg">
         <ErrorDisplay
           title={t("unableToLoadHomework")}
-          message={loadingState.error || "Unknown error"}
+          message={loadingState.error || t("unknownError")}
           onRetry={() => fetchHomework(true)}
           retryLabel={t("retry")}
         />
@@ -660,27 +420,57 @@ const HomeworkList: React.FC = () => {
       )}
 
       <div className="mb-6">
-        <div className="mb-4">
-          <strong className="mr-3">{t("filter")}: </strong>
-          {["all", "pending", "submitted", "graded", "overdue"].map(
-            (filterType) => (
-              <button
-                key={filterType}
-                onClick={() => setFilter(filterType as any)}
-                className={cn(
-                  "px-3 py-1.5 mr-2 border border-gray-300 rounded-md cursor-pointer text-sm font-medium transition-colors",
-                  filter === filterType
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                )}
-              >
-                {t(filterType)}
-              </button>
-            )
-          )}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <strong className="mr-1">{t("filter")}: </strong>
+            {["all", "pending", "submitted", "graded", "overdue"].map(
+              (filterType) => (
+                <Button
+                  key={filterType}
+                  onClick={() => setFilter(filterType as any)}
+                  variant={filter === filterType ? "primary" : "secondary"}
+                  size="sm"
+                  className={cn(
+                    filter === filterType
+                      ? ""
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-300"
+                  )}
+                >
+                  {t(filterType)}
+                </Button>
+              )
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <strong>{t("course")}: </strong>
+            <select
+              value={
+                courses.some((c) => c.id === (selectedCourse?.id || ""))
+                  ? selectedCourse?.id || ""
+                  : ""
+              }
+              onChange={(e) => {
+                if (e.target.value === "") {
+                  onCourseSelect(null);
+                  return;
+                }
+                const course = courses.find((c) => c.id === e.target.value);
+                if (course) onCourseSelect(course);
+              }}
+              className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
+            >
+              <option value="">{t("allCourses")}</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.courseNumber} - {course.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <strong>{t("sortBy")}: </strong>
           <select
             value={sortBy}
@@ -694,12 +484,14 @@ const HomeworkList: React.FC = () => {
             <option value="type">{t("type")}</option>
           </select>
 
-          <button
+          <Button
             onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-            className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
+            variant="secondary"
+            size="sm"
+            className="bg-gray-50 border border-gray-300 hover:bg-gray-100"
           >
             {sortOrder === "asc" ? "↑" : "↓"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -708,258 +500,12 @@ const HomeworkList: React.FC = () => {
       ) : (
         <div className="flex flex-col gap-3">
           {filteredAndSortedHomework.map((hw) => {
-            const remainingTime = getRemainingTime(hw);
-            const statusColor = getStatusColor(hw);
             return (
-              <Card
+              <HomeworkCard
                 key={hw.id}
-                padding="lg"
-                className={cn(
-                  "border-l-4",
-                  remainingTime.isOverdue && "bg-red-50"
-                )}
-                style={{ borderLeftColor: statusColor }}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="m-0 flex-1 text-lg font-semibold text-gray-900">
-                    {hw.title}
-                  </h3>
-                  <div
-                    className="font-bold text-sm text-right min-w-30"
-                    style={{ color: remainingTime.color }}
-                  >
-                    {remainingTime.text}
-                  </div>
-                </div>
-
-                {sanitizeContent(hw.content) && (
-                  <div className="mb-3 text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
-                    {renderContentWithBold(sanitizeContent(hw.content))}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <p className="m-0">
-                    <strong>{t("course")}:</strong> {hw.courseName}
-                  </p>
-                  <p className="m-0">
-                    <strong>{t("maxScore")}:</strong> {hw.maxScore}
-                  </p>
-                  <p className="m-0">
-                    <strong>{t("due")}:</strong> {formatDeadline(hw.dueDate)}
-                  </p>
-                  <p className="m-0">
-                    <strong>{t("status")}:</strong>{" "}
-                    <span style={{ color: getStatusColor(hw) }}>
-                      {translateStatus(hw.submissionStatus)}
-                    </span>
-                  </p>
-                  <p className="m-0">
-                    <strong>{t("type")}:</strong> {getHomeworkTypeText(hw.type)}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-                  <p className="m-0">
-                    <strong>{t("submitted")}:</strong> {hw.submittedCount}/
-                    {hw.totalStudents} {t("students")}
-                  </p>
-                  <p className="m-0">
-                    <strong>{t("grade")}:</strong>{" "}
-                    {formatScore(hw.studentScore)}
-                  </p>
-                </div>
-
-                {hw.submitDate && (
-                  <p className="mt-2 text-xs text-gray-500">
-                    <strong>{t("submittedAt")}:</strong>{" "}
-                    {formatDeadline(hw.submitDate)}
-                  </p>
-                )}
-
-                {/* View Details Button */}
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <button
-                    onClick={() => handleToggleDetails(hw)}
-                    disabled={detailsLoading && expandedHomework.has(hw.id)}
-                    className={cn(
-                      "px-4 py-2 text-white border-none rounded cursor-pointer text-sm transition-colors",
-                      expandedHomework.has(hw.id)
-                        ? "bg-red-600 hover:bg-red-700"
-                        : "bg-blue-600 hover:bg-blue-700",
-                      detailsLoading &&
-                        expandedHomework.has(hw.id) &&
-                        "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {detailsLoading && expandedHomework.has(hw.id)
-                      ? t("loading")
-                      : expandedHomework.has(hw.id)
-                        ? t("hideDetails")
-                        : t("viewDetails")}
-                  </button>
-                </div>
-
-                {/* Expanded Details View */}
-                {expandedHomework.has(hw.id) && homeworkDetails.get(hw.id) && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-300">
-                    <h4 className="mb-3 text-gray-700">
-                      {t("homeworkDetails")}
-                    </h4>
-
-                    {(() => {
-                      const details = homeworkDetails.get(hw.id)!;
-                      return (
-                        <>
-                          <div className="grid grid-cols-2 gap-3 text-sm mb-4">
-                            <p className="m-0">
-                              <strong>{t("created")}:</strong>{" "}
-                              {new Date(details.createdDate).toLocaleString()}
-                            </p>
-                            <p className="m-0">
-                              <strong>{t("openDate")}:</strong>{" "}
-                              {new Date(details.openDate).toLocaleString()}
-                            </p>
-                            {details.isAnswerPublished && (
-                              <p className="m-0">
-                                <strong>{t("answer")}:</strong>{" "}
-                                {details.referenceAnswer}
-                              </p>
-                            )}
-                            <p className="m-0">
-                              <strong>{t("repeatAllowed")}:</strong>{" "}
-                              {details.isRepeatAllowed ? t("yes") : t("no")}
-                            </p>
-                          </div>
-
-                          {/* Detailed Content */}
-                          {details.content &&
-                            sanitizeContent(details.content) && (
-                              <div className="mb-4">
-                                <h5 className="mb-2 text-gray-700">
-                                  {t("fullDescription")}:
-                                </h5>
-                                <div className="p-3 bg-white rounded border border-gray-300 text-sm leading-6 whitespace-pre-wrap">
-                                  {renderContentWithBold(
-                                    sanitizeContent(details.content)
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                          {/* Attachments */}
-                          {(details.attachments &&
-                            details.attachments.length > 0) ||
-                          details.url ? (
-                            <div className="mb-4">
-                              <h5 className="mb-3 text-gray-700">
-                                {t("attachments")}:
-                              </h5>
-                              <div className="flex flex-col gap-2">
-                                {details.attachments &&
-                                details.attachments.length > 0 ? (
-                                  details.attachments.map(
-                                    (attachment, index) => (
-                                      <div
-                                        key={`${attachment.id}-${index}`}
-                                        className="p-3 bg-white rounded border border-gray-300 flex items-center justify-between"
-                                      >
-                                        <div>
-                                          <div className="font-bold mb-1">
-                                            📎 {attachment.fileName}
-                                            {attachment.type && (
-                                              <span
-                                                className={cn(
-                                                  "ml-2 text-xs px-1.5 py-0.5 text-white rounded",
-                                                  attachment.type === "answer"
-                                                    ? "bg-cyan-600"
-                                                    : "bg-gray-600"
-                                                )}
-                                              >
-                                                {attachment.type === "answer"
-                                                  ? t("answer")
-                                                  : t("homework")}
-                                              </span>
-                                            )}
-                                          </div>
-                                          <div className="text-xs text-gray-500">
-                                            {t("size")}:{" "}
-                                            {formatFileSize(
-                                              attachment.fileSize
-                                            )}
-                                          </div>
-                                        </div>
-                                        <button
-                                          onClick={() =>
-                                            handleDownloadAttachment(attachment)
-                                          }
-                                          disabled={
-                                            downloadingAttachment ===
-                                            attachment.url
-                                          }
-                                          className={cn(
-                                            "px-3 py-1.5 text-white border-none rounded text-xs transition-colors",
-                                            downloadingAttachment ===
-                                              attachment.url
-                                              ? "bg-gray-400 cursor-not-allowed"
-                                              : "bg-green-600 hover:bg-green-700 cursor-pointer"
-                                          )}
-                                        >
-                                          {downloadingAttachment ===
-                                          attachment.url
-                                            ? t("downloading")
-                                            : t("download")}
-                                        </button>
-                                      </div>
-                                    )
-                                  )
-                                ) : details.url ? (
-                                  // Fallback for legacy single attachment format
-                                  <div className="p-3 bg-white rounded border border-gray-300 flex items-center justify-between">
-                                    <div>
-                                      <div className="font-bold mb-1">
-                                        📎 {details.fileName}
-                                      </div>
-                                      <div className="text-xs text-gray-500">
-                                        {t("size")}:{" "}
-                                        {formatFileSize(details.fileSize)}
-                                      </div>
-                                    </div>
-                                    <button
-                                      onClick={() =>
-                                        handleDownloadAttachment({
-                                          id: details.id,
-                                          url: details.url,
-                                          fileName: details.fileName,
-                                          convertUrl: details.convertUrl,
-                                          fileSize: details.fileSize,
-                                        })
-                                      }
-                                      disabled={
-                                        downloadingAttachment === details.url
-                                      }
-                                      className={cn(
-                                        "px-3 py-1.5 text-white border-none rounded text-xs transition-colors",
-                                        downloadingAttachment === details.url
-                                          ? "bg-gray-400 cursor-not-allowed"
-                                          : "bg-green-600 hover:bg-green-700 cursor-pointer"
-                                      )}
-                                    >
-                                      {downloadingAttachment === details.url
-                                        ? "Downloading..."
-                                        : t("download")}
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          ) : null}
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
-              </Card>
+                homework={hw}
+                refreshHomework={() => fetchHomework(true)}
+              />
             );
           })}
         </div>

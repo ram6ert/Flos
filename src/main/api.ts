@@ -1,5 +1,4 @@
-import axios from "axios";
-import { API_CONFIG } from "./constants";
+import { API_CONFIG, courseAPI, courseBase, courseVe } from "./constants";
 import {
   currentSession,
   captchaSession,
@@ -14,8 +13,219 @@ import {
 } from "./cache";
 import * as iconv from "iconv-lite";
 import { ScheduleParser } from "./schedule-parser";
-import { CourseDocumentType, ScheduleData } from "../shared/types";
+import {
+  Course,
+  CourseDocumentType,
+  Homework,
+  HomeworkDetails,
+  ScheduleData,
+} from "../shared/types";
 import { Logger } from "./logger";
+import * as cheerio from "cheerio";
+import axios from "axios";
+
+// Install axios interceptors to detect session expiration globally
+export function setupAxiosSessionInterceptors(): void {
+  const instances = [courseAPI, courseVe, courseBase];
+
+  const onResponse = async (response: any) => {
+    try {
+      // Allow opt-out per request
+      const cfg: any = response.config || {};
+      if (cfg.skipSessionInterceptor === true) return response;
+
+      // Ignore login endpoint redirects on courseVe
+      const urlStr: string = cfg.url || "";
+      if (urlStr.includes(API_CONFIG.ENDPOINTS.LOGIN)) {
+        return response;
+      }
+
+      // 3xx means redirect → treat as session expired
+      if (response.status >= 300 && response.status < 400) {
+        Logger.event("Session expiration detected (3xx)");
+        await handleSessionExpired();
+        return Promise.reject(new Error("SESSION_EXPIRED"));
+      }
+
+      /*// For 200 responses, sometimes HTML is returned instead of JSON → expired
+      const contentType = response.headers?.["content-type"] || "";
+      const isHtml =
+        typeof contentType === "string" && contentType.includes("text/html");
+      if (response.status === 200 && isHtml) {
+        Logger.event("HTML response detected - possible session expired");
+        await handleSessionExpired();
+        return Promise.reject(new Error("SESSION_EXPIRED"));
+      }
+
+      // If body is string and looks like HTML, also consider expired
+      if (
+        response.status === 200 &&
+        typeof response.data === "string" &&
+        (response.data.includes("<!DOCTYPE") || response.data.includes("<html"))
+      ) {
+        Logger.event("HTML body detected - possible session expired");
+        await handleSessionExpired();
+        return Promise.reject(new Error("SESSION_EXPIRED"));
+      }*/
+    } catch (error) {
+      // fallthrough to reject below
+    }
+    return response;
+  };
+
+  const onError = async (error: any) => {
+    const status = error?.response?.status;
+    if (status >= 300 && status < 400) {
+      Logger.event("Session expiration detected (3xx error)");
+      await handleSessionExpired();
+      return Promise.reject(new Error("SESSION_EXPIRED"));
+    }
+
+    // Network or other errors pass through
+    return Promise.reject(error);
+  };
+
+  for (const instance of instances) {
+    // Avoid double installation
+    const hasMarker = (instance as any).__sessionInterceptorInstalled;
+    if (hasMarker) continue;
+    instance.interceptors.response.use(onResponse, onError);
+    (instance as any).__sessionInterceptorInstalled = true;
+  }
+}
+
+// File upload API function
+export async function uploadFile(filePath: string, fileName: string) {
+  if (!currentSession || !captchaSession) {
+    throw new Error("Not logged in");
+  }
+
+  const FormData = require("form-data");
+  const fs = require("fs");
+
+  const form = new FormData();
+  form.append("file", fs.createReadStream(filePath), fileName);
+
+  const url = `/rp/common/rpUpload.shtml;jsessionid=${captchaSession.jsessionId}`;
+
+  const response = await courseAPI.post(url, form, {
+    headers: {
+      ...form.getHeaders(),
+      Accept: "application/json, text/javascript, */*; q=0.01",
+      Cookie: captchaSession.cookies.join("; "),
+      Origin: API_CONFIG.ORIGIN,
+      Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    validateStatus: () => true,
+  });
+
+  if (response.status >= 200 && response.status < 300) {
+    updateSessionCookies(response);
+
+    if (typeof response.data === "object" && response.data.STATUS === "0") {
+      return {
+        success: true,
+        data: response.data,
+      };
+    } else {
+      return {
+        success: false,
+        error: "File upload failed",
+      };
+    }
+  }
+
+  throw new Error(`Upload failed with status: ${response.status}`);
+}
+
+// Homework submission API function
+export async function submitHomework(submission: {
+  upId: string;
+  courseId: string;
+  content?: string;
+  fileList: Array<{
+    fileNameNoExt: string;
+    fileExtName: string;
+    fileSize: string;
+    visitName: string;
+    pid: string;
+    ftype: string;
+  }>;
+  groupName?: string;
+  groupId?: string;
+  jxrl_id?: string;
+}) {
+  if (!currentSession || !captchaSession) {
+    throw new Error("Not logged in");
+  }
+
+  const formData = new URLSearchParams();
+  formData.append("content", submission.content || "");
+  formData.append("groupName", submission.groupName || "");
+  formData.append("groupId", submission.groupId || "");
+  formData.append("courseId", submission.courseId);
+  formData.append("contentType", "0"); // 0=作业提交
+  formData.append("fz", "0"); // 0=个人作业
+  formData.append("jxrl_id", submission.jxrl_id || "");
+  formData.append("upId", submission.upId);
+  formData.append("return_num", "0");
+  formData.append("isTeacher", "0"); // 0=学生
+  formData.append("fileList", JSON.stringify(submission.fileList));
+
+  const url = `/course/courseWorkInfo.shtml?method=sendStuHomeWorks`;
+
+  const response = await courseAPI.post(url, formData, {
+    headers: {
+      Accept: "*/*",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      Cookie: captchaSession.cookies.join("; "),
+      Origin: API_CONFIG.ORIGIN,
+      Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    validateStatus: () => true,
+  });
+
+  if (response.status >= 200 && response.status < 300) {
+    updateSessionCookies(response);
+
+    // Empty response body indicates success
+    return {
+      success: true,
+      message: "Homework submitted successfully",
+    };
+  }
+
+  throw new Error(`Homework submission failed with status: ${response.status}`);
+}
+
+// Sanitization function for upload response
+const _sanitizeUploadResponse = (uploadData: any): any => {
+  return {
+    id: uploadData.resSerId,
+    fileName: decodeURIComponent(uploadData.fileNameNoExt),
+    fileExtension: uploadData.fileExtName,
+    fileSize: parseInt(uploadData.fileSize) || 0,
+    serverPath: uploadData.visitName,
+    relativePath: uploadData.path,
+    uploadTime: uploadData.time,
+    status: uploadData.STATUS === "0" ? "success" : "failed",
+  };
+};
+
+// Sanitization function for submission response
+const _sanitizeSubmissionResponse = (
+  responseData: any,
+  uploadedFilesCount: number
+): any => {
+  return {
+    success: true,
+    message: "Homework submitted successfully",
+    submissionTime: new Date().toISOString(),
+    filesSubmitted: uploadedFilesCount,
+  };
+};
 
 // Helper function to fetch homework details
 export async function fetchHomeworkDetails(
@@ -27,13 +237,13 @@ export async function fetchHomeworkDetails(
     throw new Error("Not logged in");
   }
 
-  const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=queryStudentCourseNote&id=${homeworkId}&courseId=${courseId}&teacherId=${teacherId}`;
+  const url = `/coursePlatform/homeWork.shtml?method=queryStudentCourseNote&id=${homeworkId}&courseId=${courseId}&teacherId=${teacherId}`;
 
-  const data = await authenticatedRequest(url, true); // Use session ID
+  const data = await authenticatedAPIRequest(url, true); // Use session ID
 
   if (data && data.homeWork) {
     // Process multiple attachments from picList and answerPicList
-    const attachments = [];
+    const attachments: any[] = [];
 
     // Add attachments from picList (homework files)
     if (data.picList && Array.isArray(data.picList)) {
@@ -79,13 +289,7 @@ export async function fetchHomeworkDetails(
     const sanitizedDetails = sanitizeHomeworkDetails(data.homeWork);
 
     // Sanitize the response structure
-    return {
-      homeWork: sanitizedDetails,
-      picList: data.picList?.map(sanitizeHomeworkAttachment) || [],
-      answerPicList: data.answerPicList?.map(sanitizeHomeworkAttachment) || [],
-      STATUS: data.STATUS,
-      message: data.message,
-    };
+    return sanitizedDetails;
   }
 
   throw new Error("Failed to fetch homework details");
@@ -133,7 +337,7 @@ class RateLimitedQueue {
 export const requestQueue = new RateLimitedQueue();
 
 // Helper function for authenticated requests
-export async function authenticatedRequest(
+export async function authenticatedAPIRequest(
   url: string,
   useSessionId: boolean = false
 ): Promise<any> {
@@ -147,17 +351,13 @@ export async function authenticatedRequest(
   // If no active session, try to get one
   if (!activeSession) {
     // Fetch fresh captcha to get session
-    const captchaResponse = await axios.get(
-      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CAPTCHA}`,
+    const captchaResponse = await courseAPI.get(
+      `${API_CONFIG.ENDPOINTS.CAPTCHA}`,
       {
         headers: {
           Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
-          "Accept-Language":
-            "zh-CN,zh-TW;q=0.9,zh;q=0.8,en;q=0.7,en-GB;q=0.6,en-US;q=0.5",
           "Cache-Control": "max-age=0",
-          Connection: "keep-alive",
-          Referer: `${API_CONFIG.BASE_URL}/ve/`,
-          "User-Agent": API_CONFIG.USER_AGENT,
+          Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
         },
         responseType: "arraybuffer",
         validateStatus: () => true,
@@ -174,10 +374,8 @@ export async function authenticatedRequest(
   // Prepare headers
   const headers: any = {
     Accept: "*/*",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
     Cookie: cookieHeader,
-    Referer: `${API_CONFIG.BASE_URL}/ve/`,
-    "User-Agent": API_CONFIG.USER_AGENT,
+    Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
     "X-Requested-With": "XMLHttpRequest",
   };
 
@@ -186,27 +384,14 @@ export async function authenticatedRequest(
     headers["Sessionid"] = currentSession.sessionId;
   }
 
-  const response = await axios.get(url, {
+  const response = await courseAPI.get(url, {
     headers,
     validateStatus: () => true,
   });
 
-  if (response.status >= 200 && response.status < 400) {
+  if (response.status >= 200 && response.status < 300) {
     // Always update session cookies from successful responses
     updateSessionCookies(response);
-
-    // Check for session expiration indicators
-    if (typeof response.data === "string") {
-      if (
-        response.data.includes("登录") ||
-        response.data.includes("login") ||
-        response.data.includes("not logged")
-      ) {
-        Logger.event("Session expiration detected");
-        await handleSessionExpired();
-        throw new Error("SESSION_EXPIRED");
-      }
-    }
 
     // Try to parse as JSON if it's expected to be JSON
     if (
@@ -220,15 +405,6 @@ export async function authenticatedRequest(
           "Failed to parse JSON response, treating as string:",
           response.data.substring(0, 200)
         );
-        // If JSON parsing fails but we got a response, it might indicate session issues
-        if (
-          response.data.includes("html") ||
-          response.data.includes("<!DOCTYPE")
-        ) {
-          Logger.event("HTML response detected - session expired");
-          await handleSessionExpired();
-          throw new Error("SESSION_EXPIRED");
-        }
         return response.data;
       }
     }
@@ -239,19 +415,222 @@ export async function authenticatedRequest(
   throw new Error(`Request failed with status: ${response.status}`);
 }
 
+// Helper function to get homework download HTML page
+export async function fetchHomeworkDownloadPage(
+  upId: string,
+  id: string,
+  userId: string,
+  score: string
+) {
+  if (!currentSession || !captchaSession) {
+    throw new Error("Not logged in");
+  }
+
+  const url = `/course/courseWorkInfo.shtml?method=piGaiDiv&upId=${upId}&id=${id}&userId=${userId}&score=${score}&uLevel=1&type=1&username=null`;
+
+  const response = await courseAPI.get(url, {
+    headers: {
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      Cookie: captchaSession.cookies.join("; "),
+      Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
+      "User-Agent": API_CONFIG.HEADERS["User-Agent"],
+      sessionId: currentSession.sessionId,
+    },
+    responseType: "arraybuffer",
+    validateStatus: () => true,
+  });
+
+  if (response.status >= 200 && response.status < 300) {
+    updateSessionCookies(response);
+
+    // Decode GBK content to UTF-8
+    const decodedHtml = iconv.decode(Buffer.from(response.data), "gbk");
+    return decodedHtml;
+  }
+
+  throw new Error(`Request failed with status: ${response.status}`);
+}
+
+// Helper function to parse HTML and extract homework download URLs
+export function parseHomeworkDownloadUrls(html: string) {
+  const $ = cheerio.load(html);
+  const downloadUrls: Array<{
+    fileName: string;
+    url: string;
+    id: string;
+    type: "my_homework";
+  }> = [];
+
+  // Look for download links in the HTML
+  // Based on the example HTML, we need to find the downloadFile function calls
+  const downloadFileRegex = /downloadFile\('([^']+)','([^']+)','([^']+)'\)/g;
+  let match;
+
+  while ((match = downloadFileRegex.exec(html)) !== null) {
+    const [, url, fileName, id] = match;
+    downloadUrls.push({
+      fileName,
+      url,
+      id,
+      type: "my_homework",
+    });
+  }
+
+  // Also look for direct file links
+  $('.homeworkContent[onclick*="downloadFile"]').each((index, element) => {
+    const onclickAttr = $(element).attr("onclick");
+    if (onclickAttr) {
+      const match = onclickAttr.match(
+        /downloadFile\('([^']+)','([^']+)','([^']+)'\)/
+      );
+      if (match) {
+        const [, url, fileName, id] = match;
+        // Check if we don't already have this URL
+        if (!downloadUrls.some((item) => item.url === url)) {
+          downloadUrls.push({
+            fileName,
+            url,
+            id,
+            type: "my_homework",
+          });
+        }
+      }
+    }
+  });
+
+  // Look for attachment divs with picUrlaaa class
+  $(".picUrlaaa").each((index, element) => {
+    const url = $(element).text().trim();
+    if (url) {
+      // Find corresponding file name
+      const fileName =
+        $(element).siblings(".homeworkContent").text().trim() ||
+        `homework_${index + 1}`;
+      // Find corresponding ID
+      const idElement = $(element).siblings(".picIdaaa");
+      const id =
+        idElement.length > 0 ? idElement.text().trim() : `id_${index + 1}`;
+
+      // Check if we don't already have this URL
+      if (!downloadUrls.some((item) => item.url === url)) {
+        downloadUrls.push({
+          fileName,
+          url,
+          id,
+          type: "my_homework",
+        });
+      }
+    }
+  });
+
+  return downloadUrls;
+}
+
+// Function to download submitted homework file
+export async function downloadSubmittedHomeworkFile(
+  url: string,
+  fileName: string,
+  _id: string
+) {
+  if (!currentSession || !captchaSession) {
+    throw new Error("Not logged in");
+  }
+
+  try {
+    // Construct the download URL using the pattern from the HTML example
+    //const downloadUrl = `/downloadZyFj.shtml?path=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}&id=${id}`;
+    if (!url.startsWith("/") && !url.startsWith(API_CONFIG.VE_BASE_URL)) {
+      throw new Error("Invalid download URL");
+    }
+
+    const response = await axios.get(url, {
+      responseType: "arraybuffer",
+      headers: {
+        Cookie: captchaSession.cookies.join("; "),
+        sessionId: currentSession.sessionId,
+        ...API_CONFIG.HEADERS,
+      },
+      timeout: 60000,
+    });
+
+    if (response.status >= 200 && response.status < 300) {
+      updateSessionCookies(response);
+
+      const buffer = Buffer.from(response.data);
+      const base64 = buffer.toString("base64");
+      const contentType =
+        response.headers["content-type"] || "application/octet-stream";
+
+      return {
+        success: true,
+        data: base64,
+        contentType,
+        fileName,
+        fileSize: buffer.length,
+      };
+    }
+
+    throw new Error(`Download failed with status: ${response.status}`);
+  } catch (error) {
+    Logger.error("Failed to download submitted homework file:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Download failed",
+    };
+  }
+}
+
+// Sanitization function for courses
+const sanitizeCourse = (course: any): any => {
+  // Map course type numbers to readable strings
+  const getCourseType = (
+    type: number
+  ): "required" | "elective" | "practice" => {
+    switch (type) {
+      case 1:
+        return "elective";
+      case 2:
+        return "practice";
+      case 0:
+      default:
+        return "required";
+    }
+  };
+
+  return {
+    id: String(course.id),
+    name: course.name,
+    courseNumber: course.course_num,
+    picture: course.pic,
+    teacherId: String(course.teacher_id),
+    teacherName: course.teacher_name,
+    beginDate: new Date(course.begin_date).toISOString(),
+    endDate: new Date(course.end_date).toISOString(),
+    type: getCourseType(course.type),
+    selectiveCourseId: course.selective_course_id
+      ? String(course.selective_course_id)
+      : null,
+    facilityId: course.fz_id,
+    semesterCode: course.xq_code,
+    boy: course.boy,
+    schedule: course.schedule, // Keep schedule as-is for now since it's already clean
+  };
+};
+
 // Helper function to fetch course list with proper semester code
 export async function fetchCourseList() {
   // First get semester info
-  const semesterUrl = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
-  const semesterData = await authenticatedRequest(semesterUrl);
+  const semesterUrl = `/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+  const semesterData = await authenticatedAPIRequest(semesterUrl);
 
   if (!semesterData.result || semesterData.result.length === 0) {
     throw new Error("Failed to get semester info");
   }
 
   const xqCode = semesterData.result[0].xqCode;
-  const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/course.shtml?method=getCourseList&pagesize=100&page=1&xqCode=${xqCode}`;
-  const data = await authenticatedRequest(url, true); // Use dynamic session ID
+  const url = `/coursePlatform/course.shtml?method=getCourseList&pagesize=100&page=1&xqCode=${xqCode}`;
+  const data = await authenticatedAPIRequest(url, true); // Use dynamic session ID
 
   if (data.courseList) {
     // Try to enrich course data with schedule information
@@ -315,6 +694,15 @@ export async function fetchCourseList() {
   throw new Error("Failed to get course list");
 }
 
+async function getCourseList(): Promise<Course[]> {
+  const courseList = getCachedData("courses", COURSE_CACHE_DURATION);
+  if (courseList) {
+    Logger.event("Using cached course list");
+    return courseList;
+  }
+  return await fetchCourseList();
+}
+
 // Helper function to convert numeric type to English enum
 const convertHomeworkType = (
   numericType: number
@@ -348,7 +736,7 @@ const convertDocumentType = (docType: string): CourseDocumentType => {
 };
 
 // Sanitization function to transform server response to clean structure
-const sanitizeHomeworkItem = (hw: any): any => {
+const sanitizeHomeworkItem = (hw: any): Homework => {
   return {
     id: hw.id,
     courseId: hw.course_id,
@@ -375,11 +763,13 @@ const sanitizeHomeworkItem = (hw: any): any => {
     submittedCount: hw.submitCount,
     totalStudents: hw.allCount,
     type: convertHomeworkType(hw.homeworkType || 0),
+    submissionId: hw.snId || hw.subId || null,
+    userId: hw.user_id || "0",
   };
 };
 
 // Sanitization function for homework details
-const sanitizeHomeworkDetails = (details: any): any => {
+const sanitizeHomeworkDetails = (details: any): HomeworkDetails => {
   return {
     id: details.id,
     createdDate: new Date(details.create_date).toISOString(),
@@ -431,7 +821,7 @@ const sanitizeHomeworkAttachment = (attachment: any): any => {
 };
 
 // Helper function to fetch homework data
-export async function fetchHomeworkData(courseId?: string) {
+export async function fetchHomeworkList(courseId?: string) {
   const homeworkTypes = [
     { subType: 0, name: "普通作业" },
     { subType: 1, name: "课程报告" },
@@ -441,12 +831,12 @@ export async function fetchHomeworkData(courseId?: string) {
   ];
   if (courseId) {
     // Get homework for specific course
-    const allHomework = [];
+    const allHomework: any[] = [];
     for (const type of homeworkTypes) {
-      const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
+      const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
 
       try {
-        const data = await authenticatedRequest(url, true); // Use dynamic session ID
+        const data = await authenticatedAPIRequest(url, true); // Use dynamic session ID
         if (data.courseNoteList && data.courseNoteList.length > 0) {
           const homework = data.courseNoteList.map((hw: any) =>
             sanitizeHomeworkItem({
@@ -469,26 +859,17 @@ export async function fetchHomeworkData(courseId?: string) {
     return allHomework;
   } else {
     // Get all homework for all courses
-    let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-
-    if (!courseList) {
-      Logger.event("Fetching fresh course list for homework");
-      courseList = await fetchCourseList();
-      setCachedData("courses", courseList);
-    } else {
-      Logger.event("Using cached course list for homework");
-    }
-
+    let courseList = await getCourseList();
     Logger.debug(`Found ${courseList.length} courses for homework fetching`);
 
-    const allHomework = [];
+    const allHomework: any[] = [];
     for (const course of courseList) {
       // Get homework for this course using the same method as above
       for (const type of homeworkTypes) {
-        const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
+        const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
 
         try {
-          const data = await authenticatedRequest(url, true); // Use dynamic session ID
+          const data = await authenticatedAPIRequest(url, true); // Use dynamic session ID
           if (data.courseNoteList && data.courseNoteList.length > 0) {
             const homework = data.courseNoteList.map((hw: any) =>
               sanitizeHomeworkItem({
@@ -514,9 +895,6 @@ export async function fetchHomeworkData(courseId?: string) {
   }
 }
 
-// Track ongoing streaming operations to prevent race conditions
-const ongoingStreamingOps = new Map<string, Promise<any>>();
-
 // Streaming homework fetcher that yields results progressively
 export async function* fetchHomeworkStreaming(
   courseId?: string,
@@ -524,27 +902,12 @@ export async function* fetchHomeworkStreaming(
     completed: number;
     total: number;
     currentCourse?: string;
-  }) => void,
-  skipCache: boolean = false
+  }) => void
 ) {
-  const streamingKey = courseId ? `homework_${courseId}` : "all_homework";
-
-  // Check if there's already an ongoing streaming operation for this key
-  if (ongoingStreamingOps.has(streamingKey)) {
-    Logger.debug(
-      `Streaming operation already in progress for ${streamingKey}, waiting...`
-    );
-    await ongoingStreamingOps.get(streamingKey);
-    return; // Exit early if operation was already in progress
-  }
-
-  const allHomework: any[] = []; // Accumulate all homework for complete cache update
+  const allHomework: Homework[] = []; // Accumulate all homework for complete cache update
 
   try {
     // Mark this streaming operation as in progress
-    const streamingPromise = Promise.resolve();
-    ongoingStreamingOps.set(streamingKey, streamingPromise);
-
     const homeworkTypes = [
       { subType: 0, name: "普通作业", priority: 1 },
       { subType: 3, name: "平时测验", priority: 0 }, // High priority for quizzes
@@ -568,10 +931,10 @@ export async function* fetchHomeworkStreaming(
           onProgress({ completed, total: totalTasks, currentCourse: courseId });
         }
 
-        const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
+        const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${courseId}&subType=${type.subType}&page=1&pagesize=100`;
 
         try {
-          const data = await authenticatedRequest(url, true);
+          const data = await authenticatedAPIRequest(url, true);
           if (data.courseNoteList && data.courseNoteList.length > 0) {
             const homework = data.courseNoteList.map((hw: any) =>
               sanitizeHomeworkItem({
@@ -588,7 +951,6 @@ export async function* fetchHomeworkStreaming(
               courseId,
               courseName: null,
               type: type.name,
-              isComplete: false,
             };
           }
         } catch (error) {
@@ -603,15 +965,7 @@ export async function* fetchHomeworkStreaming(
       }
     } else {
       // Get all homework for all courses with intelligent batching
-      let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-
-      if (!courseList) {
-        Logger.event("Fetching fresh course list for homework streaming");
-        courseList = await fetchCourseList();
-        setCachedData("courses", courseList);
-      } else {
-        Logger.event("Using cached course list for homework streaming");
-      }
+      let courseList = await getCourseList();
 
       Logger.debug(
         `Found ${courseList.length} courses for streaming homework fetching`
@@ -654,11 +1008,11 @@ export async function* fetchHomeworkStreaming(
             });
           }
 
-          const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
+          const url = `/coursePlatform/homeWork.shtml?method=getHomeWorkList&cId=${course.id}&subType=${type.subType}&page=1&pagesize=100`;
 
           try {
             const data = await requestQueue.add(() =>
-              authenticatedRequest(url, true)
+              authenticatedAPIRequest(url, true)
             );
             if (data.courseNoteList && data.courseNoteList.length > 0) {
               const homework = data.courseNoteList.map((hw: any) =>
@@ -673,7 +1027,6 @@ export async function* fetchHomeworkStreaming(
                 courseId: course.id,
                 courseName: course.name,
                 type: type.name,
-                isComplete: false,
               };
             }
           } catch (error) {
@@ -709,20 +1062,8 @@ export async function* fetchHomeworkStreaming(
         onProgress({ completed: totalTasks, total: totalTasks });
       }
     }
-  } finally {
-    // Clean up and update cache with complete data (unless skipping cache)
-    ongoingStreamingOps.delete(streamingKey);
-
-    if (!skipCache && allHomework.length > 0) {
-      setCachedData(streamingKey, allHomework);
-      Logger.debug(
-        `Updated cache for ${streamingKey} with ${allHomework.length} homework items`
-      );
-    } else {
-      Logger.debug(
-        `Completed homework streaming for ${streamingKey} with ${allHomework.length} homework items (cache ${skipCache ? 'skipped' : 'not updated due to no data'})`
-      );
-    }
+  } catch (error) {
+    Logger.error("Error during homework streaming", error);
   }
 }
 
@@ -780,43 +1121,6 @@ const sanitizeCourseDocument = (
   };
 };
 
-// Sanitization function for courses
-const sanitizeCourse = (course: any): any => {
-  // Map course type numbers to readable strings
-  const getCourseType = (
-    type: number
-  ): "required" | "elective" | "practice" => {
-    switch (type) {
-      case 1:
-        return "elective";
-      case 2:
-        return "practice";
-      case 0:
-      default:
-        return "required";
-    }
-  };
-
-  return {
-    id: String(course.id),
-    name: course.name,
-    courseNumber: course.course_num,
-    picture: course.pic,
-    teacherId: String(course.teacher_id),
-    teacherName: course.teacher_name,
-    beginDate: new Date(course.begin_date).toISOString(),
-    endDate: new Date(course.end_date).toISOString(),
-    type: getCourseType(course.type),
-    selectiveCourseId: course.selective_course_id
-      ? String(course.selective_course_id)
-      : null,
-    facilityId: course.fz_id,
-    semesterCode: course.xq_code,
-    boy: course.boy,
-    schedule: course.schedule, // Keep schedule as-is for now since it's already clean
-  };
-};
-
 // Helper function to fetch course documents with sanitization (fetches all document types)
 export async function fetchCourseDocuments(courseCode: string) {
   const documentTypes = ["1", "10"]; // Electronic Courseware and Experiment Guide
@@ -845,30 +1149,14 @@ export async function* fetchDocumentsStreaming(
     completed: number;
     total: number;
     currentCourse?: string;
-  }) => void,
-  skipCache: boolean = false
+  }) => void
 ) {
-  const streamingKey = courseId ? `documents_${courseId}` : "all_documents";
-
-  // Check if there's already an ongoing streaming operation for this key
-  if (ongoingStreamingOps.has(streamingKey)) {
-    Logger.debug(
-      `Streaming operation already in progress for ${streamingKey}, waiting...`
-    );
-    await ongoingStreamingOps.get(streamingKey);
-    return; // Exit early if operation was already in progress
-  }
-
   const allDocuments: any[] = []; // Accumulate all documents for complete cache update
 
   try {
-    // Mark this streaming operation as in progress
-    const streamingPromise = Promise.resolve();
-    ongoingStreamingOps.set(streamingKey, streamingPromise);
-
     const documentTypes = [
-      { docType: "1", name: "Electronic Courseware" },
-      { docType: "10", name: "Experiment Guide" },
+      { docType: "1", name: "electronicCourseware" },
+      { docType: "10", name: "experimentGuide" },
     ];
 
     if (courseId) {
@@ -897,7 +1185,6 @@ export async function* fetchDocumentsStreaming(
             courseId,
             courseName: null,
             type: type.name,
-            isComplete: false,
           };
         } catch (error) {
           Logger.error(`Failed to get ${type.name} for course`, error);
@@ -907,7 +1194,6 @@ export async function* fetchDocumentsStreaming(
             courseId,
             courseName: null,
             type: type.name,
-            isComplete: false,
           };
         }
 
@@ -917,26 +1203,9 @@ export async function* fetchDocumentsStreaming(
           setTimeout(resolve, Math.floor(Math.random() * 301) + 50)
         );
       }
-
-      // Send a final completion signal
-      yield {
-        documents: [],
-        courseId,
-        courseName: null,
-        type: "complete",
-        isComplete: true,
-      };
     } else {
       // Get all documents for all courses
-      let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-
-      if (!courseList) {
-        Logger.event("Fetching fresh course list for document streaming");
-        courseList = await fetchCourseList();
-        setCachedData("courses", courseList);
-      } else {
-        Logger.event("Using cached course list for document streaming");
-      }
+      let courseList = await getCourseList();
 
       Logger.debug(
         `Found ${courseList.length} courses for streaming document fetching`
@@ -1016,20 +1285,9 @@ export async function* fetchDocumentsStreaming(
         onProgress({ completed: totalTasks, total: totalTasks });
       }
     }
-  } finally {
-    // Clean up and update cache with complete data (unless skipping cache)
-    ongoingStreamingOps.delete(streamingKey);
-
-    if (!skipCache && allDocuments.length > 0) {
-      setCachedData(streamingKey, allDocuments);
-      Logger.debug(
-        `Updated cache for ${streamingKey} with ${allDocuments.length} document items`
-      );
-    } else {
-      Logger.debug(
-        `Completed document streaming for ${streamingKey} with ${allDocuments.length} document items (cache ${skipCache ? 'skipped' : 'not updated due to no data'})`
-      );
-    }
+  } catch (err) {
+    Logger.error("Error during document streaming", err);
+    // Maybe to throw
   }
 }
 
@@ -1040,8 +1298,8 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   }
 
   // Get semester info first to get xqCode
-  const semesterUrl = `${API_CONFIG.BASE_URL}/back/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
-  const semesterData = await authenticatedRequest(semesterUrl);
+  const semesterUrl = `/rp/common/teachCalendar.shtml?method=queryCurrentXq`;
+  const semesterData = await authenticatedAPIRequest(semesterUrl);
 
   if (!semesterData.result || semesterData.result.length === 0) {
     throw new Error("Failed to get semester info");
@@ -1050,11 +1308,7 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   const xqCode = semesterData.result[0].xqCode;
 
   // Get course list to find the full course details (prefer cache)
-  let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-  if (!courseList) {
-    courseList = await fetchCourseList();
-    setCachedData("courses", courseList);
-  }
+  let courseList = await getCourseList();
 
   const course = courseList.find((c: any) => c.courseNumber === courseCode);
   if (!course) {
@@ -1065,9 +1319,9 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   const xkhId = course.facilityId || `${xqCode}-${courseCode}`;
 
   // Construct the course documents URL with specific docType
-  const url = `${API_CONFIG.BASE_URL}/back/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=${docType}&up_id=0&searchName=`;
+  const url = `/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=${docType}&up_id=0&searchName=`;
 
-  const data = await authenticatedRequest(url, true); // Use session ID
+  const data = await authenticatedAPIRequest(url, true); // Use session ID
 
   if (data && Array.isArray(data.resList)) {
     // Sanitize all documents
@@ -1100,23 +1354,22 @@ export async function fetchScheduleData(
     }
   }
 
-  const url = `${API_CONFIG.BASE_URL}/back/rp/common/myTimeTableDetail.shtml?method=skipIndex&sessionId=${sessionId}`;
+  const url = `/rp/common/myTimeTableDetail.shtml?method=skipIndex&sessionId=${sessionId}`;
 
   try {
-    const response = await axios.get(url, {
+    const response = await courseAPI.get(url, {
       headers: {
         Accept:
           "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
         Cookie: captchaSession ? captchaSession.cookies.join("; ") : "",
-        Referer: `${API_CONFIG.BASE_URL}/ve/`,
-        "User-Agent": API_CONFIG.USER_AGENT,
+        Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
+        "User-Agent": API_CONFIG.HEADERS["User-Agent"],
       },
       responseType: "arraybuffer", // Get raw bytes for GBK decoding
       validateStatus: () => true,
     });
 
-    if (response.status >= 200 && response.status < 400) {
+    if (response.status >= 200 && response.status < 300) {
       updateSessionCookies(response);
 
       // Decode GBK content to UTF-8

@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { UserSession } from "../../shared/types";
 import { Course } from "../../shared/types";
 import { CourseDocument } from "../../shared/types";
+import { Homework } from "../../shared/types";
+import { ScheduleData } from "../../shared/types";
 import CourseList from "./components/CourseList";
 import HomeworkList from "./components/HomeworkList";
 import DocumentList from "./components/DocumentList";
@@ -18,9 +20,19 @@ type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [activeView, setActiveView] = useState<ActiveView>("courses");
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedCourse_Documents, setSelectedCourse_Documents] =
+    useState<Course | null>(null);
+  const [selectedCourse_Homework, setSelectedCourse_Homework] =
+    useState<Course | null>(null);
+  const [selectedCourse_Schedule, setSelectedCourse_Schedule] =
+    useState<Course | null>(null);
+  const [selectedCourse_All, setSelectedCourse_All] = useState<Course | null>(
+    null
+  );
   const [courses, setCourses] = useState<Course[]>([]);
-  const [documents, setDocuments] = useState<CourseDocument[]>([]);
+  const [documents, setDocuments] = useState<CourseDocument[] | null>(null);
+  const [homework, setHomework] = useState<Homework[] | null>(null);
+  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
@@ -39,12 +51,15 @@ const App: React.FC = () => {
   } | null>(null);
 
   // Helper function to translate error codes
-  const getErrorMessage = useCallback((error: string, errorCode?: string): string => {
-    if (errorCode && t(errorCode) !== errorCode) {
-      return t(errorCode);
-    }
-    return error;
-  }, [t]);
+  const getErrorMessage = useCallback(
+    (error: string, errorCode?: string): string => {
+      if (errorCode && t(errorCode) !== errorCode) {
+        return t(errorCode);
+      }
+      return error;
+    },
+    [t]
+  );
 
   useEffect(() => {
     checkLoginStatus();
@@ -94,7 +109,7 @@ const App: React.FC = () => {
       console.log("Session expired, prompting for re-login");
       setUserSession(null);
       // Don't clear cached data - keep it available until user explicitly refreshes
-      setSelectedCourse(null);
+      setSelectedCourse_Documents(null);
       setActiveView("courses");
     };
 
@@ -249,8 +264,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCourseSelect = (course: Course) => {
-    setSelectedCourse(course);
+  const handleCourseSelect = (course: string | null) => {
+    const selected = courses.find((c) => c.courseNumber === course) || null;
+    setSelectedCourse_Documents(selected);
+    setSelectedCourse_Homework(selected);
+    setSelectedCourse_Schedule(selected);
+    setSelectedCourse_All(selected);
   };
 
   const handleRefreshCourses = async () => {
@@ -266,8 +285,8 @@ const App: React.FC = () => {
       await window.electronAPI.logout();
       setUserSession(null);
       setCourses([]);
-      setDocuments([]);
-      setSelectedCourse(null);
+      setDocuments(null);
+      setSelectedCourse_Documents(null);
       setActiveView("courses");
       setShowLogoutDropdown(false);
     } catch (error) {
@@ -294,8 +313,8 @@ const App: React.FC = () => {
       await window.electronAPI.clearStoredCredentials?.();
       setUserSession(null);
       setCourses([]);
-      setDocuments([]);
-      setSelectedCourse(null);
+      setDocuments(null);
+      setSelectedCourse_Documents(null);
       setActiveView("courses");
       setShowLogoutDropdown(false);
     } catch (error) {
@@ -311,27 +330,47 @@ const App: React.FC = () => {
             courses={courses}
             onCourseSelect={handleCourseSelect}
             onRefresh={handleRefreshCourses}
+            selectedCourse={selectedCourse_All}
+            onNavigate={setActiveView}
           />
         );
       case "homework":
-        return <HomeworkList />;
+        return (
+          <HomeworkList
+            selectedCourse={selectedCourse_Homework}
+            courses={courses}
+            onCourseSelect={(v) => setSelectedCourse_Homework(v)}
+            homework={homework}
+            setHomework={setHomework}
+          />
+        );
       case "documents":
         return (
           <DocumentList
             documents={documents}
-            selectedCourse={selectedCourse}
+            setDocuments={setDocuments}
+            selectedCourse={selectedCourse_Documents}
             courses={courses}
-            onCourseSelect={handleCourseSelect}
+            onCourseSelect={(v) => setSelectedCourse_Documents(v)}
           />
         );
       case "flow-schedule":
-        return <FlowScheduleTable />;
+        return (
+          <FlowScheduleTable
+            scheduleData={scheduleData}
+            setScheduleData={setScheduleData}
+            selectedCourse={selectedCourse_Schedule}
+            onCourseSelect={handleCourseSelect}
+          />
+        );
       default:
         return (
           <CourseList
             courses={courses}
             onCourseSelect={handleCourseSelect}
             onRefresh={handleRefreshCourses}
+            selectedCourse={selectedCourse_Documents}
+            onNavigate={setActiveView}
           />
         );
     }

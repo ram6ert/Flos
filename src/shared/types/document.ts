@@ -30,8 +30,6 @@ export interface DocumentStreamChunk {
   documents: CourseDocument[];
   courseId?: string;
   courseName?: string | null;
-  type: string;
-  isComplete: boolean;
   fromCache?: boolean;
 }
 

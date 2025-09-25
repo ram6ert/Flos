@@ -1,26 +1,28 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Course } from "../../../shared/types";
-import {
-  Container,
-  PageHeader,
-  Button,
-  Card,
-  Grid,
-} from "./common/StyledComponents";
+import { Container, PageHeader, Button, Grid } from "./common/StyledComponents";
+import CourseCard from "./CourseCard";
 
 interface CourseListProps {
   courses: Course[];
-  onCourseSelect: (course: Course) => void;
+  onCourseSelect: (course: string | null) => void;
   onRefresh?: () => Promise<void>;
+  selectedCourse?: Course | null;
+  onNavigate?: (
+    view: "courses" | "homework" | "documents" | "flow-schedule"
+  ) => void;
 }
 
 const CourseList: React.FC<CourseListProps> = ({
   courses,
   onCourseSelect,
   onRefresh,
+  selectedCourse,
+  onNavigate,
 }) => {
   const { t } = useTranslation();
+
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [courseImages, setCourseImages] = React.useState<
     Record<string, string | null>
@@ -39,24 +41,8 @@ const CourseList: React.FC<CourseListProps> = ({
     }
   };
 
-  const formatSemesterDates = (beginDate: string, endDate: string) => {
-    const begin = new Date(beginDate);
-    const end = new Date(endDate);
-    const beginFormatted = begin.toLocaleDateString("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    const endFormatted = end.toLocaleDateString("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    return `${beginFormatted} - ${endFormatted}`;
-  };
-
   // Fetch course images through main process
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchImages = async () => {
       for (const course of courses) {
         if (course.picture && !courseImages[course.id]) {
@@ -109,45 +95,19 @@ const CourseList: React.FC<CourseListProps> = ({
         <p className="text-gray-600">{t("noCourses")}</p>
       ) : (
         <Grid>
-          {courses.map((course) => (
-            <Card
-              key={course.id}
-              onClick={() => onCourseSelect(course)}
-              className="course-card flex flex-col"
-            >
-              {courseImages[course.id] && (
-                <div className="mb-3">
-                  <img
-                    src={courseImages[course.id]!}
-                    alt={course.name}
-                    className="w-full h-30 object-cover rounded-md"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
-
-              <div className="flex-1">
-                <h3 className="m-0 mb-2 text-lg text-gray-900 font-semibold">
-                  {course.name}
-                </h3>
-
-                <p className="m-0 mb-2 text-gray-700 text-sm">
-                  <strong>{t("courseNumber")}:</strong> {course.courseNumber}
-                </p>
-
-                <p className="m-0 mb-2 text-gray-700 text-sm">
-                  <strong>{t("instructor")}:</strong> {course.teacherName}
-                </p>
-
-                <p className="m-0 text-gray-600 text-xs">
-                  <strong>{t("semester")}:</strong>{" "}
-                  {formatSemesterDates(course.beginDate, course.endDate)}
-                </p>
-              </div>
-            </Card>
-          ))}
+          {courses.map((course) => {
+            // Check if this course matches the selected course (handles Course vs ScheduleCourse)
+            return (
+              <CourseCard
+                key={course.id}
+                course={course}
+                image={courseImages[course.id] || null}
+                isSelected={selectedCourse?.id === course.id}
+                onCourseSelect={onCourseSelect}
+                onNavigate={onNavigate}
+              />
+            );
+          })}
         </Grid>
       )}
     </Container>

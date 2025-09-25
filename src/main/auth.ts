@@ -1,10 +1,9 @@
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { app } from "electron";
-import axios from "axios";
+import { app, BrowserWindow } from "electron";
 import * as iconv from "iconv-lite";
-import { API_CONFIG } from "./constants";
+import { API_CONFIG, courseAPI, courseVe } from "./constants";
 import { LoginCredentials, LoginResponse } from "../shared/types";
 import { Logger } from "./logger";
 
@@ -69,15 +68,10 @@ export const handleFetchCaptcha = async (): Promise<{
     // Clear any existing captcha session to start fresh
     captchaSession = null;
 
-    const response = await axios.get(
-      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CAPTCHA}`,
-      {
-        responseType: "arraybuffer",
-        headers: {
-          "User-Agent": API_CONFIG.USER_AGENT,
-        },
-      }
-    );
+    const response = await courseVe.get(`${API_CONFIG.ENDPOINTS.CAPTCHA}`, {
+      responseType: "arraybuffer",
+      headers: {},
+    });
 
     updateSessionCookies(response);
     Logger.event("Captcha session created");
@@ -107,13 +101,13 @@ export const handleLogin = async (
     // Use captcha session cookies if available
     const cookieHeader = captchaSession?.cookies.join("; ") || "";
 
-    const response = await axios.post(
-      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`,
+    const response = await courseVe.post(
+      `${API_CONFIG.ENDPOINTS.LOGIN}`,
       formData,
       {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent": API_CONFIG.USER_AGENT,
+          Origin: API_CONFIG.ORIGIN,
           ...(cookieHeader && { Cookie: cookieHeader }),
         },
         maxRedirects: 0,
@@ -137,16 +131,13 @@ export const handleLogin = async (
     // If no alert, login was successful - get sessionId from message endpoint
     let sessionId: string | undefined;
     try {
-      const messageResponse = await axios.get(
-        `${API_CONFIG.BASE_URL}/back/coursePlatform/message.shtml?method=getArticleList`,
+      const messageResponse = await courseAPI.get(
+        `/coursePlatform/message.shtml?method=getArticleList`,
         {
           headers: {
             Accept: "application/json, text/javascript, */*; q=0.01",
-            "Accept-Language":
-              "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
             Cookie: cookieHeader,
-            Referer: `${API_CONFIG.BASE_URL}/ve/`,
-            "User-Agent": API_CONFIG.USER_AGENT,
+            Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
             "X-Requested-With": "XMLHttpRequest",
           },
           validateStatus: () => true,
@@ -269,6 +260,19 @@ export const handleSessionExpired = async (): Promise<void> => {
   } catch (error) {
     Logger.error("Failed to clear expired JSESSIONID", error);
   }
+
+  try {
+    // Notify all renderer windows
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send("session-expired");
+    }
+  } catch (notifyError) {
+    Logger.warn(
+      "Failed to notify renderer about session expiration",
+      notifyError
+    );
+  }
 };
 
 export const handleValidateStoredSession = async (): Promise<boolean> => {
@@ -288,14 +292,12 @@ export const handleValidateStoredSession = async (): Promise<boolean> => {
     };
 
     // Test the session by making a simple API call
-    const testUrl = `${API_CONFIG.BASE_URL}/back/coursePlatform/message.shtml?method=getArticleList`;
-    const response = await axios.get(testUrl, {
+    const testUrl = `/coursePlatform/message.shtml?method=getArticleList`;
+    const response = await courseAPI.get(testUrl, {
       headers: {
         Accept: "application/json, text/javascript, */*; q=0.01",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
         Cookie: captchaSession.cookies.join("; "),
-        Referer: `${API_CONFIG.BASE_URL}/ve/`,
-        "User-Agent": API_CONFIG.USER_AGENT,
+        Referer: `${API_CONFIG.API_BASE_URL}/ve/`,
         "X-Requested-With": "XMLHttpRequest",
       },
       validateStatus: () => true,

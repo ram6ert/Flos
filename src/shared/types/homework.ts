@@ -12,6 +12,8 @@ export interface Homework {
   submittedCount: number;
   totalStudents: number;
   type: "homework" | "report" | "experiment" | "quiz" | "assessment";
+  submissionId: string | null;
+  userId: string;
 }
 
 export interface HomeworkDetails {
@@ -53,7 +55,7 @@ export interface HomeworkAttachment {
   fileName: string;
   convertUrl: string;
   fileSize: number;
-  type?: "homework" | "answer";
+  type?: "homework" | "answer" | "my_homework";
 }
 
 export interface HomeworkDetailsResponse {

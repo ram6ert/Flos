@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 * {
   box-sizing: border-box;
@@ -49,10 +52,9 @@ body {
   z-index: 30;
 }
 
-.hover\\:z-50:hover {
-  z-index: 50;
-}
-
-.z-50 {
-  z-index: 50;
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

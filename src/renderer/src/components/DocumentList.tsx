@@ -12,6 +12,7 @@ import {
   Container,
   PageHeader,
   Button,
+  Input,
   Card,
   Loading,
   ErrorDisplay,
@@ -19,211 +20,208 @@ import {
 } from "./common/StyledComponents";
 
 interface DocumentListProps {
-  documents: CourseDocument[];
+  documents: CourseDocument[] | null;
+  setDocuments: React.Dispatch<React.SetStateAction<CourseDocument[] | null>>;
   selectedCourse: Course | null;
-  courses: Course[];
-  onCourseSelect: (course: Course) => void;
+  courses: Course[] | null;
+  onCourseSelect: (course: Course | null) => void;
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
   selectedCourse,
+  documents,
+  setDocuments,
   courses,
   onCourseSelect,
 }) => {
   const { t } = useTranslation();
-  const [realDocuments, setRealDocuments] = useState<CourseDocument[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingStateData>({
     state: LoadingState.IDLE,
   });
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [selectedDocType, setSelectedDocType] = useState<CourseDocumentType | "all">("all");
-  const currentRequestRef = useRef<string | null>(null);
-  const streamingAbortControllerRef = useRef<AbortController | null>(null);
+  const [selectedDocType, setSelectedDocType] = useState<
+    CourseDocumentType | "all"
+  >("all");
+
+  // Simple race condition protection - tracks current request
+  const currentRequestIdRef = useRef<string | null>(null);
+
+  // Handler functions for document streaming events
+  const handleDocumentStreamChunk = useCallback(
+    (_event: any, chunk: DocumentStreamChunk & { responseId?: string }) => {
+      // Check if this chunk is from the current request
+      if (chunk.responseId && currentRequestIdRef.current) {
+        if (chunk.responseId !== currentRequestIdRef.current) {
+          console.log("Ignoring document chunk from outdated request");
+          return;
+        }
+      }
+
+      // If streaming data, append to existing documents
+      setDocuments((prev) => {
+        const newDocs = [...(prev || []), ...chunk.documents];
+        // Remove duplicates based on document ID
+        const uniqueDocs = newDocs.filter(
+          (doc, index, arr) => arr.findIndex((d) => d.id === doc.id) === index
+        );
+        return uniqueDocs;
+      });
+    },
+    [setDocuments]
+  );
+
+  const handleDocumentStreamProgress = useCallback(
+    (
+      _event: any,
+      progress: DocumentStreamProgress & { responseId?: string }
+    ) => {
+      // Check if this progress is from the current request
+      if (progress.responseId && currentRequestIdRef.current) {
+        if (progress.responseId !== currentRequestIdRef.current) {
+          console.log("Ignoring document progress from outdated request");
+          return;
+        }
+      }
+
+      setLoadingState({
+        state: LoadingState.LOADING,
+        progress: {
+          completed: progress.completed,
+          total: progress.total,
+          currentItem: progress.currentCourse,
+        },
+      });
+    },
+    []
+  );
+
+  const handleDocumentStreamComplete = useCallback(
+    (_event: any, payload: { courseId?: string; responseId?: string }) => {
+      // Check if this completion is from the current request
+      if (payload.responseId && currentRequestIdRef.current) {
+        if (payload.responseId !== currentRequestIdRef.current) {
+          console.log("Ignoring document completion from outdated request");
+          return;
+        }
+      }
+
+      setLoadingState({ state: LoadingState.SUCCESS });
+      // Don't clear currentRequestIdRef.current here - let the next request handle it
+      // This prevents issues with late events or immediate subsequent requests
+    },
+    []
+  );
+
+  const handleDocumentStreamError = useCallback(
+    (_event: any, errorData: { error: string; responseId?: string }) => {
+      // Check if this error is from the current request
+      if (errorData.responseId && currentRequestIdRef.current) {
+        if (errorData.responseId !== currentRequestIdRef.current) {
+          console.log("Ignoring document error from outdated request");
+          return;
+        }
+      }
+
+      console.error("Document streaming error:", errorData.error);
+      setLoadingState({
+        state: LoadingState.ERROR,
+        error: `Failed to fetch documents: ${errorData.error}`,
+      });
+      // Don't clear currentRequestIdRef.current here either - let the next request handle it
+    },
+    []
+  );
+
+  const handleDocumentRefreshStart = useCallback(
+    (_event: any, _payload: any) => {
+      // Clear current documents for refresh (loading state already set by fetchDocuments)
+      setDocuments([]);
+    },
+    [setDocuments]
+  );
 
   const fetchDocuments = useCallback(
     async (forceRefresh = false) => {
       if (!selectedCourse) return;
 
-      // Abort any ongoing streaming request
-      if (streamingAbortControllerRef.current) {
-        streamingAbortControllerRef.current.abort();
-      }
+      // Generate unique request ID for this fetch and set it IMMEDIATELY
+      const requestId = `${selectedCourse.courseNumber}-${Date.now()}-${Math.random()}`;
 
-      // Create a unique request ID to track this request
-      const requestId = `${selectedCourse.courseNumber}-${Date.now()}`;
-      currentRequestRef.current = requestId;
+      // Set the request ID BEFORE making any API calls
+      currentRequestIdRef.current = requestId;
+      console.log("Starting document fetch with request ID:", requestId);
 
-      // Create new abort controller for this request
-      const abortController = new AbortController();
-      streamingAbortControllerRef.current = abortController;
+      // Set loading state BEFORE API call so events can start arriving
+      setLoadingState({ state: LoadingState.LOADING });
+      setDocuments(null); // Clear existing documents for streaming
 
       try {
-        setLoadingState({ state: LoadingState.LOADING });
-
-        setRealDocuments([]); // Clear existing documents for streaming
-
-        // Set up event listeners for streaming with race condition protection
-        const cleanupListeners = () => {
-          window.electronAPI.removeAllListeners("document-stream-chunk");
-          window.electronAPI.removeAllListeners("document-stream-progress");
-          window.electronAPI.removeAllListeners("document-stream-complete");
-          window.electronAPI.removeAllListeners("document-stream-error");
-          window.electronAPI.removeAllListeners("document-refresh-start");
-        };
-
-        // Clean up any existing listeners before setting up new ones
-        cleanupListeners();
-
-        window.electronAPI.onDocumentStreamChunk(
-          (_event, chunk: DocumentStreamChunk) => {
-            // Check if request was aborted or is not current
-            if (
-              abortController.signal.aborted ||
-              currentRequestRef.current !== requestId
-            ) {
-              return;
-            }
-
-            if (chunk.fromCache) {
-              // If cached data, replace all documents
-              setRealDocuments(chunk.documents);
-              setLoadingState({ state: LoadingState.SUCCESS });
-              cleanupListeners();
-            } else if (chunk.isComplete || chunk.type === "complete") {
-              // Final completion signal - don't add documents but finish streaming
-              setLoadingState({ state: LoadingState.SUCCESS });
-              cleanupListeners();
-            } else {
-              // If streaming data, append to existing documents
-              setRealDocuments((prev) => {
-                const newDocs = [...prev, ...chunk.documents];
-                // Remove duplicates based on document ID
-                const uniqueDocs = newDocs.filter(
-                  (doc, index, arr) =>
-                    arr.findIndex((d) => d.id === doc.id) === index
-                );
-                return uniqueDocs;
-              });
-            }
-          }
-        );
-
-        window.electronAPI.onDocumentStreamProgress(
-          (_event, progress: DocumentStreamProgress) => {
-            // Check if request was aborted or is not current
-            if (
-              abortController.signal.aborted ||
-              currentRequestRef.current !== requestId
-            ) {
-              return;
-            }
-            setLoadingState({
-              state: LoadingState.LOADING,
-              progress: {
-                completed: progress.completed,
-                total: progress.total,
-                currentItem: progress.currentCourse,
-              },
-            });
-          }
-        );
-
-        window.electronAPI.onDocumentStreamComplete((_event, _payload) => {
-          // Check if request was aborted or is not current
-          if (
-            abortController.signal.aborted ||
-            currentRequestRef.current !== requestId
-          ) {
-            return;
-          }
-          setLoadingState({ state: LoadingState.SUCCESS });
-          cleanupListeners();
-        });
-
-        window.electronAPI.onDocumentStreamError((_event, errorData) => {
-          // Check if request was aborted or is not current
-          if (
-            abortController.signal.aborted ||
-            currentRequestRef.current !== requestId
-          ) {
-            return;
-          }
-          console.error("Document streaming error:", errorData.error);
-          setLoadingState({
-            state: LoadingState.ERROR,
-            error: `Failed to fetch documents: ${errorData.error}`,
-          });
-          cleanupListeners();
-        });
-
-        window.electronAPI.onDocumentRefreshStart?.((_event, _payload) => {
-          // Check if request was aborted or is not current
-          if (
-            abortController.signal.aborted ||
-            currentRequestRef.current !== requestId
-          ) {
-            return;
-          }
-          // Clear current documents and reset loading state for refresh
-          setRealDocuments([]);
-          setLoadingState({ state: LoadingState.LOADING });
-        });
-
         if (forceRefresh) {
           await window.electronAPI.refreshDocuments(
-            selectedCourse.courseNumber
+            selectedCourse.courseNumber,
+            {
+              requestId: requestId,
+            }
           );
         } else {
           // Start streaming for this specific course (will fetch all document types)
-          await window.electronAPI.streamDocuments(selectedCourse.courseNumber);
+          await window.electronAPI.streamDocuments(
+            selectedCourse.courseNumber,
+            {
+              requestId: requestId,
+            }
+          );
         }
       } catch (error) {
-        // Don't show error if request was aborted or is not current
-        if (
-          abortController.signal.aborted ||
-          currentRequestRef.current !== requestId
-        ) {
-          return;
+        // Only handle error if this is still the current request
+        if (currentRequestIdRef.current === requestId) {
+          console.error("Failed to fetch documents:", error);
+          setLoadingState({
+            state: LoadingState.ERROR,
+            error: "Failed to fetch course documents. Please try again later.",
+          });
         }
-        console.error("Failed to fetch documents:", error);
-        setLoadingState({
-          state: LoadingState.ERROR,
-          error: "Failed to fetch course documents. Please try again later.",
-        });
       }
     },
-    [selectedCourse]
+    [selectedCourse, setDocuments]
   );
 
   useEffect(() => {
     if (selectedCourse) {
-      fetchDocuments(false); // Use streaming for initial load
+      fetchDocuments(false); // Always fetch when course changes - fetchDocuments will handle request ID
     } else {
-      // Abort any ongoing request when course is deselected
-      if (streamingAbortControllerRef.current) {
-        streamingAbortControllerRef.current.abort();
-      }
-      setRealDocuments([]);
+      // Cancel any ongoing request
+      currentRequestIdRef.current = null;
+      setDocuments(null);
       setLoadingState({ state: LoadingState.IDLE });
     }
-  }, [selectedCourse, fetchDocuments]);
+  }, [selectedCourse, fetchDocuments, setDocuments]);
 
-  // Cleanup listeners on unmount and abort any ongoing requests
+  // Set up event listeners and cleanup on unmount
   useEffect(() => {
-    return () => {
-      // Abort any ongoing streaming request
-      if (streamingAbortControllerRef.current) {
-        streamingAbortControllerRef.current.abort();
-      }
+    // Set up event listeners
+    window.electronAPI.onDocumentStreamChunk?.(handleDocumentStreamChunk);
+    window.electronAPI.onDocumentStreamProgress?.(handleDocumentStreamProgress);
+    window.electronAPI.onDocumentStreamComplete?.(handleDocumentStreamComplete);
+    window.electronAPI.onDocumentStreamError?.(handleDocumentStreamError);
+    window.electronAPI.onDocumentRefreshStart?.(handleDocumentRefreshStart);
 
+    return () => {
       // Clean up event listeners
-      window.electronAPI.removeAllListeners("document-stream-chunk");
-      window.electronAPI.removeAllListeners("document-stream-progress");
-      window.electronAPI.removeAllListeners("document-stream-complete");
-      window.electronAPI.removeAllListeners("document-stream-error");
+      window.electronAPI.removeAllListeners?.("document-stream-chunk");
+      window.electronAPI.removeAllListeners?.("document-stream-progress");
+      window.electronAPI.removeAllListeners?.("document-stream-complete");
+      window.electronAPI.removeAllListeners?.("document-stream-error");
+      window.electronAPI.removeAllListeners?.("document-refresh-start");
     };
-  }, []);
+  }, [
+    handleDocumentStreamChunk,
+    handleDocumentStreamProgress,
+    handleDocumentStreamComplete,
+    handleDocumentStreamError,
+    handleDocumentRefreshStart,
+  ]);
 
   const formatFileSize = (sizeStr: string) => {
     const size = parseFloat(sizeStr);
@@ -328,19 +326,25 @@ const DocumentList: React.FC<DocumentListProps> = ({
       );
     }
 
-    if (realDocuments.length === 0) {
+    if (documents && documents.length === 0) {
       return (
         <p className="text-gray-600">No documents available for this course.</p>
       );
     }
 
-    const filteredDocuments = realDocuments.filter((doc) => {
-      const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = selectedDocType === "all" || doc.documentType === selectedDocType;
+    const filteredDocuments = (documents || []).filter((doc) => {
+      const matchesSearch = doc.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesType =
+        selectedDocType === "all" || doc.documentType === selectedDocType;
       return matchesSearch && matchesType;
     });
 
-    if (filteredDocuments.length === 0 && (searchTerm || selectedDocType !== "all")) {
+    if (
+      filteredDocuments.length === 0 &&
+      (searchTerm || selectedDocType !== "all")
+    ) {
       return (
         <p className="text-gray-600">
           No documents found matching your filters.
@@ -418,21 +422,31 @@ const DocumentList: React.FC<DocumentListProps> = ({
       <PageHeader
         title={`${t("documents")}${
           selectedCourse
-            ? ` - ${selectedCourse.name} (${loadingState.state === LoadingState.LOADING ? "..." : realDocuments.length})`
+            ? ` - ${selectedCourse.name} (${loadingState.state === LoadingState.LOADING ? "..." : documents?.length || 0})`
             : ""
         }`}
         actions={
           <div className="flex gap-3 items-center">
             <select
-              value={selectedCourse?.id || ""}
+              value={
+                (courses || []).some((c) => c.id === (selectedCourse?.id || ""))
+                  ? selectedCourse?.id || ""
+                  : ""
+              }
               onChange={(e) => {
-                const course = courses.find((c) => c.id === e.target.value);
+                if (e.target.value === "") {
+                  onCourseSelect(null);
+                  return;
+                }
+                const course = (courses || []).find(
+                  (c) => c.id === e.target.value
+                );
                 if (course) onCourseSelect(course);
               }}
               className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Select a course</option>
-              {courses.map((course) => (
+              <option value="">All courses</option>
+              {(courses || []).map((course) => (
                 <option key={course.id} value={course.id}>
                   {course.courseNumber} - {course.name}
                 </option>
@@ -511,18 +525,20 @@ const DocumentList: React.FC<DocumentListProps> = ({
           </div>
         )}
 
-      {selectedCourse && realDocuments.length > 0 && (
+      {selectedCourse && (documents?.length || 0) > 0 && (
         <div className="mb-4 flex gap-3">
-          <input
+          <Input
             type="text"
             placeholder="Search documents by name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1"
           />
           <select
             value={selectedDocType}
-            onChange={(e) => setSelectedDocType(e.target.value as CourseDocumentType | "all")}
+            onChange={(e) =>
+              setSelectedDocType(e.target.value as CourseDocumentType | "all")
+            }
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">{t("allDocumentTypes")}</option>

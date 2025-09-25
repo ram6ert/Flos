@@ -41,7 +41,7 @@ export const SCHEDULE_CACHE_DURATION = COURSE_CACHE_DURATION; // Same as courses
 
 // Get cache file path (user-specific)
 export const getCachePath = (username?: string) => {
-  const cacheVersion = 2;
+  const cacheVersion = 3;
   const userDataPath = app.getPath("userData");
   const cacheFileName = username
     ? `cache${cacheVersion}_${username}.json`

@@ -18,6 +18,19 @@ module.exports = {
         18: "4.5rem",
         22: "5.5rem",
       },
+      maxHeight: {
+        96: "24rem",
+      },
+      transitionDelay: {
+        150: "150ms",
+      },
+      aspectRatio: {
+        video: "16 / 9",
+      },
+      gridTemplateRows: {
+        0: "0fr",
+        1: "1fr",
+      },
     },
   },
   plugins: [require("@tailwindcss/forms")],

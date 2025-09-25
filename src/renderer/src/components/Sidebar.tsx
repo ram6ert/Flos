@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "./common/StyledComponents";
 
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
 
@@ -66,16 +67,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
       ))}
 
       <div className="p-4 border-t border-gray-200">
-        <button
+        <Button
           onClick={handleCheckUpdates}
           disabled={isCheckingUpdates}
-          className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          variant="secondary"
+          size="md"
+          className="w-full flex items-center justify-center text-gray-700 bg-gray-100 hover:bg-gray-200"
         >
           <span className={`mr-2 ${isCheckingUpdates ? "animate-spin" : ""}`}>
             {isCheckingUpdates ? "⏳" : ""}
           </span>
           {isCheckingUpdates ? t("checkingUpdates") : t("checkUpdates")}
-        </button>
+        </Button>
       </div>
     </nav>
   );
