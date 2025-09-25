@@ -93,7 +93,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
       }
     };
     loadDetails();
-  }, [isSelected, course.id]);
+  }, [isSelected, course.id, course.courseNumber]);
   return (
     <Card
       key={course.id}
