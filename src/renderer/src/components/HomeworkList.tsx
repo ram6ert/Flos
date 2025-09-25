@@ -146,7 +146,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       // Check if this chunk is from the current request
       if (chunk.responseId && currentRequestIdRef.current) {
         if (chunk.responseId !== currentRequestIdRef.current) {
-          console.log('Ignoring homework chunk from outdated request');
+          console.log("Ignoring homework chunk from outdated request");
           return;
         }
       }
@@ -181,7 +181,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       // Check if this progress is from the current request
       if (progress.responseId && currentRequestIdRef.current) {
         if (progress.responseId !== currentRequestIdRef.current) {
-          console.log('Ignoring homework progress from outdated request');
+          console.log("Ignoring homework progress from outdated request");
           return;
         }
       }
@@ -203,7 +203,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       // Check if this completion is from the current request
       if (payload.responseId && currentRequestIdRef.current) {
         if (payload.responseId !== currentRequestIdRef.current) {
-          console.log('Ignoring homework completion from outdated request');
+          console.log("Ignoring homework completion from outdated request");
           return;
         }
       }
@@ -221,7 +221,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       // Check if this error is from the current request
       if (errorData.responseId && currentRequestIdRef.current) {
         if (errorData.responseId !== currentRequestIdRef.current) {
-          console.log('Ignoring homework error from outdated request');
+          console.log("Ignoring homework error from outdated request");
           return;
         }
       }
@@ -299,7 +299,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
 
   const isOverdue = (hw: Homework) => {
     const now = new Date();
-    return new Date(hw.dueDate) < now && hw.submissionStatus !== "submitted";
+    return new Date(hw.dueDate) < now;
   };
 
   const getRemainingTime = (hw: Homework) => {
