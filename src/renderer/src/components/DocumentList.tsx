@@ -149,6 +149,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
       // Set the request ID BEFORE making any API calls
       currentRequestIdRef.current = requestId;
+      console.log("Starting document fetch with request ID:", requestId);
 
       // Set loading state BEFORE API call so events can start arriving
       setLoadingState({ state: LoadingState.LOADING });
@@ -156,12 +157,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
       try {
         if (forceRefresh) {
-          // For refresh, we need to pass the requestId too - but refreshDocuments doesn't support it yet
-          // For now, let's use streamDocuments with forceRefresh option
-          await window.electronAPI.streamDocuments(
+          await window.electronAPI.refreshDocuments(
             selectedCourse.courseNumber,
             {
-              forceRefresh: true,
               requestId: requestId,
             }
           );

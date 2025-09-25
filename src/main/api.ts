@@ -13,7 +13,7 @@ import {
 } from "./cache";
 import * as iconv from "iconv-lite";
 import { ScheduleParser } from "./schedule-parser";
-import { CourseDocumentType, ScheduleData } from "../shared/types";
+import { Course, CourseDocumentType, ScheduleData } from "../shared/types";
 import { Logger } from "./logger";
 
 // Install axios interceptors to detect session expiration globally
@@ -413,6 +413,43 @@ export async function authenticatedAPIRequest(
   throw new Error(`Request failed with status: ${response.status}`);
 }
 
+// Sanitization function for courses
+const sanitizeCourse = (course: any): any => {
+  // Map course type numbers to readable strings
+  const getCourseType = (
+    type: number
+  ): "required" | "elective" | "practice" => {
+    switch (type) {
+      case 1:
+        return "elective";
+      case 2:
+        return "practice";
+      case 0:
+      default:
+        return "required";
+    }
+  };
+
+  return {
+    id: String(course.id),
+    name: course.name,
+    courseNumber: course.course_num,
+    picture: course.pic,
+    teacherId: String(course.teacher_id),
+    teacherName: course.teacher_name,
+    beginDate: new Date(course.begin_date).toISOString(),
+    endDate: new Date(course.end_date).toISOString(),
+    type: getCourseType(course.type),
+    selectiveCourseId: course.selective_course_id
+      ? String(course.selective_course_id)
+      : null,
+    facilityId: course.fz_id,
+    semesterCode: course.xq_code,
+    boy: course.boy,
+    schedule: course.schedule, // Keep schedule as-is for now since it's already clean
+  };
+};
+
 // Helper function to fetch course list with proper semester code
 export async function fetchCourseList() {
   // First get semester info
@@ -487,6 +524,15 @@ export async function fetchCourseList() {
     }
   }
   throw new Error("Failed to get course list");
+}
+
+async function getCourseList(): Promise<Course[]> {
+  const courseList = getCachedData("courses", COURSE_CACHE_DURATION);
+  if (courseList) {
+    Logger.event("Using cached course list");
+    return courseList;
+  }
+  return await fetchCourseList();
 }
 
 // Helper function to convert numeric type to English enum
@@ -605,7 +651,7 @@ const sanitizeHomeworkAttachment = (attachment: any): any => {
 };
 
 // Helper function to fetch homework data
-export async function fetchHomeworkData(courseId?: string) {
+export async function fetchHomeworkList(courseId?: string) {
   const homeworkTypes = [
     { subType: 0, name: "普通作业" },
     { subType: 1, name: "课程报告" },
@@ -643,16 +689,7 @@ export async function fetchHomeworkData(courseId?: string) {
     return allHomework;
   } else {
     // Get all homework for all courses
-    let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-
-    if (!courseList) {
-      Logger.event("Fetching fresh course list for homework");
-      courseList = await fetchCourseList();
-      setCachedData("courses", courseList);
-    } else {
-      Logger.event("Using cached course list for homework");
-    }
-
+    let courseList = await getCourseList();
     Logger.debug(`Found ${courseList.length} courses for homework fetching`);
 
     const allHomework: any[] = [];
@@ -688,9 +725,6 @@ export async function fetchHomeworkData(courseId?: string) {
   }
 }
 
-// Track ongoing streaming operations to prevent race conditions
-const ongoingStreamingOps = new Map<string, Promise<any>>();
-
 // Streaming homework fetcher that yields results progressively
 export async function* fetchHomeworkStreaming(
   courseId?: string,
@@ -698,27 +732,12 @@ export async function* fetchHomeworkStreaming(
     completed: number;
     total: number;
     currentCourse?: string;
-  }) => void,
-  skipCache: boolean = false
+  }) => void
 ) {
-  const streamingKey = courseId ? `homework_${courseId}` : "all_homework";
-
-  // Check if there's already an ongoing streaming operation for this key
-  if (ongoingStreamingOps.has(streamingKey)) {
-    Logger.debug(
-      `Streaming operation already in progress for ${streamingKey}, waiting...`
-    );
-    await ongoingStreamingOps.get(streamingKey);
-    return; // Exit early if operation was already in progress
-  }
-
   const allHomework: any[] = []; // Accumulate all homework for complete cache update
 
   try {
     // Mark this streaming operation as in progress
-    const streamingPromise = Promise.resolve();
-    ongoingStreamingOps.set(streamingKey, streamingPromise);
-
     const homeworkTypes = [
       { subType: 0, name: "普通作业", priority: 1 },
       { subType: 3, name: "平时测验", priority: 0 }, // High priority for quizzes
@@ -776,15 +795,7 @@ export async function* fetchHomeworkStreaming(
       }
     } else {
       // Get all homework for all courses with intelligent batching
-      let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-
-      if (!courseList) {
-        Logger.event("Fetching fresh course list for homework streaming");
-        courseList = await fetchCourseList();
-        setCachedData("courses", courseList);
-      } else {
-        Logger.event("Using cached course list for homework streaming");
-      }
+      let courseList = await getCourseList();
 
       Logger.debug(
         `Found ${courseList.length} courses for streaming homework fetching`
@@ -881,20 +892,8 @@ export async function* fetchHomeworkStreaming(
         onProgress({ completed: totalTasks, total: totalTasks });
       }
     }
-  } finally {
-    // Clean up and update cache with complete data (unless skipping cache)
-    ongoingStreamingOps.delete(streamingKey);
-
-    if (!skipCache && allHomework.length > 0) {
-      setCachedData(streamingKey, allHomework);
-      Logger.debug(
-        `Updated cache for ${streamingKey} with ${allHomework.length} homework items`
-      );
-    } else {
-      Logger.debug(
-        `Completed homework streaming for ${streamingKey} with ${allHomework.length} homework items (cache ${skipCache ? "skipped" : "not updated due to no data"})`
-      );
-    }
+  } catch (error) {
+    Logger.error("Error during homework streaming", error);
   }
 }
 
@@ -952,43 +951,6 @@ const sanitizeCourseDocument = (
   };
 };
 
-// Sanitization function for courses
-const sanitizeCourse = (course: any): any => {
-  // Map course type numbers to readable strings
-  const getCourseType = (
-    type: number
-  ): "required" | "elective" | "practice" => {
-    switch (type) {
-      case 1:
-        return "elective";
-      case 2:
-        return "practice";
-      case 0:
-      default:
-        return "required";
-    }
-  };
-
-  return {
-    id: String(course.id),
-    name: course.name,
-    courseNumber: course.course_num,
-    picture: course.pic,
-    teacherId: String(course.teacher_id),
-    teacherName: course.teacher_name,
-    beginDate: new Date(course.begin_date).toISOString(),
-    endDate: new Date(course.end_date).toISOString(),
-    type: getCourseType(course.type),
-    selectiveCourseId: course.selective_course_id
-      ? String(course.selective_course_id)
-      : null,
-    facilityId: course.fz_id,
-    semesterCode: course.xq_code,
-    boy: course.boy,
-    schedule: course.schedule, // Keep schedule as-is for now since it's already clean
-  };
-};
-
 // Helper function to fetch course documents with sanitization (fetches all document types)
 export async function fetchCourseDocuments(courseCode: string) {
   const documentTypes = ["1", "10"]; // Electronic Courseware and Experiment Guide
@@ -1017,30 +979,14 @@ export async function* fetchDocumentsStreaming(
     completed: number;
     total: number;
     currentCourse?: string;
-  }) => void,
-  skipCache: boolean = false
+  }) => void
 ) {
-  const streamingKey = courseId ? `documents_${courseId}` : "all_documents";
-
-  // Check if there's already an ongoing streaming operation for this key
-  if (ongoingStreamingOps.has(streamingKey)) {
-    Logger.debug(
-      `Streaming operation already in progress for ${streamingKey}, waiting...`
-    );
-    await ongoingStreamingOps.get(streamingKey);
-    return; // Exit early if operation was already in progress
-  }
-
   const allDocuments: any[] = []; // Accumulate all documents for complete cache update
 
   try {
-    // Mark this streaming operation as in progress
-    const streamingPromise = Promise.resolve();
-    ongoingStreamingOps.set(streamingKey, streamingPromise);
-
     const documentTypes = [
-      { docType: "1", name: "Electronic Courseware" },
-      { docType: "10", name: "Experiment Guide" },
+      { docType: "1", name: "electronicCourseware" },
+      { docType: "10", name: "experimentGuide" },
     ];
 
     if (courseId) {
@@ -1089,15 +1035,7 @@ export async function* fetchDocumentsStreaming(
       }
     } else {
       // Get all documents for all courses
-      let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-
-      if (!courseList) {
-        Logger.event("Fetching fresh course list for document streaming");
-        courseList = await fetchCourseList();
-        setCachedData("courses", courseList);
-      } else {
-        Logger.event("Using cached course list for document streaming");
-      }
+      let courseList = await getCourseList();
 
       Logger.debug(
         `Found ${courseList.length} courses for streaming document fetching`
@@ -1177,20 +1115,9 @@ export async function* fetchDocumentsStreaming(
         onProgress({ completed: totalTasks, total: totalTasks });
       }
     }
-  } finally {
-    // Clean up and update cache with complete data (unless skipping cache)
-    ongoingStreamingOps.delete(streamingKey);
-
-    if (!skipCache && allDocuments.length > 0) {
-      setCachedData(streamingKey, allDocuments);
-      Logger.debug(
-        `Updated cache for ${streamingKey} with ${allDocuments.length} document items`
-      );
-    } else {
-      Logger.debug(
-        `Completed document streaming for ${streamingKey} with ${allDocuments.length} document items (cache ${skipCache ? "skipped" : "not updated due to no data"})`
-      );
-    }
+  } catch (err) {
+    Logger.error("Error during document streaming", err);
+    // Maybe to throw
   }
 }
 
@@ -1211,11 +1138,7 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   const xqCode = semesterData.result[0].xqCode;
 
   // Get course list to find the full course details (prefer cache)
-  let courseList = getCachedData("courses", COURSE_CACHE_DURATION);
-  if (!courseList) {
-    courseList = await fetchCourseList();
-    setCachedData("courses", courseList);
-  }
+  let courseList = await getCourseList();
 
   const course = courseList.find((c: any) => c.courseNumber === courseCode);
   if (!course) {

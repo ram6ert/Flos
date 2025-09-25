@@ -25,13 +25,16 @@ export interface ElectronAPI {
     age: number;
   }>;
   refreshHomework: (
-    courseId?: string
+    courseId?: string,
+    options?: { requestId?: string }
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   refreshDocuments: (
-    courseId?: string
+    courseId?: string,
+    options?: { requestId?: string }
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   streamHomework: (
-    courseId?: string
+    courseId?: string,
+    options?: { requestId?: string }
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   streamDocuments: (
     courseId?: string,
@@ -226,12 +229,12 @@ const electronAPI: ElectronAPI = {
   getCourseDocuments: (courseId: string, options?: { skipCache?: boolean }) =>
     ipcRenderer.invoke("get-course-documents", courseId, options),
   refreshCourses: () => ipcRenderer.invoke("get-courses", { skipCache: true }),
-  refreshHomework: (courseId?: string) =>
-    ipcRenderer.invoke("refresh-homework", courseId),
-  refreshDocuments: (courseId?: string) =>
-    ipcRenderer.invoke("refresh-documents", courseId),
-  streamHomework: (courseId?: string) =>
-    ipcRenderer.invoke("stream-homework", courseId),
+  refreshHomework: (courseId?: string, options?: { requestId?: string }) =>
+    ipcRenderer.invoke("refresh-homework", courseId, options),
+  refreshDocuments: (courseId?: string, options?: { requestId?: string }) =>
+    ipcRenderer.invoke("refresh-documents", courseId, options),
+  streamHomework: (courseId?: string, options?: { requestId?: string }) =>
+    ipcRenderer.invoke("stream-homework", courseId, options),
   streamDocuments: (
     courseId?: string,
     options?: { forceRefresh?: boolean; requestId?: string }

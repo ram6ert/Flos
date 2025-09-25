@@ -3,7 +3,7 @@ import axios from "axios";
 import { currentSession, captchaSession, handleSessionExpired } from "../auth";
 import {
   requestQueue,
-  fetchHomeworkData,
+  fetchHomeworkList,
   fetchHomeworkStreaming,
   fetchHomeworkDetails,
   uploadFile,
@@ -15,8 +15,6 @@ import { Homework } from "../../shared/types";
 
 const CACHE_TTL = 30 * 60;
 
-// Active request tracking to prevent race conditions
-const activeHomeworkRequests = new Map<string, string>(); // requestKey -> responseId
 const generateHomeworkResponseId = () =>
   `hw_resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 const cachedHomework = new NodeCache({
@@ -39,7 +37,7 @@ export function setupHomeworkHandlers() {
       // If skipCache is requested, fetch fresh data immediately
       if (options?.skipCache) {
         return requestQueue.add(async () => {
-          const data = await fetchHomeworkData(courseId);
+          const data = await fetchHomeworkList(courseId);
           cachedHomework.set(cacheKey, data);
           return { data, fromCache: false, age: 0 };
         });
@@ -55,117 +53,92 @@ export function setupHomeworkHandlers() {
 
       // No cache, fetch fresh data
       return requestQueue.add(async () => {
-        const data = await fetchHomeworkData(courseId);
+        const data = await fetchHomeworkList(courseId);
         cachedHomework.set(cacheKey, data);
         return { data, fromCache: false, age: 0 };
       });
     }
   );
 
-  ipcMain.handle("refresh-homework", async (event, courseId?: string) => {
-    if (!currentSession) {
-      await handleSessionExpired();
-      throw new Error("SESSION_EXPIRED");
-    }
+  ipcMain.handle(
+    "refresh-homework",
+    async (event, courseId?: string, options = {}) => {
+      if (!currentSession) {
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
+      }
 
-    const requestKey = courseId || "all_homework";
-    const responseId = generateHomeworkResponseId();
+      const { requestId } = options;
+      // Use the requestId passed from renderer, or generate one if not provided
+      const responseId = requestId || generateHomeworkResponseId();
 
-    // Cancel any existing request
-    if (activeHomeworkRequests.has(requestKey)) {
-      console.log(`Cancelling previous homework refresh for ${requestKey}`);
-    }
-    activeHomeworkRequests.set(requestKey, responseId);
+      const cacheKey = courseId
+        ? `homework_${currentSession.username}_${courseId}`
+        : "all_homework";
 
-    const cacheKey = courseId
-      ? `homework_${currentSession.username}_${courseId}`
-      : "all_homework";
+      // Clear existing cache for this key
+      cachedHomework.del(cacheKey);
 
-    // Clear existing cache for this key
-    cachedHomework.del(cacheKey);
+      // Signal renderer to clear display and start streaming fresh data
+      try {
+        // Signal renderer to clear display
+        event.sender.send("homework-refresh-start", { courseId, responseId });
 
-    // Signal renderer to clear display and start streaming fresh data
-    try {
-      // Signal renderer to clear display
-      event.sender.send("homework-refresh-start", { courseId, responseId });
+        const generator = fetchHomeworkStreaming(courseId, (progress) => {
+          event.sender.send("homework-stream-progress", {
+            ...progress,
+            responseId,
+          });
+        });
 
-      const generator = fetchHomeworkStreaming(
-        courseId,
-        (progress) => {
-          // Only send progress if this is still the current request
-          if (activeHomeworkRequests.get(requestKey) === responseId) {
-            event.sender.send("homework-stream-progress", {
-              ...progress,
-              responseId,
-            });
-          }
-        },
-        false
-      ); // false = allow caching of the fresh data
-
-      let finalData: Homework[] = [];
-      for await (const chunk of generator) {
-        // Only send chunk if this is still the current request
-        if (activeHomeworkRequests.get(requestKey) === responseId) {
+        let finalData: Homework[] = [];
+        for await (const chunk of generator) {
           event.sender.send("homework-stream-chunk", {
             ...chunk,
             fromCache: false,
             responseId,
           });
           finalData = finalData.concat(chunk.homework);
-        } else {
-          // Request was cancelled
-          console.log(`Homework refresh cancelled for ${requestKey}`);
-          break;
         }
-      }
 
-      // Only complete if this is still the current request
-      if (activeHomeworkRequests.get(requestKey) === responseId) {
-        event.sender.send("homework-stream-complete", { courseId, responseId });
+        // Only complete if this is still the current request
+        event.sender.send("homework-stream-complete", {
+          courseId,
+          responseId,
+        });
+
         cachedHomework.set(cacheKey, finalData);
-        activeHomeworkRequests.delete(requestKey);
-      }
-
-      return { data: finalData, fromCache: false, age: 0 };
-    } catch (error) {
-      // Only send error if this is still the current request
-      if (activeHomeworkRequests.get(requestKey) === responseId) {
+        return { data: finalData, fromCache: false, age: 0 };
+      } catch (error) {
         event.sender.send("homework-stream-error", {
           error: error instanceof Error ? error.message : "Streaming failed",
           responseId,
         });
-        activeHomeworkRequests.delete(requestKey);
+        throw error;
       }
-      throw error;
     }
-  });
+  );
 
   // Streaming homework handlers
-  ipcMain.handle("stream-homework", async (event, courseId?: string) => {
-    if (!currentSession) {
-      await handleSessionExpired();
-      throw new Error("SESSION_EXPIRED");
-    }
+  ipcMain.handle(
+    "stream-homework",
+    async (event, courseId?: string, options = {}) => {
+      if (!currentSession) {
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
+      }
 
-    const requestKey = courseId || "all_homework";
-    const responseId = generateHomeworkResponseId();
+      const { requestId } = options;
+      // Use the requestId passed from renderer, or generate one if not provided
+      const responseId = requestId || generateHomeworkResponseId();
 
-    // Check for existing request and cancel it
-    if (activeHomeworkRequests.has(requestKey)) {
-      console.log(`Cancelling previous homework request for ${requestKey}`);
-    }
-    activeHomeworkRequests.set(requestKey, responseId);
+      const cacheKey = courseId
+        ? `homework_${currentSession.username}_${courseId}`
+        : "all_homework";
 
-    const cacheKey = courseId
-      ? `homework_${currentSession.username}_${courseId}`
-      : "all_homework";
-
-    // Check cache first - if we have recent data, return it immediately
-    const cachedData = cachedHomework.get(cacheKey);
-    if (cachedData) {
-      // Only send if this is still the current request
-      if (activeHomeworkRequests.get(requestKey) === responseId) {
+      // Check cache first - if we have recent data, return it immediately
+      const cachedData = cachedHomework.get(cacheKey);
+      if (cachedData) {
         // Send cached data immediately
         event.sender.send("homework-stream-chunk", {
           homework: cachedData,
@@ -175,61 +148,50 @@ export function setupHomeworkHandlers() {
           responseId,
         });
 
-        event.sender.send("homework-stream-complete", { courseId, responseId });
-        activeHomeworkRequests.delete(requestKey);
-      }
-      return { data: cachedData, fromCache: true, age: 0 };
-    }
+        event.sender.send("homework-stream-complete", {
+          courseId,
+          responseId,
+        });
 
-    // No cache or expired - start streaming
-    try {
-      const generator = fetchHomeworkStreaming(courseId, (progress) => {
-        // Only send progress if this is still the current request
-        if (activeHomeworkRequests.get(requestKey) === responseId) {
+        return { data: cachedData, fromCache: true, age: 0 };
+      }
+
+      // No cache or expired - start streaming
+      try {
+        const generator = fetchHomeworkStreaming(courseId, (progress) => {
           event.sender.send("homework-stream-progress", {
             ...progress,
             responseId,
           });
-        }
-      });
+        });
 
-      let finalData: Homework[] = [];
-      for await (const chunk of generator) {
-        // Only send chunk if this is still the current request
-        if (activeHomeworkRequests.get(requestKey) === responseId) {
+        let finalData: Homework[] = [];
+        for await (const chunk of generator) {
           event.sender.send("homework-stream-chunk", {
             ...chunk,
             fromCache: false,
             responseId,
           });
           finalData = finalData.concat(chunk.homework);
-        } else {
-          // Request was cancelled, stop streaming
-          console.log(`Homework streaming cancelled for ${requestKey}`);
-          break;
         }
-      }
 
-      // Only complete if this is still the current request
-      if (activeHomeworkRequests.get(requestKey) === responseId) {
-        event.sender.send("homework-stream-complete", { courseId, responseId });
+        event.sender.send("homework-stream-complete", {
+          courseId,
+          responseId,
+        });
+
         cachedHomework.set(cacheKey, finalData);
-        activeHomeworkRequests.delete(requestKey);
-      }
-
-      return { data: finalData || [], fromCache: false, age: 0 };
-    } catch (error) {
-      // Only send error if this is still the current request
-      if (activeHomeworkRequests.get(requestKey) === responseId) {
+        return { data: finalData || [], fromCache: false, age: 0 };
+      } catch (error) {
+        // Only send error if this is still the current request
         event.sender.send("homework-stream-error", {
           error: error instanceof Error ? error.message : "Streaming failed",
           responseId,
         });
-        activeHomeworkRequests.delete(requestKey);
+        throw error;
       }
-      throw error;
     }
-  });
+  );
 
   // Fetch homework details
   ipcMain.handle(

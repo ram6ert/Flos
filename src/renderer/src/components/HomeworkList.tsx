@@ -81,22 +81,27 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
         return;
       }
 
-      // Generate unique request ID
+      // Generate unique request ID for this fetch and set it IMMEDIATELY
       const requestId = `homework-${Date.now()}-${Math.random()}`;
+
+      // Set the request ID BEFORE making any API calls
       currentRequestIdRef.current = requestId;
       isFetchingRef.current = true;
+
+      // Set loading state BEFORE API call so events can start arriving
+      setLoadingState({ state: LoadingState.LOADING });
+      if (!forceRefresh) {
+        setHomework(null); // Clear existing homework for streaming
+      }
 
       try {
         if (forceRefresh) {
           // For force refresh, use streaming refresh (clears display first)
-          await window.electronAPI.refreshHomework();
+          await window.electronAPI.refreshHomework(undefined, { requestId });
         } else {
-          // Use streaming for normal loads
-          setLoadingState({ state: LoadingState.LOADING });
-
           // Start streaming
           const response: HomeworkResponse =
-            await window.electronAPI.streamHomework();
+            await window.electronAPI.streamHomework(undefined, { requestId });
 
           // Handle final response (may be cached data)
           if (response.fromCache) {
@@ -104,21 +109,142 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
             setCacheInfo(t("showingCachedData", { minutes: ageMinutes }));
           }
         }
-      } finally {
-        if (!forceRefresh) {
-          setLoadingState({ state: LoadingState.SUCCESS });
+      } catch (error) {
+        // Only handle error if this is still the current request
+        if (currentRequestIdRef.current === requestId) {
+          console.error("Failed to fetch homework:", error);
+          setLoadingState({
+            state: LoadingState.ERROR,
+            error: "Failed to fetch homework. Please try again later.",
+          });
         }
+      } finally {
         isFetchingRef.current = false;
-        currentRequestIdRef.current = null;
+        // Don't clear currentRequestIdRef.current here - let the next request handle it
+        // This prevents issues with late events or immediate subsequent requests
       }
     },
-    [t]
+    [t, setHomework]
   );
 
   useEffect(() => {
     fetchHomework();
   }, [fetchHomework]);
 
+  // Handler functions for homework streaming events
+  const handleHomeworkStreamChunk = useCallback(
+    (
+      _event: any,
+      chunk: {
+        homework: any[];
+        courseId?: string;
+        courseName?: string;
+        fromCache: boolean;
+        responseId?: string;
+      }
+    ) => {
+      // Check if this chunk is from the current request
+      if (chunk.responseId && currentRequestIdRef.current) {
+        if (chunk.responseId !== currentRequestIdRef.current) {
+          console.log('Ignoring homework chunk from outdated request');
+          return;
+        }
+      }
+
+      // Streaming data - append new homework
+      setHomework((prev) => {
+        const existingIds = new Set((prev || []).map((hw) => hw.id));
+        const newHomework = chunk.homework.filter(
+          (hw) => !existingIds.has(hw.id)
+        );
+        return [...(prev || []), ...newHomework];
+      });
+
+      // Update cache info to show we're receiving fresh data
+      if (!chunk.fromCache) {
+        setCacheInfo(t("showingFreshData"));
+      }
+    },
+    [setHomework, t]
+  );
+
+  const handleHomeworkStreamProgress = useCallback(
+    (
+      _event: any,
+      progress: {
+        completed: number;
+        total: number;
+        currentCourse?: string;
+        responseId?: string;
+      }
+    ) => {
+      // Check if this progress is from the current request
+      if (progress.responseId && currentRequestIdRef.current) {
+        if (progress.responseId !== currentRequestIdRef.current) {
+          console.log('Ignoring homework progress from outdated request');
+          return;
+        }
+      }
+
+      setLoadingState({
+        state: LoadingState.LOADING,
+        progress: {
+          completed: progress.completed,
+          total: progress.total,
+          currentItem: progress.currentCourse,
+        },
+      });
+    },
+    []
+  );
+
+  const handleHomeworkStreamComplete = useCallback(
+    (_event: any, payload: { courseId?: string; responseId?: string }) => {
+      // Check if this completion is from the current request
+      if (payload.responseId && currentRequestIdRef.current) {
+        if (payload.responseId !== currentRequestIdRef.current) {
+          console.log('Ignoring homework completion from outdated request');
+          return;
+        }
+      }
+
+      setLoadingState({ state: LoadingState.SUCCESS });
+      setCacheInfo(t("showingFreshData"));
+      // Don't clear currentRequestIdRef.current here - let the next request handle it
+      // This prevents issues with late events or immediate subsequent requests
+    },
+    [t]
+  );
+
+  const handleHomeworkStreamError = useCallback(
+    (_event: any, errorData: { error: string; responseId?: string }) => {
+      // Check if this error is from the current request
+      if (errorData.responseId && currentRequestIdRef.current) {
+        if (errorData.responseId !== currentRequestIdRef.current) {
+          console.log('Ignoring homework error from outdated request');
+          return;
+        }
+      }
+
+      console.error("Homework streaming error:", errorData.error);
+      setLoadingState({
+        state: LoadingState.ERROR,
+        error: `Failed to fetch homework: ${errorData.error}`,
+      });
+      // Don't clear currentRequestIdRef.current here either - let the next request handle it
+    },
+    []
+  );
+
+  const handleHomeworkRefreshStart = useCallback(
+    (_event: any, _payload: { courseId?: string; responseId?: string }) => {
+      // Clear current homework and reset loading state for refresh (loading state already set by fetchHomework)
+      setHomework([]);
+    },
+    [setHomework]
+  );
+
+  // Set up event listeners and cleanup on unmount
   useEffect(() => {
     const handleCacheUpdate = (
       _event: any,
@@ -135,85 +261,13 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       }
     };
 
-    const handleStreamChunk = (
-      _event: any,
-      chunk: {
-        homework: any[];
-        courseId?: string;
-        courseName?: string;
-        fromCache: boolean;
-        responseId?: string;
-      }
-    ) => {
-      // Main process already handles request cancellation, so we trust all incoming chunks
-      // Streaming data - append new homework
-      setHomework((prev) => {
-        const existingIds = new Set((prev || []).map((hw) => hw.id));
-        const newHomework = chunk.homework.filter(
-          (hw) => !existingIds.has(hw.id)
-        );
-        return [...(prev || []), ...newHomework];
-      });
-
-      // Update cache info to show we're receiving fresh data
-      if (!chunk.fromCache) {
-        setCacheInfo(t("showingFreshData"));
-      }
-    };
-
-    const handleStreamProgress = (
-      _event: any,
-      progress: {
-        completed: number;
-        total: number;
-        currentCourse?: string;
-      }
-    ) => {
-      setLoadingState({
-        state: LoadingState.LOADING,
-        progress: {
-          completed: progress.completed,
-          total: progress.total,
-          currentItem: progress.currentCourse,
-        },
-      });
-    };
-
-    const handleStreamComplete = (
-      _event: any,
-      _payload: { courseId?: string; responseId?: string }
-    ) => {
-      // Main process already handles request cancellation, so we trust all completions
-      setLoadingState({ state: LoadingState.SUCCESS });
-      setCacheInfo(t("showingFreshData"));
-    };
-
-    const handleStreamError = (
-      _event: any,
-      error: { error: string; responseId?: string }
-    ) => {
-      // Main process already handles request cancellation, so we trust all errors
-      console.error("Streaming error:", error.error);
-      setLoadingState({ state: LoadingState.ERROR, error: error.error });
-    };
-
-    const handleRefreshStart = (
-      _event: any,
-      _payload: { courseId?: string }
-    ) => {
-      // Clear current homework and reset loading state for refresh
-      setHomework([]);
-      setLoadingState({ state: LoadingState.LOADING });
-      setCacheInfo("");
-    };
-
     // Set up event listeners
     window.electronAPI.onCacheUpdate?.(handleCacheUpdate);
-    window.electronAPI.onHomeworkStreamChunk?.(handleStreamChunk);
-    window.electronAPI.onHomeworkStreamProgress?.(handleStreamProgress);
-    window.electronAPI.onHomeworkStreamComplete?.(handleStreamComplete);
-    window.electronAPI.onHomeworkStreamError?.(handleStreamError);
-    window.electronAPI.onHomeworkRefreshStart?.(handleRefreshStart);
+    window.electronAPI.onHomeworkStreamChunk?.(handleHomeworkStreamChunk);
+    window.electronAPI.onHomeworkStreamProgress?.(handleHomeworkStreamProgress);
+    window.electronAPI.onHomeworkStreamComplete?.(handleHomeworkStreamComplete);
+    window.electronAPI.onHomeworkStreamError?.(handleHomeworkStreamError);
+    window.electronAPI.onHomeworkRefreshStart?.(handleHomeworkRefreshStart);
 
     return () => {
       window.electronAPI.removeAllListeners?.("cache-updated");
@@ -223,7 +277,15 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       window.electronAPI.removeAllListeners?.("homework-stream-error");
       window.electronAPI.removeAllListeners?.("homework-refresh-start");
     };
-  }, [setHomework, t]);
+  }, [
+    setHomework,
+    t,
+    handleHomeworkStreamChunk,
+    handleHomeworkStreamProgress,
+    handleHomeworkStreamComplete,
+    handleHomeworkStreamError,
+    handleHomeworkRefreshStart,
+  ]);
 
   const getStatusColor = (hw: Homework) => {
     if (hw.submissionStatus === "graded") return "#28a745"; // green
