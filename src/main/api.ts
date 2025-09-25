@@ -13,7 +13,13 @@ import {
 } from "./cache";
 import * as iconv from "iconv-lite";
 import { ScheduleParser } from "./schedule-parser";
-import { Course, CourseDocumentType, ScheduleData } from "../shared/types";
+import {
+  Course,
+  CourseDocumentType,
+  Homework,
+  HomeworkDetails,
+  ScheduleData,
+} from "../shared/types";
 import { Logger } from "./logger";
 
 // Install axios interceptors to detect session expiration globally
@@ -562,7 +568,7 @@ const convertDocumentType = (docType: string): CourseDocumentType => {
 };
 
 // Sanitization function to transform server response to clean structure
-const sanitizeHomeworkItem = (hw: any): any => {
+const sanitizeHomeworkItem = (hw: any): Homework => {
   return {
     id: hw.id,
     courseId: hw.course_id,
@@ -589,11 +595,13 @@ const sanitizeHomeworkItem = (hw: any): any => {
     submittedCount: hw.submitCount,
     totalStudents: hw.allCount,
     type: convertHomeworkType(hw.homeworkType || 0),
+    submissionId: hw.subId || null,
+    userId: hw.user_id || "0",
   };
 };
 
 // Sanitization function for homework details
-const sanitizeHomeworkDetails = (details: any): any => {
+const sanitizeHomeworkDetails = (details: any): HomeworkDetails => {
   return {
     id: details.id,
     createdDate: new Date(details.create_date).toISOString(),
@@ -728,7 +736,7 @@ export async function* fetchHomeworkStreaming(
     currentCourse?: string;
   }) => void
 ) {
-  const allHomework: any[] = []; // Accumulate all homework for complete cache update
+  const allHomework: Homework[] = []; // Accumulate all homework for complete cache update
 
   try {
     // Mark this streaming operation as in progress

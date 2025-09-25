@@ -12,6 +12,8 @@ export interface Homework {
   submittedCount: number;
   totalStudents: number;
   type: "homework" | "report" | "experiment" | "quiz" | "assessment";
+  submissionId: string | null;
+  userId: string;
 }
 
 export interface HomeworkDetails {
