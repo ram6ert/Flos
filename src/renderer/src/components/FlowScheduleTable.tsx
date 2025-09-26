@@ -425,7 +425,7 @@ const FlowScheduleTable: React.FC<FlowScheduleTableProps> = ({
                                 "ring-4 ring-indigo-500/80 ring-offset-2 ring-offset-white border-2 border-indigo-500 bg-indigo-50/90 shadow-lg shadow-indigo-300",
                               isSelected &&
                                 isOngoing &&
-                                "ring-4 ring-indigo-500/80 ring-offset-2",
+                                "ring-4 ring-indigo-500/80 ring-offset-2 ring-offset-white border-2 border-indigo-500 bg-gradient-to-r from-red-100/95 to-indigo-100/95 shadow-xl shadow-indigo-300 animate-pulse",
                               !isSelected &&
                                 (isOngoing
                                   ? "bg-red-100/95 border-2 border-red-500 shadow-lg shadow-red-200 animate-pulse hover:bg-red-200/90"
