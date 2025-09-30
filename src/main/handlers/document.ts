@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from "electron";
+import { ipcMain } from "electron";
 import axios from "axios";
 import { currentSession, captchaSession, handleSessionExpired } from "../auth";
 import {
