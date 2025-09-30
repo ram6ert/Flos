@@ -240,6 +240,54 @@ export interface ElectronAPI {
     fileSize?: number;
     error?: string;
   }>;
+  getHomeworkFileSize: (url: string) => Promise<{
+    success: boolean;
+    fileSize: number;
+  }>;
+  // batch download
+  batchDownloadDocuments: (
+    documents: Array<{ url: string; fileName: string; fileExtension: string }>
+  ) => Promise<{
+    success?: boolean;
+    error?: string;
+    batchId?: string;
+    results?: Array<{
+      fileName: string;
+      success: boolean;
+      filePath?: string;
+      error?: string;
+    }>;
+    downloadDir?: string;
+  }>;
+  // download tasks
+  getDownloadTasks: () => Promise<
+    Array<{
+      id: string;
+      fileName: string;
+      status: "pending" | "downloading" | "completed" | "failed";
+      progress: number;
+      totalSize: number;
+      downloadedSize: number;
+      error?: string;
+      filePath?: string;
+    }>
+  >;
+  clearDownloadTasks: (taskIds?: string[]) => Promise<boolean>;
+  onDownloadTaskUpdate: (
+    callback: (
+      event: any,
+      task: {
+        id: string;
+        fileName: string;
+        status: "pending" | "downloading" | "completed" | "failed";
+        progress: number;
+        totalSize: number;
+        downloadedSize: number;
+        error?: string;
+        filePath?: string;
+      }
+    ) => void
+  ) => void;
 }
 
 const electronAPI: ElectronAPI = {
@@ -334,6 +382,17 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("get-homework-download-urls", upId, id, userId, score),
   downloadSubmittedHomework: (url: string, fileName: string, id: string) =>
     ipcRenderer.invoke("download-submitted-homework", url, fileName, id),
+  getHomeworkFileSize: (url: string) =>
+    ipcRenderer.invoke("get-homework-file-size", url),
+  // batch download
+  batchDownloadDocuments: (documents) =>
+    ipcRenderer.invoke("batch-download-documents", documents),
+  // download tasks
+  getDownloadTasks: () => ipcRenderer.invoke("get-download-tasks"),
+  clearDownloadTasks: (taskIds?: string[]) =>
+    ipcRenderer.invoke("clear-download-tasks", taskIds),
+  onDownloadTaskUpdate: (callback) =>
+    ipcRenderer.on("download-task-update", callback),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

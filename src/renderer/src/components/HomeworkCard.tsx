@@ -7,11 +7,32 @@ import {
 } from "../../../shared/types";
 import { useState } from "react";
 
-const formatFileSize = (size: number) => {
-  if (size < 1) {
-    return `${(size * 1024).toFixed(0)} KB`;
+const formatFileSize = (size: number | string) => {
+  // Handle if size is a string (e.g., "2.5MB" or "2.5")
+  if (typeof size === "string") {
+    // If it already contains "MB" or "KB", return as is
+    if (size.includes("MB") || size.includes("KB") || size.includes("GB")) {
+      return size;
+    }
+    // Try to parse as a number
+    size = parseFloat(size);
   }
-  return `${size.toFixed(2)} MB`;
+  
+  // If size is already in MB (< 1024, assuming reasonable file sizes)
+  // This handles the case where server returns MB
+  if (size < 1024 && size >= 0.001) {
+    if (size < 1) {
+      return `${(size * 1024).toFixed(0)} KB`;
+    }
+    return `${size.toFixed(2)} MB`;
+  }
+  
+  // Otherwise assume it's in bytes
+  if (size === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(size) / Math.log(k));
+  return Math.round((size / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 };
 
 interface HomeworkCardProps {
@@ -281,16 +302,34 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
           downloadUrlsResponse.data.length > 0
         ) {
           // Add "My Homework" attachments to the existing attachments
-          const myHomeworkAttachments = downloadUrlsResponse.data.map(
-            (file) => ({
-              id: parseInt(file.id) || 0,
-              url: file.url,
-              fileName: file.fileName,
-              convertUrl: "",
-              fileSize: 0, // We don't have file size info from the HTML parsing
-              type: "my_homework" as const,
-            })
+          // Fetch file sizes for each submitted homework file
+          const myHomeworkAttachmentsPromises = downloadUrlsResponse.data.map(
+            async (file) => {
+              let fileSize = 0;
+              try {
+                // Get file size via HEAD request (without downloading)
+                const sizeResult = await window.electronAPI.getHomeworkFileSize(
+                  file.url
+                );
+                if (sizeResult.success && sizeResult.fileSize) {
+                  fileSize = sizeResult.fileSize;
+                }
+              } catch (error) {
+                console.error("Failed to get file size for:", file.fileName);
+              }
+              
+              return {
+                id: parseInt(file.id) || 0,
+                url: file.url,
+                fileName: file.fileName,
+                convertUrl: "",
+                fileSize: fileSize,
+                type: "my_homework" as const,
+              };
+            }
           );
+
+          const myHomeworkAttachments = await Promise.all(myHomeworkAttachmentsPromises);
 
           if (homeworkDetails && homeworkDetails.attachments) {
             homeworkDetails.attachments.push(...myHomeworkAttachments);
@@ -588,34 +627,53 @@ interface AttachmentCardProps {
 const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
   const [downloading, setDownloading] = useState<boolean>(false);
 
-  const _getFileExtension = (url: string) => {
-    const match = url.match(/\.([^.]+)$/);
-    return match ? match[1] : t("unknown");
+  const getFileExtension = (url: string): string => {
+    const match = url.match(/\.([^./?#]+)(?:[?#]|$)/);
+    return match ? match[1] : "";
+  };
+
+  const ensureFileExtension = (fileName: string, url: string): string => {
+    // Check if fileName already has an extension
+    const hasExtension = /\.[a-zA-Z0-9]+$/.test(fileName);
+    if (hasExtension) {
+      return fileName;
+    }
+    
+    // Try to get extension from URL
+    const extension = getFileExtension(url);
+    if (extension) {
+      return `${fileName}.${extension}`;
+    }
+    
+    return fileName;
   };
 
   const handleDownloadAttachment = async (attachment: HomeworkAttachment) => {
     setDownloading(true);
     try {
+      // Ensure fileName has proper extension
+      const fileName = ensureFileExtension(attachment.fileName, attachment.url);
+      
       let result;
 
       if (attachment.type === "my_homework") {
         // Use the new API for submitted homework files
         result = await window.electronAPI.downloadSubmittedHomework(
           attachment.url,
-          attachment.fileName,
+          fileName,
           attachment.id.toString()
         );
       } else {
         // Use existing API for regular attachments
         result = await window.electronAPI.downloadHomeworkAttachment(
           attachment.url,
-          attachment.fileName
+          fileName
         );
       }
 
       if (result.savedToFile) {
         // Large file saved directly to disk
-        alert(`File downloaded successfully to: ${result.filePath}`);
+        alert(`文件下载成功: ${result.filePath}`);
       } else if (result.data) {
         // Small file - create download link
         const blob = new Blob(
@@ -627,17 +685,17 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = attachment.fileName || `download_${attachment.id}`;
+        a.download = fileName || `download_${attachment.id}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       } else if (!result.success) {
-        alert(`Download failed: ${result.error || "Unknown error"}`);
+        alert(`下载失败: ${result.error || "未知错误"}`);
       }
     } catch (error) {
       console.error("Failed to download attachment:", error);
-      alert("Failed to download attachment");
+      alert("下载附件失败");
     } finally {
       setDownloading(false);
     }

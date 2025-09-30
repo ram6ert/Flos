@@ -249,16 +249,6 @@ export function setupHomeworkHandlers() {
         const contentLength = parseInt(
           headResponse.headers["content-length"] || "0"
         );
-        const maxFileSize = 50 * 1024 * 1024; // 50MB limit
-
-        if (contentLength > maxFileSize) {
-          return {
-            success: false,
-            error: `File too large: ${(contentLength / (1024 * 1024)).toFixed(
-              1
-            )}MB. Maximum allowed: ${maxFileSize / (1024 * 1024)}MB`,
-          };
-        }
 
         // For small files (<= 10MB), download directly
         if (contentLength <= 10 * 1024 * 1024) {
@@ -338,6 +328,47 @@ export function setupHomeworkHandlers() {
         return {
           success: false,
           error: error instanceof Error ? error.message : "Download failed",
+        };
+      }
+    }
+  );
+
+  // Get file size without downloading (HEAD request)
+  ipcMain.handle(
+    "get-homework-file-size",
+    async (event, fileUrl: string) => {
+      if (!currentSession) {
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
+      }
+
+      try {
+        const fullUrl = fileUrl.startsWith("/")
+          ? `${API_CONFIG.VE_BASE_URL}${fileUrl}`
+          : fileUrl;
+
+        const headResponse = await axios.head(fullUrl, {
+          headers: {
+            Cookie: captchaSession?.cookies.join("; ") || "",
+            sessionId: currentSession.sessionId,
+            ...API_CONFIG.HEADERS,
+          },
+          timeout: 5000,
+        });
+
+        const contentLength = parseInt(
+          headResponse.headers["content-length"] || "0"
+        );
+
+        return {
+          success: true,
+          fileSize: contentLength,
+        };
+      } catch (error) {
+        console.error("Failed to get file size:", error);
+        return {
+          success: false,
+          fileSize: 0,
         };
       }
     }

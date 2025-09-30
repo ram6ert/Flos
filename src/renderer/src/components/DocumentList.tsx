@@ -18,6 +18,7 @@ import {
   ErrorDisplay,
   InfoBanner,
 } from "./common/StyledComponents";
+import DownloadTasksModal from "./DownloadTasksModal";
 
 interface DocumentListProps {
   documents: CourseDocument[] | null;
@@ -43,6 +44,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [selectedDocType, setSelectedDocType] = useState<
     CourseDocumentType | "all"
   >("all");
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [showDownloadTasks, setShowDownloadTasks] = useState(false);
 
   // Simple race condition protection - tracks current request
   const currentRequestIdRef = useRef<string | null>(null);
@@ -196,6 +200,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
       setDocuments(null);
       setLoadingState({ state: LoadingState.IDLE });
     }
+    // Reset selection when course changes
+    setSelectedDocIds(new Set());
+    setIsSelectMode(false);
   }, [selectedCourse, fetchDocuments, setDocuments]);
 
   // Set up event listeners and cleanup on unmount
@@ -304,6 +311,70 @@ const DocumentList: React.FC<DocumentListProps> = ({
     }
   };
 
+  const handleToggleSelect = (docId: string) => {
+    setSelectedDocIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(docId)) {
+        newSet.delete(docId);
+      } else {
+        newSet.add(docId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const filteredDocuments = (documents || []).filter((doc) => {
+      const matchesSearch = doc.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesType =
+        selectedDocType === "all" || doc.documentType === selectedDocType;
+      return matchesSearch && matchesType;
+    });
+
+    if (selectedDocIds.size === filteredDocuments.length) {
+      // Deselect all
+      setSelectedDocIds(new Set());
+    } else {
+      // Select all
+      setSelectedDocIds(new Set(filteredDocuments.map((doc) => doc.id)));
+    }
+  };
+
+  const handleBatchDownload = async () => {
+    if (selectedDocIds.size === 0) {
+      alert("Please select at least one document to download.");
+      return;
+    }
+
+    const selectedDocs = (documents || [])
+      .filter((doc) => selectedDocIds.has(doc.id))
+      .map((doc) => ({
+        url: doc.resourceUrl,
+        fileName: doc.name,
+        fileExtension: doc.fileExtension,
+      }));
+
+    try {
+      setShowDownloadTasks(true);
+      const result = await window.electronAPI.batchDownloadDocuments(
+        selectedDocs
+      );
+
+      if (result.success === false) {
+        alert(`批量下载失败: ${result.error}`);
+      } else {
+        // Clear selection after successful batch download
+        setSelectedDocIds(new Set());
+        setIsSelectMode(false);
+      }
+    } catch (error) {
+      console.error("Batch download error:", error);
+      alert("批量下载失败，请重试。");
+    }
+  };
+
   const renderDocumentContent = () => {
     if (loadingState.state === LoadingState.ERROR) {
       return (
@@ -359,6 +430,16 @@ const DocumentList: React.FC<DocumentListProps> = ({
           .map((doc) => (
             <Card key={doc.id} padding="lg">
               <div className="flex justify-between items-center w-full">
+                {isSelectMode && (
+                  <div className="mr-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedDocIds.has(doc.id)}
+                      onChange={() => handleToggleSelect(doc.id)}
+                      className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </div>
+                )}
                 <div className="flex-1">
                   <div className="flex items-center mb-2">
                     <span className="text-2xl mr-3">
@@ -399,16 +480,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 </div>
 
                 <div className="ml-4">
-                  <Button
-                    onClick={() => handleDownload(doc)}
-                    disabled={downloadingDoc === doc.id}
-                    variant="success"
-                    size="sm"
-                  >
-                    {downloadingDoc === doc.id
-                      ? t("downloading")
-                      : t("download")}
-                  </Button>
+                  {!isSelectMode && (
+                    <Button
+                      onClick={() => handleDownload(doc)}
+                      disabled={downloadingDoc === doc.id}
+                      variant="success"
+                      size="sm"
+                    >
+                      {downloadingDoc === doc.id
+                        ? t("downloading")
+                        : t("download")}
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card>
@@ -427,6 +510,13 @@ const DocumentList: React.FC<DocumentListProps> = ({
         }`}
         actions={
           <div className="flex gap-3 items-center">
+            <Button
+              onClick={() => setShowDownloadTasks(!showDownloadTasks)}
+              variant="secondary"
+              size="sm"
+            >
+              下载任务
+            </Button>
             <select
               value={
                 (courses || []).some((c) => c.id === (selectedCourse?.id || ""))
@@ -526,29 +616,87 @@ const DocumentList: React.FC<DocumentListProps> = ({
         )}
 
       {selectedCourse && (documents?.length || 0) > 0 && (
-        <div className="mb-4 flex gap-3">
-          <Input
-            type="text"
-            placeholder="Search documents by name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1"
-          />
-          <select
-            value={selectedDocType}
-            onChange={(e) =>
-              setSelectedDocType(e.target.value as CourseDocumentType | "all")
-            }
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">{t("allDocumentTypes")}</option>
-            <option value="courseware">{t("electronicCourseware")}</option>
-            <option value="experiment_guide">{t("experimentGuide")}</option>
-          </select>
-        </div>
+        <>
+          <div className="mb-4 flex gap-3">
+            <Input
+              type="text"
+              placeholder="Search documents by name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1"
+            />
+            <select
+              value={selectedDocType}
+              onChange={(e) =>
+                setSelectedDocType(e.target.value as CourseDocumentType | "all")
+              }
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">{t("allDocumentTypes")}</option>
+              <option value="courseware">{t("electronicCourseware")}</option>
+              <option value="experiment_guide">{t("experimentGuide")}</option>
+            </select>
+          </div>
+
+          {/* Batch Download Controls */}
+          <div className="mb-4 flex gap-3 items-center">
+            <Button
+              onClick={() => {
+                setIsSelectMode(!isSelectMode);
+                if (isSelectMode) {
+                  setSelectedDocIds(new Set());
+                }
+              }}
+              variant={isSelectMode ? "danger" : "secondary"}
+              size="sm"
+            >
+              {isSelectMode
+                ? "取消多选"
+                : "多选"}
+            </Button>
+
+            {isSelectMode && (
+              <>
+                <Button onClick={handleSelectAll} variant="secondary" size="sm">
+                  {selectedDocIds.size ===
+                  (documents || []).filter((doc) => {
+                    const matchesSearch = doc.name
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase());
+                    const matchesType =
+                      selectedDocType === "all" ||
+                      doc.documentType === selectedDocType;
+                    return matchesSearch && matchesType;
+                  }).length
+                    ? "取消全选"
+                    : "全选"}
+                </Button>
+
+                <Button
+                  onClick={handleBatchDownload}
+                  disabled={selectedDocIds.size === 0}
+                  variant="success"
+                  size="sm"
+                >
+                  下载选中 ({selectedDocIds.size})
+                </Button>
+
+                <span className="text-sm text-gray-600">
+                  已选择 {selectedDocIds.size} 个文档
+                </span>
+              </>
+            )}
+          </div>
+        </>
       )}
 
       {renderDocumentContent()}
+
+      {/* Download Tasks Modal */}
+      <DownloadTasksModal
+        isOpen={showDownloadTasks}
+        onClose={() => setShowDownloadTasks(false)}
+      />
     </Container>
   );
 };

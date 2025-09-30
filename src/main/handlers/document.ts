@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { ipcMain, BrowserWindow } from "electron";
 import axios from "axios";
 import { currentSession, captchaSession, handleSessionExpired } from "../auth";
 import {
@@ -11,6 +11,20 @@ import NodeCache from "node-cache";
 import { CourseDocument } from "../../shared/types";
 
 const CACHE_TTL = 30 * 60;
+
+// Download task tracking
+interface DownloadTask {
+  id: string;
+  fileName: string;
+  status: "pending" | "downloading" | "completed" | "failed";
+  progress: number;
+  totalSize: number;
+  downloadedSize: number;
+  error?: string;
+  filePath?: string;
+}
+
+const downloadTasks: Map<string, DownloadTask> = new Map();
 
 // Active request tracking to prevent race conditions
 const generateResponseId = () =>
@@ -222,14 +236,16 @@ export function setupDocumentHandlers() {
     }
   );
 
-  // Download course document with size limit and streaming
+  // Download course document with progress tracking
   ipcMain.handle(
     "download-course-document",
-    async (event, documentUrl: string, fileName: string) => {
+    async (event, documentUrl: string, fileName: string, taskId?: string) => {
       if (!currentSession) {
         await handleSessionExpired();
         throw new Error("SESSION_EXPIRED");
       }
+
+      const downloadId = taskId || `download_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       try {
         const fullUrl = documentUrl.startsWith("/")
@@ -250,16 +266,18 @@ export function setupDocumentHandlers() {
         const contentLength = parseInt(
           headResponse.headers["content-length"] || "0"
         );
-        const maxFileSize = 50 * 1024 * 1024; // 50MB limit
 
-        if (contentLength > maxFileSize) {
-          return {
-            success: false,
-            error: `File too large: ${(contentLength / (1024 * 1024)).toFixed(
-              1
-            )}MB. Maximum allowed: ${maxFileSize / (1024 * 1024)}MB`,
-          };
-        }
+        // Create download task
+        const task: DownloadTask = {
+          id: downloadId,
+          fileName,
+          status: "downloading",
+          progress: 0,
+          totalSize: contentLength,
+          downloadedSize: 0,
+        };
+        downloadTasks.set(downloadId, task);
+        event.sender.send("download-task-update", task);
 
         // For small files (<= 10MB), download directly
         if (contentLength <= 10 * 1024 * 1024) {
@@ -270,6 +288,16 @@ export function setupDocumentHandlers() {
               ...APP_CONFIG.HEADERS,
             },
             timeout: 60000,
+            onDownloadProgress: (progressEvent) => {
+              const downloaded = progressEvent.loaded;
+              const total = progressEvent.total || contentLength;
+              const progress = Math.round((downloaded / total) * 100);
+              
+              task.downloadedSize = downloaded;
+              task.progress = progress;
+              downloadTasks.set(downloadId, task);
+              event.sender.send("download-task-update", task);
+            },
           });
 
           // Convert to base64 for transfer to renderer
@@ -278,12 +306,18 @@ export function setupDocumentHandlers() {
           const contentType =
             response.headers["content-type"] || "application/octet-stream";
 
+          task.status = "completed";
+          task.progress = 100;
+          downloadTasks.set(downloadId, task);
+          event.sender.send("download-task-update", task);
+
           return {
             success: true,
             data: base64,
             contentType,
             fileName,
             fileSize: contentLength,
+            taskId: downloadId,
           };
         } else {
           // For larger files, use the Electron dialog to save directly to disk
@@ -296,9 +330,15 @@ export function setupDocumentHandlers() {
           });
 
           if (result.canceled || !result.filePath) {
+            task.status = "failed";
+            task.error = "Download canceled by user";
+            downloadTasks.set(downloadId, task);
+            event.sender.send("download-task-update", task);
+            
             return {
               success: false,
               error: "Download canceled by user",
+              taskId: downloadId,
             };
           }
 
@@ -311,6 +351,16 @@ export function setupDocumentHandlers() {
               ...APP_CONFIG.HEADERS,
             },
             timeout: 120000, // 2 minute timeout for large files
+            onDownloadProgress: (progressEvent) => {
+              const downloaded = progressEvent.loaded;
+              const total = progressEvent.total || contentLength;
+              const progress = Math.round((downloaded / total) * 100);
+              
+              task.downloadedSize = downloaded;
+              task.progress = progress;
+              downloadTasks.set(downloadId, task);
+              event.sender.send("download-task-update", task);
+            },
           });
 
           const writer = fs.createWriteStream(result.filePath);
@@ -318,30 +368,188 @@ export function setupDocumentHandlers() {
 
           return new Promise((resolve) => {
             writer.on("finish", () => {
+              task.status = "completed";
+              task.progress = 100;
+              task.filePath = result.filePath;
+              downloadTasks.set(downloadId, task);
+              event.sender.send("download-task-update", task);
+
               resolve({
                 success: true,
                 savedToFile: true,
                 filePath: result.filePath,
                 fileName,
                 fileSize: contentLength,
+                taskId: downloadId,
               });
             });
 
             writer.on("error", (error) => {
+              task.status = "failed";
+              task.error = error.message;
+              downloadTasks.set(downloadId, task);
+              event.sender.send("download-task-update", task);
+
               resolve({
                 success: false,
                 error: `Failed to save file: ${error.message}`,
+                taskId: downloadId,
               });
             });
           });
         }
       } catch (error) {
         console.error("Failed to download document:", error);
+        
+        const task = downloadTasks.get(downloadId);
+        if (task) {
+          task.status = "failed";
+          task.error = error instanceof Error ? error.message : "Download failed";
+          downloadTasks.set(downloadId, task);
+          event.sender.send("download-task-update", task);
+        }
+
         return {
           success: false,
           error: error instanceof Error ? error.message : "Download failed",
+          taskId: downloadId,
         };
       }
     }
   );
+
+  // Batch download documents
+  ipcMain.handle(
+    "batch-download-documents",
+    async (event, documents: Array<{ url: string; fileName: string; fileExtension: string }>) => {
+      if (!currentSession) {
+        await handleSessionExpired();
+        throw new Error("SESSION_EXPIRED");
+      }
+
+      const { dialog } = await import("electron");
+      
+      // Ask user to select download directory
+      const result = await dialog.showOpenDialog({
+        properties: ["openDirectory"],
+        title: "Select download directory",
+      });
+
+      if (result.canceled || !result.filePaths[0]) {
+        return {
+          success: false,
+          error: "Download canceled by user",
+        };
+      }
+
+      const downloadDir = result.filePaths[0];
+      const batchId = `batch_${Date.now()}`;
+      const results = [];
+
+      for (const doc of documents) {
+        const taskId = `${batchId}_${doc.fileName}`;
+        const fullFileName = `${doc.fileName}.${doc.fileExtension}`;
+        const path = await import("path");
+        const filePath = path.join(downloadDir, fullFileName);
+        
+        try {
+          const fullUrl = doc.url.startsWith("/")
+            ? `${APP_CONFIG.BASE_URL}${doc.url}`
+            : doc.url;
+
+          const task: DownloadTask = {
+            id: taskId,
+            fileName: fullFileName,
+            status: "downloading",
+            progress: 0,
+            totalSize: 0,
+            downloadedSize: 0,
+          };
+          downloadTasks.set(taskId, task);
+          event.sender.send("download-task-update", task);
+
+          const response = await axios.get(fullUrl, {
+            responseType: "stream",
+            headers: {
+              Cookie: captchaSession?.cookies.join("; ") || "",
+              ...APP_CONFIG.HEADERS,
+            },
+            timeout: 120000,
+            onDownloadProgress: (progressEvent) => {
+              const downloaded = progressEvent.loaded;
+              const total = progressEvent.total || 0;
+              const progress = total > 0 ? Math.round((downloaded / total) * 100) : 0;
+              
+              task.totalSize = total;
+              task.downloadedSize = downloaded;
+              task.progress = progress;
+              downloadTasks.set(taskId, task);
+              event.sender.send("download-task-update", task);
+            },
+          });
+
+          const fs = await import("fs");
+          const writer = fs.createWriteStream(filePath);
+          response.data.pipe(writer);
+
+          await new Promise<void>((resolve, reject) => {
+            writer.on("finish", () => {
+              task.status = "completed";
+              task.progress = 100;
+              task.filePath = filePath;
+              downloadTasks.set(taskId, task);
+              event.sender.send("download-task-update", task);
+              resolve();
+            });
+
+            writer.on("error", (error) => {
+              task.status = "failed";
+              task.error = error.message;
+              downloadTasks.set(taskId, task);
+              event.sender.send("download-task-update", task);
+              reject(error);
+            });
+          });
+
+          results.push({ fileName: fullFileName, success: true, filePath });
+        } catch (error) {
+          const task = downloadTasks.get(taskId);
+          if (task) {
+            task.status = "failed";
+            task.error = error instanceof Error ? error.message : "Download failed";
+            downloadTasks.set(taskId, task);
+            event.sender.send("download-task-update", task);
+          }
+          
+          results.push({
+            fileName: fullFileName,
+            success: false,
+            error: error instanceof Error ? error.message : "Download failed",
+          });
+        }
+      }
+
+      return { batchId, results, downloadDir };
+    }
+  );
+
+  // Get download tasks status
+  ipcMain.handle("get-download-tasks", async () => {
+    return Array.from(downloadTasks.values());
+  });
+
+  // Clear completed download tasks
+  ipcMain.handle("clear-download-tasks", async (event, taskIds?: string[]) => {
+    if (taskIds) {
+      taskIds.forEach((id) => downloadTasks.delete(id));
+    } else {
+      // Clear only completed and failed tasks
+      for (const [id, task] of downloadTasks.entries()) {
+        if (task.status === "completed" || task.status === "failed") {
+          downloadTasks.delete(id);
+        }
+      }
+    }
+    return true;
+  });
 }
