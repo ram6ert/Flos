@@ -8,10 +8,13 @@ import {
 import { useState } from "react";
 
 const formatFileSize = (size: number) => {
-  if (size < 1) {
-    return `${(size * 1024).toFixed(0)} KB`;
+  if (size > 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  } else if (size > 1024) {
+    return `${(size / 1024).toFixed(2)} KB`;
+  } else {
+    return `${size} B`;
   }
-  return `${size.toFixed(2)} MB`;
 };
 
 interface HomeworkCardProps {
