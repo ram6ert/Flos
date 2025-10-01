@@ -1,6 +1,5 @@
 import { ipcMain } from "electron";
-import axios from "axios";
-import { currentSession, captchaSession, handleSessionExpired } from "../auth";
+import { currentSession, handleSessionExpired } from "../auth";
 import {
   requestQueue,
   fetchHomeworkList,
@@ -10,9 +9,7 @@ import {
   submitHomework,
   fetchHomeworkDownloadPage,
   parseHomeworkDownloadUrls,
-  downloadSubmittedHomeworkFile,
 } from "../api";
-import { API_CONFIG } from "../constants";
 import NodeCache from "node-cache";
 import { Homework } from "../../shared/types";
 
@@ -221,127 +218,6 @@ export function setupHomeworkHandlers() {
     }
   );
 
-  // Download homework attachment
-  ipcMain.handle(
-    "download-homework-attachment",
-    async (event, attachmentUrl: string, fileName: string) => {
-      if (!currentSession) {
-        await handleSessionExpired();
-        throw new Error("SESSION_EXPIRED");
-      }
-
-      try {
-        const fullUrl = attachmentUrl.startsWith("/")
-          ? `${API_CONFIG.BASE_URL}${attachmentUrl}`
-          : attachmentUrl;
-
-        console.log("Downloading homework attachment from URL:", fullUrl);
-
-        // First, check the file size with a HEAD request
-        const headResponse = await axios.head(fullUrl, {
-          headers: {
-            Cookie: captchaSession?.cookies.join("; ") || "",
-            ...API_CONFIG.HEADERS,
-          },
-          timeout: 10000,
-        });
-
-        const contentLength = parseInt(
-          headResponse.headers["content-length"] || "0"
-        );
-        const maxFileSize = 50 * 1024 * 1024; // 50MB limit
-
-        if (contentLength > maxFileSize) {
-          return {
-            success: false,
-            error: `File too large: ${(contentLength / (1024 * 1024)).toFixed(
-              1
-            )}MB. Maximum allowed: ${maxFileSize / (1024 * 1024)}MB`,
-          };
-        }
-
-        // For small files (<= 10MB), download directly
-        if (contentLength <= 10 * 1024 * 1024) {
-          const response = await axios.get(fullUrl, {
-            responseType: "arraybuffer",
-            headers: {
-              Cookie: captchaSession?.cookies.join("; ") || "",
-              ...API_CONFIG.HEADERS,
-            },
-            timeout: 60000,
-          });
-
-          // Convert to base64 for transfer to renderer
-          const buffer = Buffer.from(response.data);
-          const base64 = buffer.toString("base64");
-          const contentType =
-            response.headers["content-type"] || "application/octet-stream";
-
-          return {
-            success: true,
-            data: base64,
-            contentType,
-            fileName,
-            fileSize: contentLength,
-          };
-        } else {
-          // For larger files, use the Electron dialog to save directly to disk
-          const { dialog } = await import("electron");
-
-          const result = await dialog.showSaveDialog({
-            defaultPath: fileName,
-            filters: [{ name: "All Files", extensions: ["*"] }],
-          });
-
-          if (result.canceled || !result.filePath) {
-            return {
-              success: false,
-              error: "Download canceled by user",
-            };
-          }
-
-          // Stream download directly to file
-          const fs = await import("fs");
-          const response = await axios.get(fullUrl, {
-            responseType: "stream",
-            headers: {
-              Cookie: captchaSession?.cookies.join("; ") || "",
-              ...API_CONFIG.HEADERS,
-            },
-            timeout: 120000, // 2 minute timeout for large files
-          });
-
-          const writer = fs.createWriteStream(result.filePath);
-          response.data.pipe(writer);
-
-          return new Promise((resolve) => {
-            writer.on("finish", () => {
-              resolve({
-                success: true,
-                savedToFile: true,
-                filePath: result.filePath,
-                fileName,
-                fileSize: contentLength,
-              });
-            });
-
-            writer.on("error", (error) => {
-              resolve({
-                success: false,
-                error: `Failed to save file: ${error.message}`,
-              });
-            });
-          });
-        }
-      } catch (error) {
-        console.error("Failed to download homework attachment:", error);
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : "Download failed",
-        };
-      }
-    }
-  );
 
   // Submit homework with files (combined interface for renderer)
   ipcMain.handle(
@@ -450,25 +326,4 @@ export function setupHomeworkHandlers() {
     }
   );
 
-  // Download submitted homework file
-  ipcMain.handle(
-    "download-submitted-homework",
-    async (event, url: string, fileName: string, id: string) => {
-      if (!currentSession) {
-        await handleSessionExpired();
-        throw new Error("SESSION_EXPIRED");
-      }
-
-      try {
-        const result = await downloadSubmittedHomeworkFile(url, fileName, id);
-        return result;
-      } catch (error) {
-        console.error("Failed to download submitted homework:", error);
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : "Download failed",
-        };
-      }
-    }
-  );
 }

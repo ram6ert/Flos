@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { UpdateInfo } from "./updater";
-import { LoginCredentials, LoginResponse } from "../shared/types";
+import { LoginCredentials, LoginResponse, AddDownloadTaskParams, DownloadTask, DownloadType } from "../shared/types";
 
 export interface ElectronAPI {
   getCourses: (options?: {
@@ -48,25 +48,16 @@ export interface ElectronAPI {
     fileName: string
   ) => Promise<{
     success: boolean;
-    data?: string;
-    contentType?: string;
-    fileName?: string;
-    fileSize?: number;
-    savedToFile?: boolean;
-    filePath?: string;
+    taskId?: string;
     error?: string;
   }>;
   downloadHomeworkAttachment: (
-    attachmentUrl: string,
-    fileName: string
+    attachmentId: string,  // Numeric attachment ID (NOT a URL!)
+    homeworkId: string     // Numeric homework ID (NOT a URL!)
   ) => Promise<{
     success: boolean;
-    data?: string;
-    contentType?: string;
+    taskId?: string;
     fileName?: string;
-    fileSize?: number;
-    savedToFile?: boolean;
-    filePath?: string;
     error?: string;
   }>;
   fetchCourseImage: (imagePath: string) => Promise<string | null>;
@@ -234,12 +225,60 @@ export interface ElectronAPI {
     id: string
   ) => Promise<{
     success: boolean;
-    data?: string;
-    contentType?: string;
-    fileName?: string;
-    fileSize?: number;
+    taskId?: string;
     error?: string;
   }>;
+  // unified download APIs
+  downloadAddTask: (params: AddDownloadTaskParams) => Promise<{
+    success: boolean;
+    taskId?: string;
+    error?: string;
+  }>;
+  downloadStartTask: (taskId: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  downloadCancelTask: (taskId: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  downloadRetryTask: (taskId: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  downloadGetTask: (taskId: string) => Promise<{
+    success: boolean;
+    task?: DownloadTask;
+    error?: string;
+  }>;
+  downloadGetAllTasks: () => Promise<{
+    success: boolean;
+    tasks?: DownloadTask[];
+    error?: string;
+  }>;
+  downloadGetTasksByType: (type: DownloadType) => Promise<{
+    success: boolean;
+    tasks?: DownloadTask[];
+    error?: string;
+  }>;
+  downloadRemoveTask: (taskId: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  downloadClearCompleted: () => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  onDownloadTaskUpdate: (callback: (event: any, task: DownloadTask) => void) => void;
+  onDownloadProgress: (callback: (event: any, progress: {
+    taskId: string;
+    status: string;
+    progress: number;
+    downloadedBytes: number;
+    totalBytes: number;
+    speed?: number;
+    timeRemaining?: number;
+  }) => void) => void;
 }
 
 const electronAPI: ElectronAPI = {
@@ -272,9 +311,9 @@ const electronAPI: ElectronAPI = {
   downloadDocument: (documentUrl: string) =>
     ipcRenderer.invoke("download-document", documentUrl),
   downloadCourseDocument: (documentUrl: string, fileName: string) =>
-    ipcRenderer.invoke("download-course-document", documentUrl, fileName),
-  downloadHomeworkAttachment: (attachmentUrl: string, fileName: string) =>
-    ipcRenderer.invoke("download-homework-attachment", attachmentUrl, fileName),
+    ipcRenderer.invoke("download-document", { documentUrl, fileName }),
+  downloadHomeworkAttachment: (attachmentId: string, homeworkId: string) =>
+    ipcRenderer.invoke("download-homework-attachment", { attachmentId, homeworkId }),
   fetchCourseImage: (imagePath: string) =>
     ipcRenderer.invoke("fetch-course-image", imagePath),
   fetchCaptcha: () => ipcRenderer.invoke("fetch-captcha"),
@@ -333,7 +372,30 @@ const electronAPI: ElectronAPI = {
   ) =>
     ipcRenderer.invoke("get-homework-download-urls", upId, id, userId, score),
   downloadSubmittedHomework: (url: string, fileName: string, id: string) =>
-    ipcRenderer.invoke("download-submitted-homework", url, fileName, id),
+    ipcRenderer.invoke("download-submitted-homework", { url, fileName, id }),
+  // unified download APIs
+  downloadAddTask: (params: AddDownloadTaskParams) =>
+    ipcRenderer.invoke("download-add-task", params),
+  downloadStartTask: (taskId: string) =>
+    ipcRenderer.invoke("download-start-task", taskId),
+  downloadCancelTask: (taskId: string) =>
+    ipcRenderer.invoke("download-cancel-task", taskId),
+  downloadRetryTask: (taskId: string) =>
+    ipcRenderer.invoke("download-retry-task", taskId),
+  downloadGetTask: (taskId: string) =>
+    ipcRenderer.invoke("download-get-task", taskId),
+  downloadGetAllTasks: () =>
+    ipcRenderer.invoke("download-get-all-tasks"),
+  downloadGetTasksByType: (type: DownloadType) =>
+    ipcRenderer.invoke("download-get-tasks-by-type", type),
+  downloadRemoveTask: (taskId: string) =>
+    ipcRenderer.invoke("download-remove-task", taskId),
+  downloadClearCompleted: () =>
+    ipcRenderer.invoke("download-clear-completed"),
+  onDownloadTaskUpdate: (callback) =>
+    ipcRenderer.on("download-task-update", callback),
+  onDownloadProgress: (callback) =>
+    ipcRenderer.on("download-progress", callback),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

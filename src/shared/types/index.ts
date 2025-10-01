@@ -12,3 +12,6 @@ export * from "./homework";
 
 // Schedule types
 export * from "./schedule";
+
+// Download types
+export * from "./download";

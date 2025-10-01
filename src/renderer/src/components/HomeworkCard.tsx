@@ -228,8 +228,8 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
   };
 
   const fetchHomeworkDetails = async (
-    homeworkId: number,
-    courseId: number,
+    homeworkId: string,
+    courseId: string,
     teacherId?: string
   ) => {
     try {
@@ -477,6 +477,7 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
                         ? details.attachments.map((attachment, index) => (
                             <AttachmentCard
                               attachment={attachment}
+                              homework={homework}
                               key={`${attachment.id}-${index}`}
                             />
                           ))
@@ -586,9 +587,13 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
 
 interface AttachmentCardProps {
   attachment: HomeworkAttachment;
+  homework: Homework;
 }
 
-const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
+const AttachmentCard: React.FC<AttachmentCardProps> = ({
+  attachment,
+  homework,
+}) => {
   const [downloading, setDownloading] = useState<boolean>(false);
 
   const _getFileExtension = (url: string) => {
@@ -611,8 +616,8 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
       } else {
         // Use existing API for regular attachments
         result = await window.electronAPI.downloadHomeworkAttachment(
-          attachment.url,
-          attachment.fileName
+          attachment.id,
+          homework.id
         );
       }
 

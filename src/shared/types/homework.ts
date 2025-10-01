@@ -1,6 +1,6 @@
 export interface Homework {
-  id: number;
-  courseId: number;
+  id: string; // numeric id as string
+  courseId: string; // numeric id as string
   courseName: string;
   title: string;
   content: string;
@@ -17,17 +17,17 @@ export interface Homework {
 }
 
 export interface HomeworkDetails {
-  id: number;
+  id: string; // numeric id as string
   createdDate: string; // ISO string from main process
-  courseId: number;
-  courseSchedId: number;
+  courseId: string; // numeric id as string
+  courseSchedId: string; // numeric id as string
   content: string;
   title: string;
   dueDate: string; // ISO string from main process
   openDate: string; // ISO string from main process
   isFinalExam: boolean;
   maxScore: number;
-  moduleId: number;
+  moduleId: string; // numeric id as string
   isOpen: boolean;
   isAnswerPublished: boolean;
   status: string;
@@ -50,7 +50,7 @@ export interface HomeworkDetails {
 }
 
 export interface HomeworkAttachment {
-  id: number;
+  id: string; // numeric id as string
   url: string;
   fileName: string;
   convertUrl: string;

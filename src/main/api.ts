@@ -741,8 +741,8 @@ const convertDocumentType = (docType: string): CourseDocumentType => {
 // Sanitization function to transform server response to clean structure
 const sanitizeHomeworkItem = (hw: any): Homework => {
   return {
-    id: hw.id,
-    courseId: hw.course_id,
+    id: hw.id.toString(),
+    courseId: hw.course_id.toString(),
     courseName: hw.course_name || hw.courseName,
     title: hw.title,
     content: hw.content,
@@ -766,17 +766,17 @@ const sanitizeHomeworkItem = (hw: any): Homework => {
     submittedCount: hw.submitCount,
     totalStudents: hw.allCount,
     type: convertHomeworkType(hw.homeworkType || 0),
-    submissionId: hw.snId || hw.subId || null,
-    userId: hw.user_id || "0",
+    submissionId: hw.snId?.toString() || hw.subId?.toString() || null,
+    userId: hw.user_id?.toString() || "0",
   };
 };
 
 // Sanitization function for homework details
 const sanitizeHomeworkDetails = (details: any): HomeworkDetails => {
   return {
-    id: details.id,
+    id: details.id.toString(),
     createdDate: new Date(details.create_date).toISOString(),
-    courseId: details.course_id,
+    courseId: details.course_id.toString(),
     courseSchedId: details.course_sched_id,
     content: details.content,
     title: details.title,
@@ -784,7 +784,7 @@ const sanitizeHomeworkDetails = (details: any): HomeworkDetails => {
     openDate: new Date(details.open_date).toISOString(),
     isFinalExam: Boolean(details.is_fz),
     maxScore: parseFloat(details.score) || 0,
-    moduleId: details.moudel_id,
+    moduleId: details.moudel_id.toString(),
     isOpen: Boolean(details.isOpen),
     isAnswerPublished:
       details.is_publish_answer === "1" || details.is_publish_answer === 1,
@@ -800,7 +800,7 @@ const sanitizeHomeworkDetails = (details: any): HomeworkDetails => {
       : null,
     isRepeatAllowed: Boolean(details.is_repeat),
     makeupFlag: details.makeup_flag,
-    selectedIds: details.xzIds,
+    selectedIds: details.xzIds?.toString(),
     isGroupAssignment:
       details.is_group_stu === "1" || details.is_group_stu === 1,
     teacherWeight: details.teacher_weight,
