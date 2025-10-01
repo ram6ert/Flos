@@ -264,12 +264,12 @@ setupDownloadHandlers();
 
 ### Renderer Process
 
-The Download Center component is available as a React component:
+The Download Center component is integrated into the main App component (`src/renderer/src/App.tsx`):
 
 ```typescript
 import DownloadCenter from './components/DownloadCenter';
 
-// In your App component
+// Rendered at the bottom of the App component
 <DownloadCenter />
 ```
 

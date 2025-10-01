@@ -13,6 +13,7 @@ import Login from "./components/Login";
 import FlowScheduleTable from "./components/FlowScheduleTable";
 import UpdateNotification from "./components/UpdateNotification";
 import UpdateStatusNotification from "./components/UpdateStatusNotification";
+import DownloadCenter from "./components/DownloadCenter";
 import { Button, Loading } from "./components/common/StyledComponents";
 
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
@@ -461,6 +462,9 @@ const App: React.FC = () => {
           onClose={handleUpdateStatusClose}
         />
       )}
+
+      {/* download center */}
+      <DownloadCenter />
     </div>
   );
 };
