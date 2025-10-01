@@ -204,8 +204,17 @@ event.sender.send("homework-stream-chunk", {
 
 ## API Communication
 
-### Request Management (`src/main/api.ts`)
-Central API communication hub with advanced features.
+### Request Management (`src/main/api/`)
+Central API communication hub with modular architecture and advanced features.
+
+**Module Structure:**
+- **`api/index.ts`** - Main entry point, aggregates all API modules
+- **`api/utils.ts`** - Shared utilities (session management, rate limiting, sanitization)
+- **`api/homework.ts`** - Homework-specific operations (submit, fetch, download)
+- **`api/course.ts`** - Course-specific operations (list, details)
+- **`api/document.ts`** - Document-specific operations (fetch, streaming)
+- **`api/schedule.ts`** - Schedule-specific operations (fetch, parse)
+- **`api.ts`** - Backward compatibility re-export layer
 
 **Core Features:**
 - **Session Interceptors**: Automatic session expiry detection
@@ -213,6 +222,7 @@ Central API communication hub with advanced features.
 - **Response Sanitization**: Data transformation and cleaning
 - **Error Handling**: Comprehensive error management
 - **Cookie Management**: Automatic session cookie updates
+- **Modular Design**: Separation of concerns for better maintainability
 
 ### Rate Limiting System
 ```typescript

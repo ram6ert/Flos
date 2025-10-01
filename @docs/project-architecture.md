@@ -43,7 +43,14 @@ Located in `src/main/`, handles system integration and API communication:
 #### Core Modules
 - **index.ts** - Application entry point and IPC handler setup
 - **window.ts** - Main window creation and management
-- **api.ts** - API communication and session management
+- **api/** - Modular API communication layer
+  - **index.ts** - Main entry point aggregating all API modules
+  - **utils.ts** - Shared utilities (session, rate limiting, sanitization)
+  - **homework.ts** - Homework-specific operations
+  - **course.ts** - Course-specific operations
+  - **document.ts** - Document-specific operations
+  - **schedule.ts** - Schedule-specific operations
+- **api.ts** - Backward compatibility re-export layer
 - **auth.ts** - Authentication and session handling
 - **cache.ts** - User-specific caching system
 - **logger.ts** - Application logging utilities
