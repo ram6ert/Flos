@@ -238,6 +238,8 @@ export function setupAxiosSessionInterceptors(): void {
 ```
 
 ### Data Sanitization
+**IMPORTANT: All data from the server MUST be sanitized before being used by the application.** This is critical for security and type safety.
+
 All server responses are sanitized before reaching the frontend:
 
 **Course Sanitization:**
