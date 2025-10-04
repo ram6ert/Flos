@@ -462,7 +462,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
               <option value="">{t("allCourses")}</option>
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
-                  {course.courseNumber} - {course.name}
+                  {course.courseCode} - {course.name}
                 </option>
               ))}
             </select>

@@ -46,8 +46,9 @@ The system supports the following download types:
 - `generic`: Generic file downloads
 
 **Note on IDs**:
+
 - **Internal IDs** (attachmentId, homeworkId, courseId, documentId, etc.) are numeric IDs stored as strings. For example: `"12345"` not `12345`.
-- **courseNumber** is a human-readable course code (e.g., `"M302005B"`) for display purposes only, not used for internal system identification.
+- **courseCode** is a human-readable course code (e.g., `"M302005B"`) for display purposes only, not used for internal system identification.
 
 ## Usage
 
@@ -56,19 +57,19 @@ The system supports the following download types:
 ```typescript
 // Using the unified API
 const result = await window.electronAPI.downloadAddTask({
-  type: 'document',
-  url: 'http://example.com/file.pdf', // Absolute URL
+  type: "document",
+  url: "http://example.com/file.pdf", // Absolute URL
   // OR use relative URL: url: '/path/to/file.pdf', (BASE_URL will be prepended automatically)
-  fileName: 'document.pdf',
+  fileName: "document.pdf",
   metadata: {
-    courseId: 'CS101',
-    courseName: 'Computer Science',
+    courseId: "CS101",
+    courseName: "Computer Science",
   },
   autoStart: true, // Start immediately (default: true)
 });
 
 if (result.success) {
-  console.log('Download started:', result.taskId);
+  console.log("Download started:", result.taskId);
 }
 ```
 
@@ -81,14 +82,14 @@ All downloads use the unified `downloadAddTask` API:
 ```typescript
 // Download course document
 const result = await window.electronAPI.downloadAddTask({
-  type: 'document',
-  url: '/ve/documents/lecture.pdf',
-  fileName: 'lecture-notes.pdf',
+  type: "document",
+  url: "/ve/documents/lecture.pdf",
+  fileName: "lecture-notes.pdf",
   metadata: {
-    courseId: '12345',              // Numeric ID as string (internal system ID)
-    courseNumber: 'M302005B',       // Human-readable course code (for display only)
-    courseName: 'Computer Science', // Course name for display
-    documentId: '67890',            // Numeric ID as string
+    courseId: "12345", // Numeric ID as string (internal system ID)
+    courseCode: "M302005B", // Human-readable course code (for display only)
+    courseName: "Computer Science", // Course name for display
+    documentId: "67890", // Numeric ID as string
   },
   autoStart: true,
 });
@@ -98,7 +99,7 @@ const result = await window.electronAPI.downloadAddTask({
 // Construct the special URL for homework attachments
 const downloadUrl = `http://123.121.147.7:88/ve/back/coursePlatform/dataSynAction.shtml?method=downLoadPic&id=${attachmentId}&noteId=${homeworkId}`;
 const result = await window.electronAPI.downloadAddTask({
-  type: 'homework-attachment',
+  type: "homework-attachment",
   url: downloadUrl,
   fileName: `attachment_${attachmentId}`, // Fallback, real filename extracted from server
   metadata: {
@@ -111,7 +112,7 @@ const result = await window.electronAPI.downloadAddTask({
 
 // Download submitted homework
 const result = await window.electronAPI.downloadAddTask({
-  type: 'submitted-homework',
+  type: "submitted-homework",
   url: submittedHomeworkUrl,
   fileName: fileName,
   metadata: {
@@ -123,14 +124,14 @@ const result = await window.electronAPI.downloadAddTask({
 
 // Batch download with preset save path
 const result = await window.electronAPI.downloadAddTask({
-  type: 'document',
+  type: "document",
   url: documentUrl,
   fileName: fileName,
-  savePath: '/path/to/save/file.pdf', // Skip save dialog
+  savePath: "/path/to/save/file.pdf", // Skip save dialog
   metadata: {
-    courseId: '12345',        // Numeric ID (internal)
-    courseNumber: 'M302005B', // Human-readable code (display)
-    documentId: '67890',      // Numeric ID (internal)
+    courseId: "12345", // Numeric ID (internal)
+    courseCode: "M302005B", // Human-readable code (display)
+    documentId: "67890", // Numeric ID (internal)
   },
   autoStart: true,
 });
@@ -141,7 +142,7 @@ const result = await window.electronAPI.downloadAddTask({
 ```typescript
 // Listen for task updates
 window.electronAPI.onDownloadTaskUpdate((event, task) => {
-  console.log('Task updated:', task);
+  console.log("Task updated:", task);
 });
 
 // Listen for progress updates
@@ -170,7 +171,7 @@ await window.electronAPI.downloadClearCompleted();
 // Get all tasks
 const result = await window.electronAPI.downloadGetAllTasks();
 if (result.success) {
-  console.log('All tasks:', result.tasks);
+  console.log("All tasks:", result.tasks);
 }
 ```
 
@@ -179,9 +180,11 @@ if (result.success) {
 ### Main Methods
 
 #### `addTask(params: AddDownloadTaskParams): Promise<string>`
+
 Adds a new download task and returns the task ID.
 
 **Parameters:**
+
 - `type`: Download type (document, homework-attachment, etc.)
 - `url`: Download URL
 - `fileName`: File name to save as
@@ -190,30 +193,39 @@ Adds a new download task and returns the task ID.
 - `autoStart`: Whether to start download immediately (default: true)
 
 #### `startTask(taskId: string): Promise<void>`
+
 Starts a pending download task.
 
 #### `cancelTask(taskId: string): Promise<void>`
+
 Cancels an active download task.
 
 #### `retryTask(taskId: string): Promise<void>`
+
 Retries a failed download task.
 
 #### `getTask(taskId: string): DownloadTask | undefined`
+
 Gets a specific task by ID.
 
 #### `getAllTasks(): DownloadTask[]`
+
 Gets all download tasks.
 
 #### `getTasksByType(type: DownloadType): DownloadTask[]`
+
 Gets tasks filtered by type.
 
 #### `removeTask(taskId: string): void`
+
 Removes a task from the manager.
 
 #### `clearCompleted(): void`
+
 Clears all completed tasks.
 
 #### `registerPostDownloadScript(taskId: string, script: Function): void`
+
 Registers a script to execute after download completion.
 
 ## Download States
@@ -240,6 +252,7 @@ All downloads require user interaction to select save location:
 - **Cancellable**: User can cancel during save dialog or while downloading
 
 **Download Flow:**
+
 1. GET request starts → Stream pauses immediately
 2. Extract real filename from response headers
 3. Show save dialog with real filename
@@ -251,11 +264,13 @@ All downloads require user interaction to select save location:
 Homework attachments use a special download strategy with specific requirements:
 
 **Parameter Requirements:**
+
 - `attachmentId`: **String containing numeric attachment ID** (e.g., `"12345"`) - used as `id` parameter in URL
 - `homeworkId`: **String containing numeric homework ID** (e.g., `"67890"`) - used as `noteId` parameter in URL
 - **IMPORTANT**: IDs must be numeric values stored as strings, NOT URLs or non-numeric strings
 
 **Download Process:**
+
 1. Constructs download URL: `http://123.121.147.7:88/ve/back/coursePlatform/dataSynAction.shtml?method=downLoadPic&id=[attachmentId]&noteId=[homeworkId]`
 2. Starts GET request and pauses the stream
 3. Extracts real filename from `Content-Disposition` header in GET response
@@ -263,6 +278,7 @@ Homework attachments use a special download strategy with specific requirements:
 5. Resumes stream and downloads file with proper filename and extension
 
 **Technical Details:**
+
 - No HEAD request is used (some servers may reject it)
 - Stream is paused after GET request starts to prevent data loss
 - Real filename is extracted from the actual download response
@@ -270,24 +286,25 @@ Homework attachments use a special download strategy with specific requirements:
 - Stream resumes after user selects save location
 
 **Example:**
+
 ```typescript
 // CORRECT: Pass numeric IDs as strings (internal system IDs)
 const attachmentId = "12345"; // Numeric ID as string (internal)
-const homeworkId = "67890";   // Numeric ID as string (internal)
-const courseId = "11111";     // Numeric ID as string (internal)
-const courseNumber = "M302005B"; // Human-readable code (display only)
+const homeworkId = "67890"; // Numeric ID as string (internal)
+const courseId = "11111"; // Numeric ID as string (internal)
+const courseCode = "M302005B"; // Human-readable code (display only)
 
 const downloadUrl = `http://123.121.147.7:88/ve/back/coursePlatform/dataSynAction.shtml?method=downLoadPic&id=${attachmentId}&noteId=${homeworkId}`;
 
 await window.electronAPI.downloadAddTask({
-  type: 'homework-attachment',
+  type: "homework-attachment",
   url: downloadUrl,
   fileName: `attachment_${attachmentId}`,
   metadata: {
-    attachmentId,  // Numeric ID (internal)
-    homeworkId,    // Numeric ID (internal)
-    courseId,      // Numeric ID (internal)
-    courseNumber,  // Human-readable (display)
+    attachmentId, // Numeric ID (internal)
+    homeworkId, // Numeric ID (internal)
+    courseId, // Numeric ID (internal)
+    courseCode, // Human-readable (display)
   },
   autoStart: true,
 });
@@ -295,7 +312,7 @@ await window.electronAPI.downloadAddTask({
 // WRONG: Don't use non-numeric strings for IDs
 // attachmentId = "/some/url" ❌
 // homeworkId = "abc123" ❌
-// courseId = "M302005B" ❌  (this is courseNumber, not courseId!)
+// courseId = "M302005B" ❌  (this is courseCode, not courseId!)
 ```
 
 This ensures that downloaded files have the correct extension and filename from the server.
@@ -354,6 +371,7 @@ The download system uses a **unified API approach** with `downloadAddTask` as th
 Download errors are captured and stored in the task's `error` field. Failed downloads can be retried using `retryTask()`.
 
 Common errors:
+
 - Network timeout
 - File write errors
 - Invalid URLs
@@ -368,10 +386,11 @@ The download manager automatically handles both absolute and relative URLs:
 - **Relative URLs** (`/path/to/file` or `path/to/file`): Automatically prepended with `BASE_URL`
 
 Example:
+
 ```typescript
 // These are equivalent if BASE_URL is "http://123.121.147.7:88"
-url: 'http://123.121.147.7:88/ve/documents/file.pdf'
-url: '/ve/documents/file.pdf'  // Auto-prepends BASE_URL
+url: "http://123.121.147.7:88/ve/documents/file.pdf";
+url: "/ve/documents/file.pdf"; // Auto-prepends BASE_URL
 ```
 
 ## Security Considerations
@@ -416,6 +435,7 @@ The document list supports batch downloading multiple documents at once:
 ### Implementation
 
 Located in `src/renderer/src/components/DocumentList.tsx`:
+
 - Uses `selectDownloadFolder` IPC handler for folder selection
 - Calls `downloadAddTask` with preset `savePath` for each document
 - Clears selection after successful batch download

@@ -148,7 +148,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       if (!selectedCourse) return;
 
       // Generate unique request ID for this fetch and set it IMMEDIATELY
-      const requestId = `${selectedCourse.courseNumber}-${Date.now()}-${Math.random()}`;
+      const requestId = `${selectedCourse.courseCode}-${Date.now()}-${Math.random()}`;
 
       // Set the request ID BEFORE making any API calls
       currentRequestIdRef.current = requestId;
@@ -160,20 +160,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
       try {
         if (forceRefresh) {
-          await window.electronAPI.refreshDocuments(
-            selectedCourse.courseNumber,
-            {
-              requestId: requestId,
-            }
-          );
+          await window.electronAPI.refreshDocuments(selectedCourse.courseCode, {
+            requestId: requestId,
+          });
         } else {
           // Start streaming for this specific course (will fetch all document types)
-          await window.electronAPI.streamDocuments(
-            selectedCourse.courseNumber,
-            {
-              requestId: requestId,
-            }
-          );
+          await window.electronAPI.streamDocuments(selectedCourse.courseCode, {
+            requestId: requestId,
+          });
         }
       } catch (error) {
         // Only handle error if this is still the current request
@@ -274,7 +268,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
         url: doc.resourceUrl,
         fileName: fileName,
         metadata: {
-          courseId: selectedCourse?.courseNumber,
+          courseId: selectedCourse?.courseCode,
           courseName: selectedCourse?.name,
           documentId: doc.id,
         },
@@ -368,7 +362,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           fileName: fileName,
           savePath: savePath,
           metadata: {
-            courseId: selectedCourse?.courseNumber,
+            courseId: selectedCourse?.courseCode,
             courseName: selectedCourse?.name,
             documentId: doc.id,
           },
@@ -382,12 +376,13 @@ const DocumentList: React.FC<DocumentListProps> = ({
       let failCount = 0;
 
       results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value.success) {
+        if (result.status === "fulfilled" && result.value.success) {
           successCount++;
         } else {
           failCount++;
           const doc = selectedDocsList[index];
-          const error = result.status === 'fulfilled' ? result.value.error : result.reason;
+          const error =
+            result.status === "fulfilled" ? result.value.error : result.reason;
           console.error(`Failed to add download task for ${doc.name}:`, error);
         }
       });
@@ -598,7 +593,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
               <option value="">{t("selectCourse") || "Select a course"}</option>
               {(courses || []).map((course) => (
                 <option key={course.id} value={course.id}>
-                  {course.courseNumber} - {course.name}
+                  {course.courseCode} - {course.name}
                 </option>
               ))}
             </select>
@@ -624,7 +619,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
             <strong>{selectedCourse.name}</strong>
             <div className="mt-2 text-sm">
               <strong>Teacher:</strong> {selectedCourse.teacherName} •{" "}
-              <strong>Course Code:</strong> {selectedCourse.courseNumber}
+              <strong>Course Code:</strong> {selectedCourse.courseCode}
             </div>
           </div>
         </InfoBanner>

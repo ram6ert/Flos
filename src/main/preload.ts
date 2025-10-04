@@ -16,9 +16,9 @@ import {
  * All ID parameters follow these conventions:
  *
  * - courseId, homeworkId, documentId, attachmentId, teacherId: Internal numeric IDs (string type, e.g., "12345")
- * - courseNumber, courseCode: Human-readable identifiers (string type, e.g., "M302005B")
+ * - courseCode, courseCode: Human-readable identifiers (string type, e.g., "M302005B")
  *
- * Always use numeric IDs for API calls, never use courseNumber as courseId!
+ * Always use numeric IDs for API calls, never use courseCode as courseId!
  */
 export interface ElectronAPI {
   getCourses: (options?: {

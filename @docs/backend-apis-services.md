@@ -14,16 +14,17 @@ All APIs use consistent ID field types:
    - Used for database references and API calls
 
 2. **Human-Readable Identifiers** - Alphanumeric display codes
-   - `courseNumber`, `courseCode` - like `"M302005B"`, `"CS101"`
+   - `courseCode`, `courseCode` - like `"M302005B"`, `"CS101"`
    - Used only for display purposes, not internal operations
 
 **Example:**
+
 ```typescript
 // ✅ Correct API usage
-await getCourseHomework("12345");  // courseId is numeric as string
+await getCourseHomework("12345"); // courseId is numeric as string
 
 // ❌ Wrong
-await getCourseHomework("M302005B"); // This is courseNumber, not courseId!
+await getCourseHomework("M302005B"); // This is courseCode, not courseId!
 ```
 
 ## Architecture Components
@@ -31,9 +32,11 @@ await getCourseHomework("M302005B"); // This is courseNumber, not courseId!
 ### Core Modules
 
 #### Main Process Entry Point (`src/main/index.ts`)
+
 Application initialization and IPC handler setup.
 
 **Key Functions:**
+
 - Axios configuration with custom User-Agent
 - IPC handler registration for all modules
 - Auto-update initialization with 5-second delay
@@ -50,15 +53,18 @@ setupUpdateHandlers();
 ```
 
 #### API Configuration (`src/main/constants.ts`)
+
 Central configuration for API endpoints and HTTP clients.
 
 **Key Features:**
+
 - **Dynamic User-Agent Generation**: OS-specific, randomized browser signatures
 - **Multi-instance Axios Setup**: Separate clients for different API endpoints
 - **Platform Detection**: macOS/Windows/Linux specific configurations
 - **Language Headers**: Automatic Accept-Language based on system locale
 
 **API Instances:**
+
 ```typescript
 export const courseAPI = axios.create({
   baseURL: "http://123.121.147.7:88/ve/back",
@@ -82,15 +88,18 @@ export const courseBase = axios.create({
 ## Authentication Services
 
 ### Session Management (`src/main/auth.ts`)
+
 Handles user authentication, session persistence, and security.
 
 **Key Features:**
+
 - **Credential Storage**: Encrypted local storage with OS keychain integration
 - **Session Validation**: JSESSIONID validation and automatic refresh
 - **Password Security**: Client-side MD5 hashing before transmission
 - **Session Expiry Detection**: Automatic detection and re-authentication prompts
 
 **Session Data Structure:**
+
 ```typescript
 interface SessionData {
   username: string;
@@ -101,15 +110,18 @@ interface SessionData {
 ```
 
 **Security Implementations:**
+
 - Secure credential storage using Electron's safeStorage
 - Automatic session cookie management
 - Request interception for session expiry detection
 - Credential validation on startup
 
 ### Authentication Handlers (`src/main/handlers/auth.ts`)
+
 IPC handlers for authentication operations.
 
 **Exposed APIs:**
+
 - `fetch-captcha` - Retrieve login captcha image
 - `login` - User authentication with credentials
 - `logout` - Session termination and cleanup
@@ -123,9 +135,11 @@ IPC handlers for authentication operations.
 ## Data Services
 
 ### Caching System (`src/main/cache.ts`)
+
 User-specific, persistent caching with TTL management.
 
 **Features:**
+
 - **User Isolation**: Separate cache files per username
 - **TTL Management**: Configurable time-to-live for different data types
 - **Atomic Operations**: Safe file operations with temp file staging
@@ -133,6 +147,7 @@ User-specific, persistent caching with TTL management.
 - **Backup System**: Automatic backup of corrupted cache files
 
 **Cache Structure:**
+
 ```typescript
 interface CacheFile {
   version: string;
@@ -147,25 +162,30 @@ interface CacheFile {
 ```
 
 **Cache Durations:**
+
 - Homework: 24 hours (86,400,000ms)
 - Courses: 7 days (604,800,000ms)
 - Schedules: 7 days (604,800,000ms)
 
 ### Course Services (`src/main/handlers/course.ts`)
+
 Course data management with intelligent caching.
 
 **Key Features:**
+
 - **Background Refresh**: Non-blocking cache updates
 - **Duplicate Prevention**: Request deduplication system
 - **Retry Logic**: Exponential backoff for failed requests
 - **Cache-First Strategy**: Immediate cached data return with background refresh
 
 **Exposed APIs:**
+
 - `get-semester-info` - Current semester information
 - `get-courses` - Course list with caching options
 - `refresh-courses` - Force course data refresh
 
 **Background Refresh Implementation:**
+
 ```typescript
 async function refreshCacheInBackground(
   cacheKey: string,
@@ -179,9 +199,11 @@ async function refreshCacheInBackground(
 ```
 
 ### Homework Services (`src/main/handlers/homework.ts`)
+
 Comprehensive homework management with streaming capabilities.
 
 **Advanced Features:**
+
 - **Streaming Data**: Progressive data loading with real-time updates
 - **File Upload/Download**: Multi-file homework submission support
 - **Request Queuing**: Rate-limited request processing
@@ -189,6 +211,7 @@ Comprehensive homework management with streaming capabilities.
 - **Size Validation**: File size limits and validation
 
 **Exposed APIs:**
+
 - `get-homework` - Homework retrieval with caching
 - `refresh-homework` - Force refresh with streaming
 - `stream-homework` - Progressive homework loading
@@ -199,6 +222,7 @@ Comprehensive homework management with streaming capabilities.
 - `download-submitted-homework` - Download submitted files
 
 **Streaming Implementation:**
+
 ```typescript
 // Real-time progress updates
 event.sender.send("homework-stream-progress", {
@@ -219,6 +243,7 @@ event.sender.send("homework-stream-chunk", {
 ```
 
 **File Handling:**
+
 - **Size Limits**: 50MB maximum file size
 - **Smart Download**: Small files in-memory, large files to disk
 - **Stream Processing**: Direct file streaming for large downloads
@@ -227,9 +252,11 @@ event.sender.send("homework-stream-chunk", {
 ## API Communication
 
 ### Request Management (`src/main/api/`)
+
 Central API communication hub with modular architecture and advanced features.
 
 **Module Structure:**
+
 - **`api/index.ts`** - Main entry point, aggregates all API modules
 - **`api/utils.ts`** - Shared utilities (session management, rate limiting, sanitization)
 - **`api/homework.ts`** - Homework-specific operations (submit, fetch, download)
@@ -239,6 +266,7 @@ Central API communication hub with modular architecture and advanced features.
 - **`api.ts`** - Backward compatibility re-export layer
 
 **Core Features:**
+
 - **Session Interceptors**: Automatic session expiry detection
 - **Rate Limiting**: Intelligent request queuing
 - **Response Sanitization**: Data transformation and cleaning
@@ -247,6 +275,7 @@ Central API communication hub with modular architecture and advanced features.
 - **Modular Design**: Separation of concerns for better maintainability
 
 ### Rate Limiting System
+
 ```typescript
 class RateLimitedQueue {
   private maxConcurrency = 3;
@@ -260,6 +289,7 @@ class RateLimitedQueue {
 ```
 
 ### Session Interceptors
+
 ```typescript
 export function setupAxiosSessionInterceptors(): void {
   // 3xx redirect detection → session expired
@@ -270,17 +300,19 @@ export function setupAxiosSessionInterceptors(): void {
 ```
 
 ### Data Sanitization
+
 **IMPORTANT: All data from the server MUST be sanitized before being used by the application.** This is critical for security and type safety.
 
 All server responses are sanitized before reaching the frontend:
 
 **Course Sanitization:**
+
 ```typescript
 const sanitizeCourse = (course: any): Course => {
   return {
     id: String(course.id),
     name: course.name,
-    courseNumber: course.course_num,
+    courseCode: course.course_num,
     type: getCourseType(course.type), // Convert numbers to enums
     // ... additional transformations
   };
@@ -288,12 +320,11 @@ const sanitizeCourse = (course: any): Course => {
 ```
 
 **Homework Sanitization:**
+
 ```typescript
 const sanitizeHomeworkItem = (hw: any): Homework => {
   return {
-    submissionStatus: hw.subStatus === "已提交"
-      ? "submitted"
-      : "not_submitted",
+    submissionStatus: hw.subStatus === "已提交" ? "submitted" : "not_submitted",
     dueDate: new Date(hw.end_time).toISOString(),
     // ... type-safe transformations
   };
@@ -303,27 +334,33 @@ const sanitizeHomeworkItem = (hw: any): Homework => {
 ## Specialized Services
 
 ### Schedule Parser (`src/main/schedule-parser.ts`)
+
 HTML schedule parsing and data transformation.
 
 **Features:**
+
 - **GBK Decoding**: Chinese character encoding handling
 - **Conflict Detection**: Overlapping course detection
 - **Time Slot Parsing**: Complex schedule pattern extraction
 - **Data Enrichment**: Course information enhancement
 
 ### Document Handlers (`src/main/handlers/document.ts`)
+
 Document management with streaming capabilities.
 
 **Features:**
+
 - **Multi-type Support**: Courseware and experiment guides
 - **Streaming Fetching**: Progressive document loading
 - **File Categorization**: Document type classification
 - **Access Control**: Permission-based document access
 
 ### Update Management (`src/main/handlers/update.ts`)
+
 Auto-update system integration.
 
 **Features:**
+
 - **Background Checking**: Non-intrusive update detection
 - **Progress Tracking**: Download progress monitoring
 - **Version Comparison**: Semantic version checking
@@ -332,15 +369,18 @@ Auto-update system integration.
 ## Error Handling & Logging
 
 ### Logging System (`src/main/logger.ts`)
+
 Comprehensive logging with multiple levels.
 
 **Log Levels:**
+
 - **Event**: Application events and milestones
 - **Debug**: Development debugging information
 - **Warn**: Warning conditions
 - **Error**: Error conditions with stack traces
 
 ### Error Propagation
+
 ```typescript
 // Session expiry handling
 if (!currentSession) {
@@ -361,12 +401,14 @@ catch (error) {
 ## Security Features
 
 ### Request Security
+
 - **User-Agent Rotation**: Dynamic user agent generation
 - **Session Protection**: Secure session token handling
 - **Rate Limiting**: Request throttling and queuing
 - **Input Validation**: Data sanitization and validation
 
 ### Data Security
+
 - **Local Encryption**: Secure credential storage
 - **Session Management**: Automatic session lifecycle
 - **Error Sanitization**: Safe error message handling
@@ -375,18 +417,21 @@ catch (error) {
 ## Performance Optimizations
 
 ### Caching Strategy
+
 - **Multi-level Caching**: Memory and disk caching
 - **Background Refresh**: Non-blocking cache updates
 - **TTL Management**: Intelligent cache expiration
 - **User Isolation**: Per-user cache segregation
 
 ### Request Optimization
+
 - **Connection Pooling**: HTTP connection reuse
 - **Concurrent Limiting**: Controlled request concurrency
 - **Queue Management**: Intelligent request ordering
 - **Response Streaming**: Large data streaming
 
 ### Memory Management
+
 - **Cache Size Limits**: Automatic cache cleanup
 - **Resource Disposal**: Proper resource cleanup
 - **Stream Handling**: Efficient large file processing
@@ -395,6 +440,7 @@ catch (error) {
 ## Integration Points
 
 ### IPC Communication
+
 All backend services expose their functionality through IPC handlers:
 
 ```typescript
@@ -408,13 +454,16 @@ ipcMain.handle("handler-name", async (event, ...args) => {
 ```
 
 ### Frontend Integration
+
 Backend services integrate with frontend through:
+
 - **Event Emitters**: Real-time progress updates
 - **Streaming APIs**: Progressive data loading
 - **Cache Notifications**: Automatic UI updates
 - **Error Propagation**: Consistent error handling
 
 ### External API Integration
+
 - **Course Platform APIs**: Primary educational platform integration
 - **Update Services**: GitHub releases integration
 - **File Services**: Document and media handling

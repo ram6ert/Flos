@@ -209,7 +209,7 @@ export const sanitizeCourse = (course: any): any => {
   return {
     id: String(course.id),
     name: course.name,
-    courseNumber: course.course_num,
+    courseCode: course.course_num,
     picture: course.pic,
     teacherId: String(course.teacher_id),
     teacherName: course.teacher_name,

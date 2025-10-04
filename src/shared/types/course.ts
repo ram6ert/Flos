@@ -1,7 +1,7 @@
 export interface Course {
   id: string; // Internal numeric ID (string, e.g., "12345") - for system use
   name: string;
-  courseNumber: string; // Human-readable course code (e.g., "M302005B") - for display only
+  courseCode: string; // Human-readable course code (e.g., "M302005B") - for display only
   picture: string; // pic from server
   teacherId: string; // Internal numeric teacher ID (string, e.g., "67890") - for system use
   teacherName: string; // teacher_name from server

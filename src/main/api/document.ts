@@ -29,7 +29,7 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   const { getCourseList } = await import("./course");
   let courseList = await getCourseList();
 
-  const course = courseList.find((c: any) => c.courseNumber === courseCode);
+  const course = courseList.find((c: any) => c.courseCode === courseCode);
   if (!course) {
     throw new Error(`Course not found: ${courseCode}`);
   }
@@ -175,13 +175,13 @@ export async function* fetchDocumentsStreaming(
 
           try {
             const documents = await requestQueue.add(() =>
-              fetchCourseDocumentsByType(course.courseNumber, type.docType)
+              fetchCourseDocumentsByType(course.courseCode, type.docType)
             );
 
             if (documents.length > 0) {
               return {
                 documents,
-                courseId: course.courseNumber,
+                courseId: course.courseCode,
                 courseName: course.name,
                 type: type.name,
                 isComplete: false,

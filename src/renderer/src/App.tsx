@@ -266,7 +266,7 @@ const App: React.FC = () => {
   };
 
   const handleCourseSelect = (course: string | null) => {
-    const selected = courses.find((c) => c.courseNumber === course) || null;
+    const selected = courses.find((c) => c.courseCode === course) || null;
     setSelectedCourse_Documents(selected);
     setSelectedCourse_Homework(selected);
     setSelectedCourse_Schedule(selected);

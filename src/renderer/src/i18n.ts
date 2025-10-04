@@ -12,7 +12,7 @@ const resources = {
       noCourses: "No courses available.",
 
       // Course Details
-      courseNumber: "Course Number",
+      courseCode: "Course Number",
       instructor: "Instructor",
       semester: "Semester",
 
@@ -258,7 +258,7 @@ const resources = {
       noCourses: "暂无课程。",
 
       // Course Details
-      courseNumber: "课程号",
+      courseCode: "课程号",
       instructor: "授课教师",
       semester: "学期",
 
