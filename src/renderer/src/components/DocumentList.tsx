@@ -45,6 +45,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
     CourseDocumentType | "all"
   >("all");
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  const [selectedDirs, setSelectedDirs] = useState<Set<string>>(new Set());
   const [batchDownloading, setBatchDownloading] = useState(false);
 
   // Directory navigation state
@@ -337,6 +338,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
     });
   }, []);
 
+  const toggleDirSelection = useCallback((dirId: string) => {
+    setSelectedDirs((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(dirId)) {
+        newSet.delete(dirId);
+      } else {
+        newSet.add(dirId);
+      }
+      return newSet;
+    });
+  }, []);
+
   const toggleSelectAll = useCallback(() => {
     if (!documents) return;
 
@@ -349,19 +362,89 @@ const DocumentList: React.FC<DocumentListProps> = ({
       return matchesSearch && matchesType;
     });
 
-    if (selectedDocs.size === filteredDocuments.length) {
+    const filteredDirectories = directories.filter((dir) =>
+      dir.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const totalSelected = selectedDocs.size + selectedDirs.size;
+    const totalFiltered = filteredDocuments.length + filteredDirectories.length;
+
+    if (totalSelected === totalFiltered && totalFiltered > 0) {
       // Deselect all
       setSelectedDocs(new Set());
+      setSelectedDirs(new Set());
     } else {
-      // Select all filtered documents
+      // Select all filtered documents and directories
       setSelectedDocs(new Set(filteredDocuments.map((doc) => doc.id)));
+      setSelectedDirs(new Set(filteredDirectories.map((dir) => dir.id)));
     }
-  }, [documents, searchTerm, selectedDocType, selectedDocs.size]);
+  }, [
+    documents,
+    directories,
+    searchTerm,
+    selectedDocType,
+    selectedDocs.size,
+    selectedDirs.size,
+  ]);
+
+  // Recursively fetch all documents from a directory and its subdirectories
+  const fetchAllDocumentsFromDirectory = useCallback(
+    async (
+      dirId: string,
+      dirName: string,
+      basePath: string = ""
+    ): Promise<Array<{ doc: CourseDocument; relativePath: string }>> => {
+      if (!selectedCourse) return [];
+
+      const allDocs: Array<{ doc: CourseDocument; relativePath: string }> = [];
+
+      try {
+        // Fetch documents and subdirectories for this directory
+        const result = await window.electronAPI.getCourseDocuments(
+          selectedCourse.courseCode,
+          { upId: dirId }
+        );
+
+        if (result.success && result.data) {
+          const { documents: docs, directories: subdirs } = result.data;
+
+          // Add documents from this directory
+          if (docs && docs.length > 0) {
+            docs.forEach((doc) => {
+              allDocs.push({
+                doc,
+                relativePath: basePath,
+              });
+            });
+          }
+
+          // Recursively fetch from subdirectories
+          if (subdirs && subdirs.length > 0) {
+            for (const subdir of subdirs) {
+              const subdirPath = basePath ? `${basePath}/${subdir.name}` : subdir.name;
+              const subdirDocs = await fetchAllDocumentsFromDirectory(
+                subdir.id,
+                subdir.name,
+                subdirPath
+              );
+              allDocs.push(...subdirDocs);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to fetch documents from directory ${dirName}:`, error);
+      }
+
+      return allDocs;
+    },
+    [selectedCourse]
+  );
 
   const handleBatchDownload = useCallback(async () => {
-    if (selectedDocs.size === 0) {
+    if (selectedDocs.size === 0 && selectedDirs.size === 0) {
       alert(
-        t("selectDocumentsFirst") || "Please select documents to download."
+        t("selectDocumentsFirst") ||
+          "Please select documents or directories to download."
       );
       return;
     }
@@ -381,19 +464,46 @@ const DocumentList: React.FC<DocumentListProps> = ({
       }
 
       const folderPath = folderResult.folderPath;
+      const downloadList: Array<{ doc: CourseDocument; relativePath: string }> =
+        [];
+
+      // Add selected documents (at current level)
       const selectedDocsList = documents?.filter((doc) =>
         selectedDocs.has(doc.id)
       );
+      if (selectedDocsList && selectedDocsList.length > 0) {
+        selectedDocsList.forEach((doc) => {
+          downloadList.push({ doc, relativePath: "" });
+        });
+      }
 
-      if (!selectedDocsList || selectedDocsList.length === 0) {
+      // Fetch and add all documents from selected directories
+      const selectedDirsList = directories.filter((dir) =>
+        selectedDirs.has(dir.id)
+      );
+      if (selectedDirsList && selectedDirsList.length > 0) {
+        for (const dir of selectedDirsList) {
+          const dirDocs = await fetchAllDocumentsFromDirectory(
+            dir.id,
+            dir.name,
+            dir.name
+          );
+          downloadList.push(...dirDocs);
+        }
+      }
+
+      if (downloadList.length === 0) {
         setBatchDownloading(false);
+        alert("No documents found to download.");
         return;
       }
 
-      // Add all selected documents to download center in parallel
-      const downloadPromises = selectedDocsList.map(async (doc) => {
+      // Add all documents to download center in parallel
+      const downloadPromises = downloadList.map(async ({ doc, relativePath }) => {
         const fileName = `${doc.name}.${doc.fileExtension}`;
-        const savePath = `${folderPath}/${fileName}`;
+        const savePath = relativePath
+          ? `${folderPath}/${relativePath}/${fileName}`
+          : `${folderPath}/${fileName}`;
 
         return window.electronAPI.downloadAddTask({
           type: "document",
@@ -419,7 +529,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           successCount++;
         } else {
           failCount++;
-          const doc = selectedDocsList[index];
+          const { doc } = downloadList[index];
           const error =
             result.status === "fulfilled" ? result.value.error : result.reason;
           console.error(`Failed to add download task for ${doc.name}:`, error);
@@ -428,6 +538,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
       // Clear selection after batch download
       setSelectedDocs(new Set());
+      setSelectedDirs(new Set());
 
       // Show result
       if (failCount != 0) {
@@ -444,14 +555,30 @@ const DocumentList: React.FC<DocumentListProps> = ({
     } finally {
       setBatchDownloading(false);
     }
-  }, [selectedDocs, documents, selectedCourse, t]);
+  }, [
+    selectedDocs,
+    selectedDirs,
+    documents,
+    directories,
+    selectedCourse,
+    fetchAllDocumentsFromDirectory,
+    t,
+  ]);
 
   // Directory navigation functions
-  const handleEnterDirectory = useCallback((dir: DocumentDirectory) => {
-    setCurrentUpId(dir.id);
-    setPathStack((prev) => [...prev, { id: dir.id, name: dir.name }]);
-    setSelectedDocs(new Set()); // Clear selection when navigating
-  }, []);
+  const handleEnterDirectory = useCallback(
+    (dir: DocumentDirectory, e?: React.MouseEvent) => {
+      // Don't navigate if clicking on checkbox
+      if (e && (e.target as HTMLElement).tagName === "INPUT") {
+        return;
+      }
+      setCurrentUpId(dir.id);
+      setPathStack((prev) => [...prev, { id: dir.id, name: dir.name }]);
+      setSelectedDocs(new Set()); // Clear selection when navigating
+      setSelectedDirs(new Set());
+    },
+    []
+  );
 
   const handleNavigateToPath = useCallback((index: number) => {
     setPathStack((prev) => {
@@ -460,13 +587,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
       return newPath;
     });
     setSelectedDocs(new Set()); // Clear selection when navigating
+    setSelectedDirs(new Set());
   }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle shortcuts when a course is selected and documents exist
-      if (!selectedCourse || !documents || documents.length === 0) return;
+      // Only handle shortcuts when a course is selected and items exist
+      if (
+        !selectedCourse ||
+        (!documents?.length && !directories.length)
+      )
+        return;
 
       // Cmd-A or Ctrl-A: Select all
       if ((e.metaKey || e.ctrlKey) && e.key === "a") {
@@ -474,10 +606,13 @@ const DocumentList: React.FC<DocumentListProps> = ({
         toggleSelectAll();
       }
 
-      // Cmd-S or Ctrl-S: Batch download (if documents are selected)
+      // Cmd-S or Ctrl-S: Batch download (if items are selected)
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        if (selectedDocs.size > 0 && !batchDownloading) {
+        if (
+          (selectedDocs.size > 0 || selectedDirs.size > 0) &&
+          !batchDownloading
+        ) {
           handleBatchDownload();
         }
       }
@@ -490,7 +625,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
   }, [
     selectedCourse,
     documents,
+    directories,
     selectedDocs,
+    selectedDirs,
     batchDownloading,
     toggleSelectAll,
     handleBatchDownload,
@@ -559,11 +696,20 @@ const DocumentList: React.FC<DocumentListProps> = ({
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((dir) => (
             <Card key={`dir-${dir.id}`} padding="lg">
-              <div
-                className="flex justify-between items-center w-full cursor-pointer hover:bg-gray-50 -m-4 p-4 rounded-lg transition-colors"
-                onClick={() => handleEnterDirectory(dir)}
-              >
-                <div className="flex items-center flex-1">
+              <div className="flex justify-between items-center w-full">
+                <div className="flex items-center mr-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedDirs.has(dir.id)}
+                    onChange={() => toggleDirSelection(dir.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
+                <div
+                  className="flex items-center flex-1 cursor-pointer hover:bg-gray-50 -my-4 py-4 -mr-4 pr-4 rounded-lg transition-colors"
+                  onClick={(e) => handleEnterDirectory(dir, e)}
+                >
                   <span className="text-3xl mr-3">📁</span>
                   <div className="flex-1">
                     <h3 className="m-0 text-base text-gray-900 font-semibold">
@@ -813,16 +959,22 @@ const DocumentList: React.FC<DocumentListProps> = ({
           </div>
           <div className="mb-4 flex gap-3 items-center">
             <Button onClick={toggleSelectAll} variant="secondary" size="sm">
-              {selectedDocs.size > 0
+              {selectedDocs.size > 0 || selectedDirs.size > 0
                 ? t("clearSelection") || "Clear Selection"
                 : t("selectAll") || "Select All"}
             </Button>
-            {selectedDocs.size > 0 && (
+            {(selectedDocs.size > 0 || selectedDirs.size > 0) && (
               <span className="text-sm text-gray-600">
-                {selectedDocs.size} {t("selected") || "selected"}
+                {selectedDocs.size + selectedDirs.size}{" "}
+                {t("selected") || "selected"}
+                {selectedDirs.size > 0 && (
+                  <span className="ml-2 text-gray-500">
+                    ({selectedDocs.size} files, {selectedDirs.size} folders)
+                  </span>
+                )}
               </span>
             )}
-            {selectedDocs.size > 0 && (
+            {(selectedDocs.size > 0 || selectedDirs.size > 0) && (
               <Button
                 onClick={handleBatchDownload}
                 disabled={batchDownloading}
