@@ -405,7 +405,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           { upId: dirId }
         );
 
-        if (result.success && result.data) {
+        if (result && result.data) {
           const { documents: docs, directories: subdirs } = result.data;
 
           // Add documents from this directory

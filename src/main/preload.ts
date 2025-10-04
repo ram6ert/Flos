@@ -35,8 +35,8 @@ export interface ElectronAPI {
   ) => Promise<{ data: any; success: boolean }>;
   getCourseDocuments: (
     courseId: string,
-    options?: { skipCache?: boolean }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+    options?: { skipCache?: boolean; upId?: string | number }
+  ) => Promise<{ data: any; fromCache: boolean; age: number }>;
   refreshCourses: () => Promise<{
     data: any[];
     fromCache: boolean;
@@ -48,16 +48,16 @@ export interface ElectronAPI {
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   refreshDocuments: (
     courseId?: string,
-    options?: { requestId?: string }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+    options?: { requestId?: string; upId?: string | number }
+  ) => Promise<{ data: any; fromCache: boolean; age: number }>;
   streamHomework: (
     courseId?: string,
     options?: { requestId?: string }
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   streamDocuments: (
     courseId?: string,
-    options?: { forceRefresh?: boolean; requestId?: string }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+    options?: { forceRefresh?: boolean; requestId?: string; upId?: string | number }
+  ) => Promise<{ data: any; fromCache: boolean; age: number }>;
   getSchedule: (options?: { skipCache?: boolean }) => Promise<any>;
   refreshSchedule: () => Promise<any>;
   fetchCourseImage: (imagePath: string) => Promise<string | null>;

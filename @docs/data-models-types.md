@@ -220,6 +220,50 @@ interface CourseDocument {
 }
 ```
 
+### DocumentDirectory
+
+Document directory (folder) structure for hierarchical organization.
+
+```typescript
+interface DocumentDirectory {
+  id: string; // Internal numeric directory ID (string, e.g., "4245")
+  name: string; // Directory name (e.g., "第3单元")
+  content: string; // Directory description/content
+  upId: string; // Parent directory ID ("0" for root)
+  teacherId: string; // Teacher ID who created the directory
+  courseCode: string; // Course code this directory belongs to
+  facilityId: string; // Facility ID
+  tagLevel: number; // Tag level for organization
+  sequence: string; // Sequence number for ordering
+  addTime: string; // Creation timestamp
+  resourceType: string; // Resource type identifier
+  tId: number; // Template ID
+  showType: number; // Display type
+  sort: number; // Sort order
+  shareType: number; // Sharing type
+}
+```
+
+**Hierarchical Structure:**
+- Documents can be organized in a hierarchical directory structure
+- Each directory has a parent ID (`upId`), with "0" indicating root level
+- To fetch documents in a subdirectory, use the directory's `id` as the `upId` parameter in the next query
+- Directories can contain both documents and nested subdirectories
+
+**Example Usage:**
+```typescript
+// Fetch root level documents and directories
+const rootData = await fetchCourseDocuments(courseCode, 0);
+// rootData.documents: array of documents at root level
+// rootData.directories: array of subdirectories
+
+// Fetch documents from a specific directory
+const dirId = rootData.directories[0].id; // e.g., "4245"
+const subData = await fetchCourseDocuments(courseCode, dirId);
+// subData.documents: array of documents in that directory
+// subData.directories: array of subdirectories within that directory
+```
+
 ### CourseDocumentType
 
 Document categorization enum.

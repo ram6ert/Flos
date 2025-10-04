@@ -346,14 +346,55 @@ HTML schedule parsing and data transformation.
 
 ### Document Handlers (`src/main/handlers/document.ts`)
 
-Document management with streaming capabilities.
+Document management with streaming capabilities and hierarchical directory support.
 
 **Features:**
 
 - **Multi-type Support**: Courseware and experiment guides
 - **Streaming Fetching**: Progressive document loading
+- **Hierarchical Directories**: Support for nested folder structures
 - **File Categorization**: Document type classification
 - **Access Control**: Permission-based document access
+
+**Hierarchical Directory Support:**
+
+The document system now supports hierarchical directory structures (folders/subdirectories):
+
+- Documents can be organized in nested directories
+- Each directory can contain both documents and subdirectories
+- Use `upId` parameter to navigate the directory tree:
+  - `upId=0` fetches root-level documents and directories
+  - `upId={directoryId}` fetches contents of a specific directory
+- Responses include both `documents` (files) and `directories` (folders)
+
+**API Parameters:**
+
+```typescript
+// Fetch documents with optional upId for directory navigation
+await window.electronAPI.getCourseDocuments(courseCode, {
+  skipCache: false,
+  upId: 0, // 0 for root, or directory ID for subdirectory
+});
+
+// Stream documents with upId support
+await window.electronAPI.streamDocuments(courseId, {
+  requestId: "unique-id",
+  upId: 0, // Directory ID to fetch from
+});
+```
+
+**Response Structure:**
+
+```typescript
+{
+  data: {
+    documents: CourseDocument[],    // Files in this directory
+    directories: DocumentDirectory[] // Subdirectories
+  },
+  fromCache: boolean,
+  age: number
+}
+```
 
 ### Update Management (`src/main/handlers/update.ts`)
 
