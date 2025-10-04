@@ -408,3 +408,26 @@ export const sanitizeCourseDocument = (
     studentDownloadCount: doc.stu_download,
   };
 };
+
+/**
+ * Sanitization function for document directories (bags)
+ */
+export const sanitizeDocumentDirectory = (bag: any): any => {
+  return {
+    id: String(bag.id),
+    name: bag.bag_name,
+    content: bag.bag_content || "",
+    upId: String(bag.up_id),
+    teacherId: String(bag.teacher_id),
+    courseCode: bag.course_code,
+    facilityId: bag.fz_id,
+    tagLevel: bag.tag_level,
+    sequence: bag.sequ,
+    addTime: bag.add_time,
+    resourceType: String(bag.resource_type),
+    tId: bag.tId,
+    showType: bag.show_type,
+    sort: bag.sort,
+    shareType: bag.share_type,
+  };
+};

@@ -29,20 +29,21 @@ export function setupDocumentHandlers() {
         throw new Error("SESSION_EXPIRED");
       }
 
-      const { requestId } = options;
+      const { requestId, upId = 0 } = options;
       // Use the requestId passed from renderer, or generate one if not provided
       const responseId = requestId || generateResponseId();
 
       const cacheKey = courseId
-        ? `documents_${currentSession.username}_${courseId}`
-        : `all_documents_${currentSession.username}`;
+        ? `documents_${currentSession.username}_${courseId}_${upId}`
+        : `all_documents_${currentSession.username}_${upId}`;
 
       // Check cache first - if we have recent data, return it immediately
       const cachedData = cachedDocuments.get(cacheKey);
       if (cachedData) {
         // Only send if this is still the current request
         event.sender.send("document-stream-chunk", {
-          documents: cachedData,
+          documents: cachedData.documents || cachedData,
+          directories: cachedData.directories || [],
           courseId: courseId,
           courseName: "Cached Data",
           type: "cached",
@@ -59,21 +60,27 @@ export function setupDocumentHandlers() {
 
       // No cache, expired, or forced refresh - start streaming
       try {
-        const generator = fetchDocumentsStreaming(courseId, (progress) => {
-          event.sender.send("document-stream-progress", {
-            ...progress,
-            responseId,
-          });
-        });
+        const generator = fetchDocumentsStreaming(
+          courseId,
+          (progress) => {
+            event.sender.send("document-stream-progress", {
+              ...progress,
+              responseId,
+            });
+          },
+          upId
+        );
 
-        let finalData: CourseDocument[] = [];
+        let finalDocuments: CourseDocument[] = [];
+        let finalDirectories: any[] = [];
         for await (const chunk of generator) {
           event.sender.send("document-stream-chunk", {
             ...chunk,
             fromCache: false,
             responseId,
           });
-          finalData = finalData.concat(chunk.documents);
+          finalDocuments = finalDocuments.concat(chunk.documents);
+          finalDirectories = finalDirectories.concat(chunk.directories || []);
         }
 
         event.sender.send("document-stream-complete", {
@@ -81,8 +88,12 @@ export function setupDocumentHandlers() {
           responseId,
         });
 
+        const finalData = {
+          documents: finalDocuments,
+          directories: finalDirectories,
+        };
         cachedDocuments.set(cacheKey, finalData);
-        return { data: finalData || [], fromCache: false, age: 0 };
+        return { data: finalData, fromCache: false, age: 0 };
       } catch (error) {
         event.sender.send("document-stream-error", {
           error: error instanceof Error ? error.message : "Streaming failed",
@@ -102,33 +113,39 @@ export function setupDocumentHandlers() {
         throw new Error("SESSION_EXPIRED");
       }
 
-      const { requestId } = options;
+      const { requestId, upId = 0 } = options;
       const responseId = requestId || generateResponseId();
 
       const cacheKey = courseId
-        ? `documents_${currentSession.username}_${courseId}`
-        : "all_documents";
+        ? `documents_${currentSession.username}_${courseId}_${upId}`
+        : `all_documents_${upId}`;
 
       // Signal renderer to clear display and start streaming fresh data
       try {
         // Signal renderer to clear display
         event.sender.send("document-refresh-start", { courseId, responseId });
 
-        const generator = fetchDocumentsStreaming(courseId, (progress) => {
-          event.sender.send("document-stream-progress", {
-            ...progress,
-            responseId,
-          });
-        }); // false = allow caching of the fresh data
+        const generator = fetchDocumentsStreaming(
+          courseId,
+          (progress) => {
+            event.sender.send("document-stream-progress", {
+              ...progress,
+              responseId,
+            });
+          },
+          upId
+        ); // false = allow caching of the fresh data
 
-        let finalData: CourseDocument[] = [];
+        let finalDocuments: CourseDocument[] = [];
+        let finalDirectories: any[] = [];
         for await (const chunk of generator) {
           event.sender.send("document-stream-chunk", {
             ...chunk,
             fromCache: false,
             responseId,
           });
-          finalData = finalData.concat(chunk.documents);
+          finalDocuments = finalDocuments.concat(chunk.documents);
+          finalDirectories = finalDirectories.concat(chunk.directories || []);
         }
 
         event.sender.send("document-stream-complete", {
@@ -136,6 +153,10 @@ export function setupDocumentHandlers() {
           responseId,
         });
 
+        const finalData = {
+          documents: finalDocuments,
+          directories: finalDirectories,
+        };
         cachedDocuments.set(cacheKey, finalData);
         return { data: finalData, fromCache: false, age: 0 };
       } catch (error) {
@@ -192,13 +213,18 @@ export function setupDocumentHandlers() {
   // Fetch course documents
   ipcMain.handle(
     "get-course-documents",
-    async (event, courseCode: string, options?: { skipCache?: boolean }) => {
+    async (
+      event,
+      courseCode: string,
+      options?: { skipCache?: boolean; upId?: string | number }
+    ) => {
       if (!currentSession) {
         await handleSessionExpired();
         throw new Error("SESSION_EXPIRED");
       }
 
-      const cacheKey = `documents_${currentSession.username}_${courseCode}`;
+      const upId = options?.upId ?? 0;
+      const cacheKey = `documents_${currentSession.username}_${courseCode}_${upId}`;
       const cachedData = cachedDocuments.get(cacheKey);
 
       // Use cached data if available and not expired (unless skipCache is true)
@@ -208,12 +234,12 @@ export function setupDocumentHandlers() {
 
       return requestQueue.add(async () => {
         try {
-          const sanitizedDocuments = await fetchCourseDocuments(courseCode);
+          const result = await fetchCourseDocuments(courseCode, upId);
 
           // Update cache with sanitized data
-          cachedDocuments.set(cacheKey, sanitizedDocuments);
+          cachedDocuments.set(cacheKey, result);
 
-          return { data: sanitizedDocuments, fromCache: false, age: 0 };
+          return { data: result, fromCache: false, age: 0 };
         } catch (error) {
           console.error("Failed to fetch course documents:", error);
           throw error;

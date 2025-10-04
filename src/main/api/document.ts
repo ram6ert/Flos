@@ -4,13 +4,22 @@ import {
   authenticatedAPIRequest,
   requestQueue,
   sanitizeCourseDocument,
+  sanitizeDocumentDirectory,
   convertDocumentType,
 } from "./utils";
 
 /**
  * Fetch course documents by type (internal helper)
+ * @param courseCode - Course code to fetch documents for
+ * @param docType - Document type (e.g., "1" for courseware, "10" for experiment guide)
+ * @param upId - Parent directory ID (0 for root, or a directory ID to fetch subdirectory contents)
+ * @returns Object containing documents and directories
  */
-async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
+async function fetchCourseDocumentsByType(
+  courseCode: string,
+  docType: string,
+  upId: string | number = 0
+) {
   if (!currentSession) {
     throw new Error("Not logged in");
   }
@@ -37,33 +46,56 @@ async function fetchCourseDocumentsByType(courseCode: string, docType: string) {
   // Construct xkhId using course information
   const xkhId = course.facilityId || `${xqCode}-${courseCode}`;
 
-  // Construct the course documents URL with specific docType
-  const url = `/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=${docType}&up_id=0&searchName=`;
+  // Construct the course documents URL with specific docType and upId
+  const url = `/coursePlatform/courseResource.shtml?method=stuQueryUploadResourceForCourseList&courseId=${courseCode}&cId=${courseCode}&xkhId=${xkhId}&xqCode=${xqCode}&docType=${docType}&up_id=${upId}&searchName=`;
 
   const data = await authenticatedAPIRequest(url, true);
 
+  const result: any = {
+    documents: [],
+    directories: [],
+  };
+
+  // Sanitize documents
   if (data && Array.isArray(data.resList)) {
-    // Sanitize all documents
-    const sanitizedDocuments = data.resList.map((a: any) =>
-      sanitizeCourseDocument(a, convertDocumentType(docType))
+    result.documents = data.resList.map((doc: any) =>
+      sanitizeCourseDocument(doc, convertDocumentType(docType))
     );
-    return sanitizedDocuments;
   }
 
-  return []; // No documents
+  // Sanitize directories (bagList)
+  if (data && Array.isArray(data.bagList)) {
+    result.directories = data.bagList.map((bag: any) =>
+      sanitizeDocumentDirectory(bag)
+    );
+  }
+
+  return result;
 }
 
 /**
  * Fetch all course documents (fetches all document types)
+ * @param courseCode - Course code to fetch documents for
+ * @param upId - Parent directory ID (0 for root, or a directory ID to fetch subdirectory contents)
+ * @returns Object containing documents and directories from all document types
  */
-export async function fetchCourseDocuments(courseCode: string) {
+export async function fetchCourseDocuments(
+  courseCode: string,
+  upId: string | number = 0
+) {
   const documentTypes = ["1", "10"]; // Electronic Courseware and Experiment Guide
   const allDocuments: any[] = [];
+  const allDirectories: any[] = [];
 
   for (const docType of documentTypes) {
     try {
-      const documents = await fetchCourseDocumentsByType(courseCode, docType);
-      allDocuments.push(...documents);
+      const result = await fetchCourseDocumentsByType(
+        courseCode,
+        docType,
+        upId
+      );
+      allDocuments.push(...result.documents);
+      allDirectories.push(...result.directories);
     } catch (error) {
       Logger.error(
         `Failed to fetch documents of type ${docType} for course ${courseCode}`,
@@ -73,11 +105,17 @@ export async function fetchCourseDocuments(courseCode: string) {
     }
   }
 
-  return allDocuments;
+  return {
+    documents: allDocuments,
+    directories: allDirectories,
+  };
 }
 
 /**
  * Streaming document fetcher that yields results progressively
+ * @param courseId - Optional course ID to fetch documents for a specific course
+ * @param onProgress - Optional progress callback
+ * @param upId - Optional parent directory ID (0 for root)
  */
 export async function* fetchDocumentsStreaming(
   courseId?: string,
@@ -85,9 +123,11 @@ export async function* fetchDocumentsStreaming(
     completed: number;
     total: number;
     currentCourse?: string;
-  }) => void
+  }) => void,
+  upId: string | number = 0
 ) {
   const allDocuments: any[] = [];
+  const allDirectories: any[] = [];
 
   try {
     const documentTypes = [
@@ -106,16 +146,19 @@ export async function* fetchDocumentsStreaming(
         }
 
         try {
-          const documents = await fetchCourseDocumentsByType(
+          const result = await fetchCourseDocumentsByType(
             courseId,
-            type.docType
+            type.docType,
+            upId
           );
 
-          allDocuments.push(...documents);
+          allDocuments.push(...result.documents);
+          allDirectories.push(...result.directories);
 
           // Always yield, even if no documents found
           yield {
-            documents,
+            documents: result.documents,
+            directories: result.directories,
             courseId,
             courseName: null,
             type: type.name,
@@ -125,6 +168,7 @@ export async function* fetchDocumentsStreaming(
           // Still yield empty result for this type
           yield {
             documents: [],
+            directories: [],
             courseId,
             courseName: null,
             type: type.name,
@@ -174,13 +218,14 @@ export async function* fetchDocumentsStreaming(
           }
 
           try {
-            const documents = await requestQueue.add(() =>
-              fetchCourseDocumentsByType(course.courseCode, type.docType)
+            const result = await requestQueue.add(() =>
+              fetchCourseDocumentsByType(course.courseCode, type.docType, upId)
             );
 
-            if (documents.length > 0) {
+            if (result.documents.length > 0 || result.directories.length > 0) {
               return {
-                documents,
+                documents: result.documents,
+                directories: result.directories,
                 courseId: course.courseCode,
                 courseName: course.name,
                 type: type.name,
@@ -200,8 +245,12 @@ export async function* fetchDocumentsStreaming(
         const batchResults = await Promise.all(batchPromises);
 
         for (const result of batchResults) {
-          if (result && result.documents.length > 0) {
+          if (
+            result &&
+            (result.documents.length > 0 || result.directories.length > 0)
+          ) {
             allDocuments.push(...result.documents);
+            allDirectories.push(...result.directories);
             yield result;
           }
           completed++;
