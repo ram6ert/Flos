@@ -199,6 +199,12 @@ class DownloadManager {
 
       task.filePath = savePath;
 
+      // Ensure parent directory exists
+      const saveDir = path.dirname(savePath);
+      if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true });
+      }
+
       // Create write stream
       const writer = fs.createWriteStream(savePath);
       let downloadedBytes = 0;
