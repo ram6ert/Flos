@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Course } from "../../../shared/types";
 import {
   CourseDocument,
+  DocumentDirectory,
   DocumentStreamChunk,
   DocumentStreamProgress,
   CourseDocumentType,
@@ -46,6 +47,13 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [batchDownloading, setBatchDownloading] = useState(false);
 
+  // Directory navigation state
+  const [directories, setDirectories] = useState<DocumentDirectory[]>([]);
+  const [currentUpId, setCurrentUpId] = useState<string>("0");
+  const [pathStack, setPathStack] = useState<
+    Array<{ id: string; name: string }>
+  >([{ id: "0", name: "Root" }]);
+
   // Simple race condition protection - tracks current request
   const currentRequestIdRef = useRef<string | null>(null);
 
@@ -69,6 +77,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
         );
         return uniqueDocs;
       });
+
+      // Handle directories if present
+      if (chunk.directories && chunk.directories.length > 0) {
+        setDirectories((prev) => {
+          const newDirs = [...prev, ...chunk.directories];
+          // Remove duplicates based on directory ID
+          const uniqueDirs = newDirs.filter(
+            (dir, index, arr) => arr.findIndex((d) => d.id === dir.id) === index
+          );
+          return uniqueDirs;
+        });
+      }
     },
     [setDocuments]
   );
@@ -137,8 +157,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   const handleDocumentRefreshStart = useCallback(
     (_event: any, _payload: any) => {
-      // Clear current documents for refresh (loading state already set by fetchDocuments)
+      // Clear current documents and directories for refresh (loading state already set by fetchDocuments)
       setDocuments([]);
+      setDirectories([]);
     },
     [setDocuments]
   );
@@ -148,7 +169,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       if (!selectedCourse) return;
 
       // Generate unique request ID for this fetch and set it IMMEDIATELY
-      const requestId = `${selectedCourse.courseCode}-${Date.now()}-${Math.random()}`;
+      const requestId = `${selectedCourse.courseCode}-${currentUpId}-${Date.now()}-${Math.random()}`;
 
       // Set the request ID BEFORE making any API calls
       currentRequestIdRef.current = requestId;
@@ -157,16 +178,19 @@ const DocumentList: React.FC<DocumentListProps> = ({
       // Set loading state BEFORE API call so events can start arriving
       setLoadingState({ state: LoadingState.LOADING });
       setDocuments(null); // Clear existing documents for streaming
+      setDirectories([]); // Clear existing directories for streaming
 
       try {
         if (forceRefresh) {
           await window.electronAPI.refreshDocuments(selectedCourse.courseCode, {
             requestId: requestId,
+            upId: currentUpId,
           });
         } else {
           // Start streaming for this specific course (will fetch all document types)
           await window.electronAPI.streamDocuments(selectedCourse.courseCode, {
             requestId: requestId,
+            upId: currentUpId,
           });
         }
       } catch (error) {
@@ -180,19 +204,34 @@ const DocumentList: React.FC<DocumentListProps> = ({
         }
       }
     },
-    [selectedCourse, setDocuments]
+    [selectedCourse, currentUpId, setDocuments]
   );
 
+  // Reset directory location when course changes
   useEffect(() => {
     if (selectedCourse) {
-      fetchDocuments(false); // Always fetch when course changes - fetchDocuments will handle request ID
+      // Reset to root when course changes
+      setCurrentUpId("0");
+      setPathStack([{ id: "0", name: "Root" }]);
+      setDirectories([]);
+      setSelectedDocs(new Set());
     } else {
-      // Cancel any ongoing request
+      // Cancel any ongoing request and reset state
       currentRequestIdRef.current = null;
       setDocuments(null);
+      setDirectories([]);
+      setCurrentUpId("0");
+      setPathStack([{ id: "0", name: "Root" }]);
       setLoadingState({ state: LoadingState.IDLE });
     }
-  }, [selectedCourse, fetchDocuments, setDocuments]);
+  }, [selectedCourse, setDocuments]);
+
+  // Fetch documents when course or directory changes
+  useEffect(() => {
+    if (selectedCourse) {
+      fetchDocuments(false);
+    }
+  }, [selectedCourse, currentUpId, fetchDocuments]);
 
   // Set up event listeners and cleanup on unmount
   useEffect(() => {
@@ -407,6 +446,22 @@ const DocumentList: React.FC<DocumentListProps> = ({
     }
   }, [selectedDocs, documents, selectedCourse, t]);
 
+  // Directory navigation functions
+  const handleEnterDirectory = useCallback((dir: DocumentDirectory) => {
+    setCurrentUpId(dir.id);
+    setPathStack((prev) => [...prev, { id: dir.id, name: dir.name }]);
+    setSelectedDocs(new Set()); // Clear selection when navigating
+  }, []);
+
+  const handleNavigateToPath = useCallback((index: number) => {
+    setPathStack((prev) => {
+      const newPath = prev.slice(0, index + 1);
+      setCurrentUpId(newPath[newPath.length - 1].id);
+      return newPath;
+    });
+    setSelectedDocs(new Set()); // Clear selection when navigating
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -463,11 +518,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
       );
     }
 
-    if (documents && documents.length === 0) {
+    if (documents && documents.length === 0 && directories.length === 0) {
       return (
-        <p className="text-gray-600">No documents available for this course.</p>
+        <p className="text-gray-600">
+          No documents or directories available in this location.
+        </p>
       );
     }
+
+    // Filter directories
+    const filteredDirectories = directories.filter((dir) =>
+      dir.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const filteredDocuments = (documents || []).filter((doc) => {
       const matchesSearch = doc.name
@@ -480,17 +542,46 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
     if (
       filteredDocuments.length === 0 &&
+      filteredDirectories.length === 0 &&
       (searchTerm || selectedDocType !== "all")
     ) {
       return (
         <p className="text-gray-600">
-          No documents found matching your filters.
+          No documents or directories found matching your filters.
         </p>
       );
     }
 
     return (
       <div className="flex flex-col gap-3">
+        {/* Render directories first */}
+        {filteredDirectories
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((dir) => (
+            <Card key={`dir-${dir.id}`} padding="lg">
+              <div
+                className="flex justify-between items-center w-full cursor-pointer hover:bg-gray-50 -m-4 p-4 rounded-lg transition-colors"
+                onClick={() => handleEnterDirectory(dir)}
+              >
+                <div className="flex items-center flex-1">
+                  <span className="text-3xl mr-3">📁</span>
+                  <div className="flex-1">
+                    <h3 className="m-0 text-base text-gray-900 font-semibold">
+                      {dir.name}
+                    </h3>
+                    {dir.content && (
+                      <p className="m-0 mt-1 text-sm text-gray-600">
+                        {dir.content}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-gray-400 ml-4">→</span>
+                </div>
+              </div>
+            </Card>
+          ))}
+
+        {/* Render documents */}
         {filteredDocuments
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((doc) => (
@@ -567,7 +658,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
       <PageHeader
         title={`${t("documents")}${
           selectedCourse
-            ? ` - ${selectedCourse.name} (${loadingState.state === LoadingState.LOADING ? "..." : documents?.length || 0})`
+            ? ` - ${selectedCourse.name} (${
+                loadingState.state === LoadingState.LOADING
+                  ? "..."
+                  : `${(documents?.length || 0) + directories.length} items`
+              })`
             : ""
         }`}
         actions={
@@ -625,6 +720,29 @@ const DocumentList: React.FC<DocumentListProps> = ({
         </InfoBanner>
       )}
 
+      {/* Breadcrumb Navigation */}
+      {selectedCourse && pathStack.length > 0 && (
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          <span className="text-gray-500">📂</span>
+          {pathStack.map((path, index) => (
+            <React.Fragment key={path.id}>
+              {index > 0 && <span className="text-gray-400">/</span>}
+              <button
+                onClick={() => handleNavigateToPath(index)}
+                className={`${
+                  index === pathStack.length - 1
+                    ? "text-blue-600 font-semibold"
+                    : "text-gray-600 hover:text-blue-600"
+                } transition-colors`}
+                disabled={index === pathStack.length - 1}
+              >
+                {path.name}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
       {/* Loading Progress */}
       {loadingState.state === LoadingState.LOADING && loadingState.progress && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -670,9 +788,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
           </div>
         )}
 
-      {selectedCourse && (documents?.length || 0) > 0 && (
-        <>
-          <div className="mb-4 flex gap-3">
+      {selectedCourse &&
+        ((documents?.length || 0) > 0 || directories.length > 0) && (
+          <>
+            <div className="mb-4 flex gap-3">
             <Input
               type="text"
               placeholder="Search documents by name..."
