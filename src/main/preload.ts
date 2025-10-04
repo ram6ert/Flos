@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import { UpdateInfo } from "./updater";
 import {
   LoginCredentials,
@@ -6,7 +6,50 @@ import {
   AddDownloadTaskParams,
   DownloadTask,
   DownloadType,
+  Course,
+  Homework,
+  HomeworkDetails,
+  CourseDocument,
+  DocumentDirectory,
+  CourseDocumentsResponse,
+  ScheduleData,
 } from "../shared/types";
+
+/**
+ * Session data returned from getCurrentSession
+ */
+export interface SessionData {
+  userId: string;
+  username: string;
+  sessionId: string;
+  jsessionId: string;
+  loginTime: string;
+  isValid: boolean;
+}
+
+/**
+ * Possible types of data stored in cache
+ */
+export type CacheData = Course[] | Homework[] | HomeworkDetails | CourseDocumentsResponse | ScheduleData;
+
+/**
+ * Update status data
+ */
+export interface UpdateStatusData {
+  status: "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";
+  message?: string;
+  progress?: number;
+}
+
+/**
+ * Update download progress data
+ */
+export interface UpdateDownloadData {
+  percent: number;
+  transferred: number;
+  total: number;
+  bytesPerSecond: number;
+}
 
 /**
  * Electron API exposed to renderer process via contextBridge
@@ -23,43 +66,43 @@ import {
 export interface ElectronAPI {
   getCourses: (options?: {
     skipCache?: boolean;
-  }) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  }) => Promise<{ data: Course[]; fromCache: boolean; age: number }>;
   getHomework: (
     courseId?: string,
     options?: { skipCache?: boolean }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  ) => Promise<{ data: Homework[]; fromCache: boolean; age: number }>;
   getHomeworkDetails: (
     homeworkId: string,
     courseId: string,
     teacherId: string
-  ) => Promise<{ data: any; success: boolean }>;
+  ) => Promise<{ data: HomeworkDetails; success: boolean }>;
   getCourseDocuments: (
     courseId: string,
     options?: { skipCache?: boolean; upId?: string | number }
-  ) => Promise<{ data: any; fromCache: boolean; age: number }>;
+  ) => Promise<{ data: CourseDocumentsResponse; fromCache: boolean; age: number }>;
   refreshCourses: () => Promise<{
-    data: any[];
+    data: Course[];
     fromCache: boolean;
     age: number;
   }>;
   refreshHomework: (
     courseId?: string,
     options?: { requestId?: string }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  ) => Promise<{ data: Homework[]; fromCache: boolean; age: number }>;
   refreshDocuments: (
     courseId?: string,
     options?: { requestId?: string; upId?: string | number }
-  ) => Promise<{ data: any; fromCache: boolean; age: number }>;
+  ) => Promise<{ data: CourseDocumentsResponse; fromCache: boolean; age: number }>;
   streamHomework: (
     courseId?: string,
     options?: { requestId?: string }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  ) => Promise<{ data: Homework[]; fromCache: boolean; age: number }>;
   streamDocuments: (
     courseId?: string,
     options?: { forceRefresh?: boolean; requestId?: string; upId?: string | number }
-  ) => Promise<{ data: any; fromCache: boolean; age: number }>;
-  getSchedule: (options?: { skipCache?: boolean }) => Promise<any>;
-  refreshSchedule: () => Promise<any>;
+  ) => Promise<{ data: CourseDocumentsResponse; fromCache: boolean; age: number }>;
+  getSchedule: (options?: { skipCache?: boolean }) => Promise<ScheduleData>;
+  refreshSchedule: () => Promise<ScheduleData>;
   fetchCourseImage: (imagePath: string) => Promise<string | null>;
   fetchCaptcha: () => Promise<{
     success: boolean;
@@ -69,7 +112,7 @@ export interface ElectronAPI {
   login: (credentials: LoginCredentials) => Promise<LoginResponse>;
   logout: () => Promise<void>;
   isLoggedIn: () => Promise<boolean>;
-  getCurrentSession: () => Promise<any>;
+  getCurrentSession: () => Promise<SessionData | null>;
   validateStoredSession: () => Promise<boolean>;
   storeCredentials: (credentials: {
     username: string;
@@ -83,14 +126,14 @@ export interface ElectronAPI {
   } | null>;
   clearStoredCredentials: () => Promise<void>;
   onCacheUpdate: (
-    callback: (event: any, payload: { key: string; data: any }) => void
+    callback: (event: IpcRendererEvent, payload: { key: string; data: CacheData }) => void
   ) => void;
   onSessionExpired: (callback: () => void) => void;
   onHomeworkStreamChunk: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       chunk: {
-        homework: any[];
+        homework: Homework[];
         courseId?: string;
         courseName?: string;
         fromCache: boolean;
@@ -100,7 +143,7 @@ export interface ElectronAPI {
   ) => void;
   onHomeworkStreamProgress: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       progress: {
         completed: number;
         total: number;
@@ -111,21 +154,22 @@ export interface ElectronAPI {
   ) => void;
   onHomeworkStreamComplete: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       payload: { courseId?: string; responseId?: string }
     ) => void
   ) => void;
   onHomeworkStreamError: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       error: { error: string; responseId?: string }
     ) => void
   ) => void;
   onDocumentStreamChunk: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       chunk: {
-        documents: any[];
+        documents: CourseDocument[];
+        directories?: DocumentDirectory[];
         courseId?: string;
         courseName?: string;
         fromCache: boolean;
@@ -135,7 +179,7 @@ export interface ElectronAPI {
   ) => void;
   onDocumentStreamProgress: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       progress: {
         completed: number;
         total: number;
@@ -146,25 +190,25 @@ export interface ElectronAPI {
   ) => void;
   onDocumentStreamComplete: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       payload: { courseId?: string; responseId?: string }
     ) => void
   ) => void;
   onDocumentStreamError: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       error: { error: string; responseId?: string }
     ) => void
   ) => void;
   onHomeworkRefreshStart: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       payload: { courseId?: string; responseId?: string }
     ) => void
   ) => void;
   onDocumentRefreshStart: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       payload: { courseId?: string; responseId?: string }
     ) => void
   ) => void;
@@ -187,8 +231,8 @@ export interface ElectronAPI {
     error?: string;
   }>;
   showUpdateDialog: (updateInfo: UpdateInfo) => Promise<boolean>;
-  onUpdateStatus: (callback: (event: any, data: any) => void) => void;
-  onUpdateDownload: (callback: (event: any, data: any) => void) => void;
+  onUpdateStatus: (callback: (event: IpcRendererEvent, data: UpdateStatusData) => void) => void;
+  onUpdateDownload: (callback: (event: IpcRendererEvent, data: UpdateDownloadData) => void) => void;
   // homework submission
   submitHomework: (submission: {
     homeworkId: string;
@@ -261,11 +305,11 @@ export interface ElectronAPI {
     error?: string;
   }>;
   onDownloadTaskUpdate: (
-    callback: (event: any, task: DownloadTask) => void
+    callback: (event: IpcRendererEvent, task: DownloadTask) => void
   ) => void;
   onDownloadProgress: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       progress: {
         taskId: string;
         status: string;
