@@ -305,6 +305,7 @@ interface InputProps {
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
+  className?: string;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -315,6 +316,7 @@ export const Input: React.FC<InputProps> = ({
   placeholder,
   required = false,
   disabled = false,
+  className = "",
 }) => {
   return (
     <input
@@ -328,7 +330,8 @@ export const Input: React.FC<InputProps> = ({
       className={cn(
         "w-full px-3 py-2 border border-gray-300 rounded-md text-base text-gray-700",
         "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
-        disabled ? "bg-gray-100 cursor-not-allowed" : "bg-white"
+        disabled ? "bg-gray-100 cursor-not-allowed" : "bg-white",
+        className
       )}
     />
   );

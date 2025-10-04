@@ -1,52 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { DownloadTask, DownloadStatus } from "../../../shared/types/download";
 
-declare global {
-  interface Window {
-    electronAPI: {
-      downloadGetAllTasks: () => Promise<{
-        success: boolean;
-        tasks?: DownloadTask[];
-        error?: string;
-      }>;
-      downloadCancelTask: (taskId: string) => Promise<{
-        success: boolean;
-        error?: string;
-      }>;
-      downloadRetryTask: (taskId: string) => Promise<{
-        success: boolean;
-        error?: string;
-      }>;
-      downloadRemoveTask: (taskId: string) => Promise<{
-        success: boolean;
-        error?: string;
-      }>;
-      downloadClearCompleted: () => Promise<{
-        success: boolean;
-        error?: string;
-      }>;
-      onDownloadTaskUpdate: (
-        callback: (event: any, task: DownloadTask) => void
-      ) => void;
-      onDownloadProgress: (
-        callback: (
-          event: any,
-          progress: {
-            taskId: string;
-            status: string;
-            progress: number;
-            downloadedBytes: number;
-            totalBytes: number;
-            speed?: number;
-            timeRemaining?: number;
-          }
-        ) => void
-      ) => void;
-      removeAllListeners: (channel: string) => void;
-    };
-  }
-}
-
 const DownloadCenter: React.FC = () => {
   const [tasks, setTasks] = useState<DownloadTask[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -117,9 +71,7 @@ const DownloadCenter: React.FC = () => {
 
   const handleClearCompleted = async () => {
     await window.electronAPI.downloadClearCompleted();
-    setTasks((prevTasks) =>
-      prevTasks.filter((t) => t.status !== "completed")
-    );
+    setTasks((prevTasks) => prevTasks.filter((t) => t.status !== "completed"));
   };
 
   const formatBytes = (bytes: number): string => {

@@ -596,11 +596,6 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({
 }) => {
   const [downloading, setDownloading] = useState<boolean>(false);
 
-  const _getFileExtension = (url: string) => {
-    const match = url.match(/\.([^.]+)$/);
-    return match ? match[1] : t("unknown");
-  };
-
   const handleDownloadAttachment = async (attachment: HomeworkAttachment) => {
     setDownloading(true);
     try {
@@ -621,26 +616,7 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({
         );
       }
 
-      if (result.savedToFile) {
-        // Large file saved directly to disk
-        alert(`File downloaded successfully to: ${result.filePath}`);
-      } else if (result.data) {
-        // Small file - create download link
-        const blob = new Blob(
-          [Uint8Array.from(atob(result.data), (c) => c.charCodeAt(0))],
-          {
-            type: result.contentType,
-          }
-        );
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = attachment.fileName || `download_${attachment.id}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } else if (!result.success) {
+      if (!result.success) {
         alert(`Download failed: ${result.error || "Unknown error"}`);
       }
     } catch (error) {

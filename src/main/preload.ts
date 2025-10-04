@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { UpdateInfo } from "./updater";
-import { LoginCredentials, LoginResponse, AddDownloadTaskParams, DownloadTask, DownloadType } from "../shared/types";
+import {
+  LoginCredentials,
+  LoginResponse,
+  AddDownloadTaskParams,
+  DownloadTask,
+  DownloadType,
+} from "../shared/types";
 
 export interface ElectronAPI {
   getCourses: (options?: {
@@ -52,8 +58,8 @@ export interface ElectronAPI {
     error?: string;
   }>;
   downloadHomeworkAttachment: (
-    attachmentId: string,  // Numeric attachment ID (NOT a URL!)
-    homeworkId: string     // Numeric homework ID (NOT a URL!)
+    attachmentId: string, // Numeric attachment ID (NOT a URL!)
+    homeworkId: string // Numeric homework ID (NOT a URL!)
   ) => Promise<{
     success: boolean;
     taskId?: string;
@@ -269,16 +275,23 @@ export interface ElectronAPI {
     success: boolean;
     error?: string;
   }>;
-  onDownloadTaskUpdate: (callback: (event: any, task: DownloadTask) => void) => void;
-  onDownloadProgress: (callback: (event: any, progress: {
-    taskId: string;
-    status: string;
-    progress: number;
-    downloadedBytes: number;
-    totalBytes: number;
-    speed?: number;
-    timeRemaining?: number;
-  }) => void) => void;
+  onDownloadTaskUpdate: (
+    callback: (event: any, task: DownloadTask) => void
+  ) => void;
+  onDownloadProgress: (
+    callback: (
+      event: any,
+      progress: {
+        taskId: string;
+        status: string;
+        progress: number;
+        downloadedBytes: number;
+        totalBytes: number;
+        speed?: number;
+        timeRemaining?: number;
+      }
+    ) => void
+  ) => void;
 }
 
 const electronAPI: ElectronAPI = {
@@ -313,7 +326,10 @@ const electronAPI: ElectronAPI = {
   downloadCourseDocument: (documentUrl: string, fileName: string) =>
     ipcRenderer.invoke("download-document", { documentUrl, fileName }),
   downloadHomeworkAttachment: (attachmentId: string, homeworkId: string) =>
-    ipcRenderer.invoke("download-homework-attachment", { attachmentId, homeworkId }),
+    ipcRenderer.invoke("download-homework-attachment", {
+      attachmentId,
+      homeworkId,
+    }),
   fetchCourseImage: (imagePath: string) =>
     ipcRenderer.invoke("fetch-course-image", imagePath),
   fetchCaptcha: () => ipcRenderer.invoke("fetch-captcha"),
@@ -384,14 +400,12 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("download-retry-task", taskId),
   downloadGetTask: (taskId: string) =>
     ipcRenderer.invoke("download-get-task", taskId),
-  downloadGetAllTasks: () =>
-    ipcRenderer.invoke("download-get-all-tasks"),
+  downloadGetAllTasks: () => ipcRenderer.invoke("download-get-all-tasks"),
   downloadGetTasksByType: (type: DownloadType) =>
     ipcRenderer.invoke("download-get-tasks-by-type", type),
   downloadRemoveTask: (taskId: string) =>
     ipcRenderer.invoke("download-remove-task", taskId),
-  downloadClearCompleted: () =>
-    ipcRenderer.invoke("download-clear-completed"),
+  downloadClearCompleted: () => ipcRenderer.invoke("download-clear-completed"),
   onDownloadTaskUpdate: (callback) =>
     ipcRenderer.on("download-task-update", callback),
   onDownloadProgress: (callback) =>

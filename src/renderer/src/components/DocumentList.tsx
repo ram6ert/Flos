@@ -272,28 +272,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
         fileName
       );
 
-      if (result.success) {
-        if (result.savedToFile) {
-          // Large file saved directly to disk
-          alert(`File downloaded successfully to: ${result.filePath}`);
-        } else if (result.data) {
-          // Small file - create download link
-          const blob = new Blob(
-            [Uint8Array.from(atob(result.data), (c) => c.charCodeAt(0))],
-            {
-              type: result.contentType,
-            }
-          );
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-        }
-      } else {
+      if (!result.success) {
         alert(`Download failed: ${result.error}`);
       }
     } catch (error) {
