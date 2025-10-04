@@ -292,6 +292,12 @@ export interface ElectronAPI {
       }
     ) => void
   ) => void;
+  selectDownloadFolder: () => Promise<{
+    success: boolean;
+    folderPath?: string;
+    canceled?: boolean;
+    error?: string;
+  }>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -410,6 +416,7 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on("download-task-update", callback),
   onDownloadProgress: (callback) =>
     ipcRenderer.on("download-progress", callback),
+  selectDownloadFolder: () => ipcRenderer.invoke("select-download-folder"),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

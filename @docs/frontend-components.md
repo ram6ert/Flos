@@ -251,6 +251,11 @@ const [error, setError] = useState("");
 - File type categorization
 - Download functionality
 - Search and filtering
+- **Batch download with multi-select**:
+  - Checkbox-based multi-select
+  - Select all / Clear selection controls
+  - Batch download to single folder
+  - Keyboard shortcuts (Cmd-A, Cmd-S)
 
 #### FlowScheduleTable (`FlowScheduleTable.tsx`)
 - Weekly schedule visualization

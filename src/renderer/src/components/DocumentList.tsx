@@ -43,6 +43,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [selectedDocType, setSelectedDocType] = useState<
     CourseDocumentType | "all"
   >("all");
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  const [batchDownloading, setBatchDownloading] = useState(false);
 
   // Simple race condition protection - tracks current request
   const currentRequestIdRef = useRef<string | null>(null);
@@ -283,6 +285,162 @@ const DocumentList: React.FC<DocumentListProps> = ({
     }
   };
 
+  const toggleDocSelection = useCallback((docId: string) => {
+    setSelectedDocs((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(docId)) {
+        newSet.delete(docId);
+      } else {
+        newSet.add(docId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (!documents) return;
+
+    const filteredDocuments = documents.filter((doc) => {
+      const matchesSearch = doc.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesType =
+        selectedDocType === "all" || doc.documentType === selectedDocType;
+      return matchesSearch && matchesType;
+    });
+
+    if (selectedDocs.size === filteredDocuments.length) {
+      // Deselect all
+      setSelectedDocs(new Set());
+    } else {
+      // Select all filtered documents
+      setSelectedDocs(new Set(filteredDocuments.map((doc) => doc.id)));
+    }
+  }, [documents, searchTerm, selectedDocType, selectedDocs.size]);
+
+  const handleBatchDownload = useCallback(async () => {
+    if (selectedDocs.size === 0) {
+      alert(
+        t("selectDocumentsFirst") || "Please select documents to download."
+      );
+      return;
+    }
+
+    setBatchDownloading(true);
+    try {
+      // Show folder selection dialog
+      const folderResult = await window.electronAPI.selectDownloadFolder();
+
+      if (
+        !folderResult.success ||
+        folderResult.canceled ||
+        !folderResult.folderPath
+      ) {
+        setBatchDownloading(false);
+        return;
+      }
+
+      const folderPath = folderResult.folderPath;
+      const selectedDocsList = documents?.filter((doc) =>
+        selectedDocs.has(doc.id)
+      );
+
+      if (!selectedDocsList || selectedDocsList.length === 0) {
+        setBatchDownloading(false);
+        return;
+      }
+
+      // Add all selected documents to download center
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const doc of selectedDocsList) {
+        try {
+          const fileName = `${doc.name}.${doc.fileExtension}`;
+          const savePath = `${folderPath}/${fileName}`;
+
+          const result = await window.electronAPI.downloadAddTask({
+            type: "document",
+            url: doc.resourceUrl,
+            fileName: fileName,
+            savePath: savePath,
+            metadata: {
+              courseId: selectedCourse?.courseNumber,
+              courseName: selectedCourse?.name,
+              documentId: doc.id,
+            },
+            autoStart: true,
+          });
+
+          if (result.success) {
+            successCount++;
+          } else {
+            failCount++;
+            console.error(
+              `Failed to add download task for ${doc.name}:`,
+              result.error
+            );
+          }
+        } catch (error) {
+          failCount++;
+          console.error(`Error adding download task for ${doc.name}:`, error);
+        }
+      }
+
+      // Clear selection after batch download
+      setSelectedDocs(new Set());
+
+      // Show result
+      if (failCount != 0) {
+        alert(
+          t("batchDownloadPartial") ||
+            `Added ${successCount} documents to download center. ${failCount} failed.`
+        );
+      }
+    } catch (error) {
+      console.error("Batch download error:", error);
+      alert(
+        t("batchDownloadFailed") || "Batch download failed. Please try again."
+      );
+    } finally {
+      setBatchDownloading(false);
+    }
+  }, [selectedDocs, documents, selectedCourse, t]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when a course is selected and documents exist
+      if (!selectedCourse || !documents || documents.length === 0) return;
+
+      // Cmd-A or Ctrl-A: Select all
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        toggleSelectAll();
+      }
+
+      // Cmd-S or Ctrl-S: Batch download (if documents are selected)
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (selectedDocs.size > 0 && !batchDownloading) {
+          handleBatchDownload();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    selectedCourse,
+    documents,
+    selectedDocs,
+    batchDownloading,
+    toggleSelectAll,
+    handleBatchDownload,
+  ]);
+
   const renderDocumentContent = () => {
     if (loadingState.state === LoadingState.ERROR) {
       return (
@@ -338,6 +496,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
           .map((doc) => (
             <Card key={doc.id} padding="lg">
               <div className="flex justify-between items-center w-full">
+                <div className="flex items-center mr-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedDocs.has(doc.id)}
+                    onChange={() => toggleDocSelection(doc.id)}
+                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
                 <div className="flex-1">
                   <div className="flex items-center mb-2">
                     <span className="text-2xl mr-3">
@@ -424,7 +590,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
               }}
               className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All courses</option>
+              <option value="">{t("selectCourse") || "Select a course"}</option>
               {(courses || []).map((course) => (
                 <option key={course.id} value={course.id}>
                   {course.courseNumber} - {course.name}
@@ -505,26 +671,52 @@ const DocumentList: React.FC<DocumentListProps> = ({
         )}
 
       {selectedCourse && (documents?.length || 0) > 0 && (
-        <div className="mb-4 flex gap-3">
-          <Input
-            type="text"
-            placeholder="Search documents by name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1"
-          />
-          <select
-            value={selectedDocType}
-            onChange={(e) =>
-              setSelectedDocType(e.target.value as CourseDocumentType | "all")
-            }
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">{t("allDocumentTypes")}</option>
-            <option value="courseware">{t("electronicCourseware")}</option>
-            <option value="experiment_guide">{t("experimentGuide")}</option>
-          </select>
-        </div>
+        <>
+          <div className="mb-4 flex gap-3">
+            <Input
+              type="text"
+              placeholder="Search documents by name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1"
+            />
+            <select
+              value={selectedDocType}
+              onChange={(e) =>
+                setSelectedDocType(e.target.value as CourseDocumentType | "all")
+              }
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">{t("allDocumentTypes")}</option>
+              <option value="courseware">{t("electronicCourseware")}</option>
+              <option value="experiment_guide">{t("experimentGuide")}</option>
+            </select>
+          </div>
+          <div className="mb-4 flex gap-3 items-center">
+            <Button onClick={toggleSelectAll} variant="secondary" size="sm">
+              {selectedDocs.size > 0
+                ? t("clearSelection") || "Clear Selection"
+                : t("selectAll") || "Select All"}
+            </Button>
+            {selectedDocs.size > 0 && (
+              <span className="text-sm text-gray-600">
+                {selectedDocs.size} {t("selected") || "selected"}
+              </span>
+            )}
+            {selectedDocs.size > 0 && (
+              <Button
+                onClick={handleBatchDownload}
+                disabled={batchDownloading}
+                variant="primary"
+                size="sm"
+              >
+                {batchDownloading
+                  ? t("processing") || "Processing..."
+                  : t("batchDownload") || "Batch Download"}
+              </Button>
+            )}
+          </div>
+        </>
       )}
 
       {renderDocumentContent()}

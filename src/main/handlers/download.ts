@@ -325,4 +325,36 @@ export function setupDownloadHandlers() {
       }
     }
   );
+
+  /**
+   * Show folder selection dialog
+   */
+  ipcMain.handle("select-download-folder", async () => {
+    const { dialog, BrowserWindow } = require("electron");
+    try {
+      const mainWindow = BrowserWindow.getAllWindows()[0];
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ["openDirectory", "createDirectory"],
+        title: "Select Download Folder",
+      });
+
+      if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        return {
+          success: false,
+          canceled: true,
+        };
+      }
+
+      return {
+        success: true,
+        folderPath: result.filePaths[0],
+      };
+    } catch (error) {
+      Logger.error("Failed to show folder selection dialog", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  });
 }

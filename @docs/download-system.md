@@ -325,6 +325,37 @@ url: '/ve/documents/file.pdf'  // Auto-prepends BASE_URL
 - **Progress Throttling**: Updates limited to 500ms intervals
 - **Efficient State Management**: Minimal re-renders in UI
 
+## Batch Download Feature
+
+The document list supports batch downloading multiple documents at once:
+
+### User Workflow
+
+1. **Multi-select Documents**: Check the checkbox next to each document you want to download
+2. **Select All**: Click the "Select All" button to select all visible documents (respects current search/filter)
+3. **Batch Download**: Click "Batch Download" to select a destination folder
+4. **Automatic Download**: All selected documents are added to the download center with preset save paths
+
+### Keyboard Shortcuts
+
+- **Cmd-A / Ctrl-A**: Select all documents (or clear selection if all are selected)
+- **Cmd-S / Ctrl-S**: Start batch download (only when documents are selected)
+
+### Technical Details
+
+- **Single Folder Selection**: User selects destination folder once
+- **Auto-naming**: Files are saved with their default names (`document.name.extension`)
+- **Download Center Integration**: All downloads appear in the unified download center
+- **Progress Tracking**: Each file download is tracked individually
+- **No Dialog Interruption**: Once folder is selected, all files download without further user input
+
+### Implementation
+
+Located in `src/renderer/src/components/DocumentList.tsx`:
+- Uses `selectDownloadFolder` IPC handler for folder selection
+- Calls `downloadAddTask` with preset `savePath` for each document
+- Clears selection after successful batch download
+
 ## Future Enhancements
 
 Potential improvements:
@@ -335,3 +366,4 @@ Potential improvements:
 - Automatic retry on network errors
 - Download history persistence
 - Bandwidth usage statistics
+- Drag-and-drop batch download to folders
