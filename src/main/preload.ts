@@ -8,6 +8,18 @@ import {
   DownloadType,
 } from "../shared/types";
 
+/**
+ * Electron API exposed to renderer process via contextBridge
+ *
+ * IMPORTANT: ID Parameter Conventions
+ * ====================================
+ * All ID parameters follow these conventions:
+ *
+ * - courseId, homeworkId, documentId, attachmentId, teacherId: Internal numeric IDs (string type, e.g., "12345")
+ * - courseNumber, courseCode: Human-readable identifiers (string type, e.g., "M302005B")
+ *
+ * Always use numeric IDs for API calls, never use courseNumber as courseId!
+ */
 export interface ElectronAPI {
   getCourses: (options?: {
     skipCache?: boolean;
@@ -48,24 +60,6 @@ export interface ElectronAPI {
   ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
   getSchedule: (options?: { skipCache?: boolean }) => Promise<any>;
   refreshSchedule: () => Promise<any>;
-  downloadDocument: (documentUrl: string) => Promise<{ success: boolean }>;
-  downloadCourseDocument: (
-    documentUrl: string,
-    fileName: string
-  ) => Promise<{
-    success: boolean;
-    taskId?: string;
-    error?: string;
-  }>;
-  downloadHomeworkAttachment: (
-    attachmentId: string, // Numeric attachment ID (NOT a URL!)
-    homeworkId: string // Numeric homework ID (NOT a URL!)
-  ) => Promise<{
-    success: boolean;
-    taskId?: string;
-    fileName?: string;
-    error?: string;
-  }>;
   fetchCourseImage: (imagePath: string) => Promise<string | null>;
   fetchCaptcha: () => Promise<{
     success: boolean;
@@ -225,15 +219,6 @@ export interface ElectronAPI {
     }>;
     success: boolean;
   }>;
-  downloadSubmittedHomework: (
-    url: string,
-    fileName: string,
-    id: string
-  ) => Promise<{
-    success: boolean;
-    taskId?: string;
-    error?: string;
-  }>;
   // unified download APIs
   downloadAddTask: (params: AddDownloadTaskParams) => Promise<{
     success: boolean;
@@ -327,15 +312,6 @@ const electronAPI: ElectronAPI = {
   getSchedule: (options?: { skipCache?: boolean }) =>
     ipcRenderer.invoke("get-schedule", options),
   refreshSchedule: () => ipcRenderer.invoke("refresh-schedule"),
-  downloadDocument: (documentUrl: string) =>
-    ipcRenderer.invoke("download-document", documentUrl),
-  downloadCourseDocument: (documentUrl: string, fileName: string) =>
-    ipcRenderer.invoke("download-document", { documentUrl, fileName }),
-  downloadHomeworkAttachment: (attachmentId: string, homeworkId: string) =>
-    ipcRenderer.invoke("download-homework-attachment", {
-      attachmentId,
-      homeworkId,
-    }),
   fetchCourseImage: (imagePath: string) =>
     ipcRenderer.invoke("fetch-course-image", imagePath),
   fetchCaptcha: () => ipcRenderer.invoke("fetch-captcha"),
@@ -393,8 +369,6 @@ const electronAPI: ElectronAPI = {
     score: string
   ) =>
     ipcRenderer.invoke("get-homework-download-urls", upId, id, userId, score),
-  downloadSubmittedHomework: (url: string, fileName: string, id: string) =>
-    ipcRenderer.invoke("download-submitted-homework", { url, fileName, id }),
   // unified download APIs
   downloadAddTask: (params: AddDownloadTaskParams) =>
     ipcRenderer.invoke("download-add-task", params),

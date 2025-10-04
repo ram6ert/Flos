@@ -4,6 +4,28 @@
 
 The backend operates in Electron's main process and handles API communication, session management, data caching, and file operations. It provides a bridge between the React frontend and external course platform APIs.
 
+### Important: ID Field Conventions
+
+All APIs use consistent ID field types:
+
+1. **Internal System IDs** - Numeric IDs stored as strings
+   - `courseId`, `homeworkId`, `documentId`, `attachmentId`, `teacherId`, etc.
+   - Always numeric values like `"12345"`, `"67890"`
+   - Used for database references and API calls
+
+2. **Human-Readable Identifiers** - Alphanumeric display codes
+   - `courseNumber`, `courseCode` - like `"M302005B"`, `"CS101"`
+   - Used only for display purposes, not internal operations
+
+**Example:**
+```typescript
+// ✅ Correct API usage
+await getCourseHomework("12345");  // courseId is numeric as string
+
+// ❌ Wrong
+await getCourseHomework("M302005B"); // This is courseNumber, not courseId!
+```
+
 ## Architecture Components
 
 ### Core Modules

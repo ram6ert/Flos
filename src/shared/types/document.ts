@@ -1,7 +1,7 @@
 export type CourseDocumentType = "courseware" | "experiment_guide";
 
 export interface CourseDocument {
-  id: string; // rpId from server, transformed from number to string
+  id: string; // Internal numeric document ID (string, e.g., "12345")
   auditStatus: "pending" | "approved" | "rejected"; // transformed from number
   name: string; // rpName from server
   size: string; // rpSize from server
@@ -11,8 +11,8 @@ export interface CourseDocument {
   uploadTime: string; // inputTime from server, transformed to ISO string
   clickCount: number; // clicks from server
   downloadCount: number; // downloadNum from server
-  resourceId: number; // resId from server
-  teacherId: string;
+  resourceId: number; // Internal numeric resource ID
+  teacherId: string; // Internal numeric teacher ID (string, e.g., "67890")
   teacherName: string;
   documentType: CourseDocumentType; // Parsed document type enum
   fileExtension: string; // extName from server

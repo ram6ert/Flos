@@ -39,11 +39,15 @@ The unified download system provides centralized download management for all fil
 The system supports the following download types:
 
 - `document`: Course documents and courseware
-- `homework-attachment`: Homework attachments from teachers
+- `homework-attachment`: Homework attachments from teachers (requires numeric IDs as strings)
 - `submitted-homework`: Previously submitted homework files
 - `update`: Application updates
 - `course-image`: Course cover images
 - `generic`: Generic file downloads
+
+**Note on IDs**:
+- **Internal IDs** (attachmentId, homeworkId, courseId, documentId, etc.) are numeric IDs stored as strings. For example: `"12345"` not `12345`.
+- **courseNumber** is a human-readable course code (e.g., `"M302005B"`) for display purposes only, not used for internal system identification.
 
 ## Usage
 
@@ -70,25 +74,65 @@ if (result.success) {
 
 **Note:** If the URL doesn't start with `http://` or `https://`, the system automatically prepends the `BASE_URL` to create a full URL.
 
-### Using Convenience Methods
+### Download Types Examples
 
-For common download types, use the convenience methods:
+All downloads use the unified `downloadAddTask` API:
 
 ```typescript
-// Download homework attachment
-// IMPORTANT: Pass numeric IDs, not URLs!
-// - attachmentId: numeric attachment ID (will be used as 'id' parameter in URL)
-// - homeworkId: numeric homework ID (will be used as 'noteId' parameter in URL)
-const result = await window.electronAPI.downloadHomeworkAttachment(
-  '12345',  // attachmentId (numeric)
-  '67890'   // homeworkId (numeric)
-);
-
-// Download document
-const result = await window.electronAPI.downloadDocument({
-  documentUrl: '/ve/documents/lecture.pdf',
+// Download course document
+const result = await window.electronAPI.downloadAddTask({
+  type: 'document',
+  url: '/ve/documents/lecture.pdf',
   fileName: 'lecture-notes.pdf',
-  courseId: 'CS101',
+  metadata: {
+    courseId: '12345',              // Numeric ID as string (internal system ID)
+    courseNumber: 'M302005B',       // Human-readable course code (for display only)
+    courseName: 'Computer Science', // Course name for display
+    documentId: '67890',            // Numeric ID as string
+  },
+  autoStart: true,
+});
+
+// Download homework attachment
+// IMPORTANT: attachmentId and homeworkId are numeric IDs (string type containing numbers)
+// Construct the special URL for homework attachments
+const downloadUrl = `http://123.121.147.7:88/ve/back/coursePlatform/dataSynAction.shtml?method=downLoadPic&id=${attachmentId}&noteId=${homeworkId}`;
+const result = await window.electronAPI.downloadAddTask({
+  type: 'homework-attachment',
+  url: downloadUrl,
+  fileName: `attachment_${attachmentId}`, // Fallback, real filename extracted from server
+  metadata: {
+    homeworkId: homeworkId, // String containing numeric ID
+    courseId: courseId,
+    attachmentId: attachmentId, // String containing numeric ID
+  },
+  autoStart: true,
+});
+
+// Download submitted homework
+const result = await window.electronAPI.downloadAddTask({
+  type: 'submitted-homework',
+  url: submittedHomeworkUrl,
+  fileName: fileName,
+  metadata: {
+    attachmentId: id,
+    homeworkId: homeworkId,
+  },
+  autoStart: true,
+});
+
+// Batch download with preset save path
+const result = await window.electronAPI.downloadAddTask({
+  type: 'document',
+  url: documentUrl,
+  fileName: fileName,
+  savePath: '/path/to/save/file.pdf', // Skip save dialog
+  metadata: {
+    courseId: '12345',        // Numeric ID (internal)
+    courseNumber: 'M302005B', // Human-readable code (display)
+    documentId: '67890',      // Numeric ID (internal)
+  },
+  autoStart: true,
 });
 ```
 
@@ -207,8 +251,9 @@ All downloads require user interaction to select save location:
 Homework attachments use a special download strategy with specific requirements:
 
 **Parameter Requirements:**
-- `attachmentId`: **Numeric attachment ID** (NOT a URL) - used as `id` parameter
-- `homeworkId`: **Numeric homework ID** (NOT a URL) - used as `noteId` parameter
+- `attachmentId`: **String containing numeric attachment ID** (e.g., `"12345"`) - used as `id` parameter in URL
+- `homeworkId`: **String containing numeric homework ID** (e.g., `"67890"`) - used as `noteId` parameter in URL
+- **IMPORTANT**: IDs must be numeric values stored as strings, NOT URLs or non-numeric strings
 
 **Download Process:**
 1. Constructs download URL: `http://123.121.147.7:88/ve/back/coursePlatform/dataSynAction.shtml?method=downLoadPic&id=[attachmentId]&noteId=[homeworkId]`
@@ -226,11 +271,31 @@ Homework attachments use a special download strategy with specific requirements:
 
 **Example:**
 ```typescript
-// CORRECT: Pass numeric IDs
-await window.electronAPI.downloadHomeworkAttachment('12345', '67890');
+// CORRECT: Pass numeric IDs as strings (internal system IDs)
+const attachmentId = "12345"; // Numeric ID as string (internal)
+const homeworkId = "67890";   // Numeric ID as string (internal)
+const courseId = "11111";     // Numeric ID as string (internal)
+const courseNumber = "M302005B"; // Human-readable code (display only)
 
-// WRONG: Don't pass URLs!
-// await window.electronAPI.downloadHomeworkAttachment('/some/url', '/another/url');
+const downloadUrl = `http://123.121.147.7:88/ve/back/coursePlatform/dataSynAction.shtml?method=downLoadPic&id=${attachmentId}&noteId=${homeworkId}`;
+
+await window.electronAPI.downloadAddTask({
+  type: 'homework-attachment',
+  url: downloadUrl,
+  fileName: `attachment_${attachmentId}`,
+  metadata: {
+    attachmentId,  // Numeric ID (internal)
+    homeworkId,    // Numeric ID (internal)
+    courseId,      // Numeric ID (internal)
+    courseNumber,  // Human-readable (display)
+  },
+  autoStart: true,
+});
+
+// WRONG: Don't use non-numeric strings for IDs
+// attachmentId = "/some/url" ❌
+// homeworkId = "abc123" ❌
+// courseId = "M302005B" ❌  (this is courseNumber, not courseId!)
 ```
 
 This ensures that downloaded files have the correct extension and filename from the server.
@@ -275,15 +340,14 @@ import DownloadCenter from './components/DownloadCenter';
 
 It displays as a floating button in the bottom-right corner showing the number of active downloads. Clicking opens the download center panel.
 
-## Backward Compatibility
+## API Design
 
-The old download APIs are maintained for backward compatibility:
+The download system uses a **unified API approach** with `downloadAddTask` as the single entry point for all download operations. This design provides:
 
-- `downloadCourseDocument(url, fileName)` - Redirects to unified API
-- `downloadHomeworkAttachment(url, fileName)` - Redirects to unified API
-- `downloadSubmittedHomework(url, fileName, id)` - Redirects to unified API
-
-These will be deprecated in future versions. New code should use the unified download APIs.
+- **Consistency**: Same interface for all download types
+- **Flexibility**: Full control over download parameters
+- **Type Safety**: Strongly typed parameters with TypeScript
+- **Maintainability**: Single code path to maintain and debug
 
 ## Error Handling
 

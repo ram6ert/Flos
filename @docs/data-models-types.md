@@ -4,6 +4,33 @@
 
 The Smart Course Platform uses a comprehensive type system defined in TypeScript to ensure type safety across the application. All data models are located in `src/shared/types/` and are shared between the main process (backend) and renderer process (frontend).
 
+### Important: ID Field Conventions
+
+The application uses two types of identifiers:
+
+1. **Internal System IDs** (courseId, homeworkId, documentId, attachmentId, teacherId, etc.)
+   - These are **numeric IDs stored as strings** (e.g., `"12345"`)
+   - Used internally by the system for database references and API calls
+   - Always numeric values, never contain letters or special characters
+   - Example: `courseId: "12345"`, `homeworkId: "67890"`
+
+2. **Human-Readable Identifiers** (courseNumber, courseCode, etc.)
+   - These are **alphanumeric strings for display purposes** (e.g., `"M302005B"`)
+   - Used for user-facing displays and human identification
+   - Not used for internal system operations or API calls
+   - Example: `courseNumber: "M302005B"`, `courseCode: "CS101"`
+
+**Critical Distinction:**
+```typescript
+// ✅ CORRECT
+courseId: "12345"        // Internal numeric ID (string type)
+courseNumber: "M302005B" // Human-readable course code
+
+// ❌ WRONG
+courseId: "M302005B"     // This is courseNumber, not courseId!
+courseNumber: "12345"    // This is courseId, not courseNumber!
+```
+
 ## Type System Architecture
 
 ### Shared Types Structure
@@ -74,17 +101,17 @@ const session: UserSession = {
 Primary course data structure with complete academic information.
 ```typescript
 interface Course {
-  id: string;                    // Unique course identifier (string)
+  id: string;                    // Internal numeric ID (string, e.g., "12345")
   name: string;                  // Course display name
-  courseNumber: string;          // Course code/number
+  courseNumber: string;          // Human-readable course code (e.g., "M302005B")
   picture: string;               // Course image URL
-  teacherId: string;             // Instructor identifier (string)
+  teacherId: string;             // Internal numeric teacher ID (string, e.g., "67890")
   teacherName: string;           // Instructor display name
   beginDate: string;             // Course start date (ISO string)
   endDate: string;               // Course end date (ISO string)
   type: "required" | "elective" | "practice"; // Course category
-  selectiveCourseId: string | null; // Elective course ID if applicable
-  facilityId: string;            // Facility/department identifier
+  selectiveCourseId: string | null; // Internal numeric ID (string) if elective
+  facilityId: string;            // Internal facility ID
   semesterCode: string;          // Academic semester code
   boy: string;                   // Legacy field (purpose unclear)
   schedule?: CourseScheduleInfo; // Optional schedule information
@@ -126,22 +153,27 @@ The system transforms server responses to clean, type-safe structures:
 ```typescript
 // Server response (raw)
 {
-  id: 12345,
-  course_num: "CS101",
-  teacher_id: 67890,
+  id: 12345,                    // Numeric ID from database
+  course_num: "M302005B",       // Human-readable course code
+  teacher_id: 67890,            // Numeric teacher ID
   begin_date: "2024-09-01T00:00:00Z",
   type: 0
 }
 
 // Sanitized course (application)
 {
-  id: "12345",
-  courseNumber: "CS101",
-  teacherId: "67890",
+  id: "12345",                  // Internal ID: numeric as string
+  courseNumber: "M302005B",     // Human-readable: course code for display
+  teacherId: "67890",           // Internal ID: numeric as string
   beginDate: "2024-09-01T00:00:00.000Z",
   type: "required"
 }
 ```
+
+**ID Field Types:**
+- `id: "12345"` - Internal numeric ID (for system/API use)
+- `courseNumber: "M302005B"` - Human-readable code (for display)
+- `teacherId: "67890"` - Internal numeric ID (for system/API use)
 
 ## Document Types (`document.ts`)
 
@@ -149,7 +181,7 @@ The system transforms server responses to clean, type-safe structures:
 Document and file attachment structure.
 ```typescript
 interface CourseDocument {
-  id: string;                           // Document identifier
+  id: string;                           // Internal numeric document ID (string, e.g., "12345")
   auditStatus: "pending" | "approved" | "rejected"; // Review status
   name: string;                         // Document display name
   size: number;                         // File size in bytes
@@ -159,8 +191,8 @@ interface CourseDocument {
   uploadTime: string;                   // Upload timestamp (ISO)
   clickCount: number;                   // View/access count
   downloadCount: number;                // Download count
-  resourceId: string;                   // Resource identifier
-  teacherId: string;                    // Uploader teacher ID
+  resourceId: string;                   // Internal numeric resource ID (string)
+  teacherId: string;                    // Internal numeric teacher ID (string, e.g., "67890")
   teacherName: string;                  // Uploader teacher name
   documentType: CourseDocumentType;     // Document category
   fileExtension: string;                // File extension
@@ -196,8 +228,8 @@ const convertDocumentType = (docType: string): CourseDocumentType => {
 Core homework/assignment data structure.
 ```typescript
 interface Homework {
-  id: string;                                    // Assignment identifier
-  courseId: string;                              // Associated course ID
+  id: string;                                    // Internal numeric homework ID (string, e.g., "12345")
+  courseId: string;                              // Internal numeric course ID (string, e.g., "67890")
   courseName: string;                            // Course display name
   title: string;                                 // Assignment title
   content: string;                               // Assignment description
@@ -209,8 +241,8 @@ interface Homework {
   submittedCount: number;                        // Class submission count
   totalStudents: number;                         // Total enrolled students
   type: "homework" | "report" | "experiment" | "quiz" | "assessment"; // Assignment type
-  submissionId: string | null;                  // Submission identifier
-  userId: string;                                // Student identifier
+  submissionId: string | null;                  // Internal numeric submission ID (string, if submitted)
+  userId: string;                                // Internal numeric student ID (string)
 }
 ```
 
@@ -218,17 +250,17 @@ interface Homework {
 Extended homework information with attachments.
 ```typescript
 interface HomeworkDetails {
-  id: string;                     // Assignment identifier
+  id: string;                     // Internal numeric homework ID (string)
   createdDate: string;            // Creation timestamp (ISO)
-  courseId: string;               // Associated course ID
-  courseSchedId: string;          // Course schedule ID
+  courseId: string;               // Internal numeric course ID (string)
+  courseSchedId: string;          // Internal numeric schedule ID (string)
   content: string;                // Full assignment description
   title: string;                  // Assignment title
   dueDate: string;                // Due date (ISO)
   openDate: string;               // Available from date (ISO)
   isFinalExam: boolean;           // Final examination flag
   maxScore: number;               // Maximum score
-  moduleId: string;               // Module identifier
+  moduleId: string;               // Internal numeric module ID (string)
   isOpen: boolean;                // Currently available flag
   isAnswerPublished: boolean;     // Answer key published flag
   status: string;                 // Assignment status
@@ -241,7 +273,7 @@ interface HomeworkDetails {
   makeupTime: string | null;      // Makeup deadline (ISO)
   isRepeatAllowed: boolean;       // Re-submission allowed
   makeupFlag: string;             // Makeup status flag
-  selectedIds: string;            // Selected student IDs
+  selectedIds: string;            // Comma-separated numeric student IDs
   isGroupAssignment: boolean;     // Group work flag
   teacherWeight: number;          // Teacher evaluation weight
   studentWeight: number;          // Student evaluation weight
@@ -255,12 +287,12 @@ interface HomeworkDetails {
 File attachment structure for homework.
 ```typescript
 interface HomeworkAttachment {
-  id: string;           // Attachment identifier
+  id: string;           // Internal numeric attachment ID (string, e.g., "12345")
   url: string;          // Download URL
   fileName: string;     // Original filename
   convertUrl: string;   // Converted/preview URL
   fileSize: number;     // File size in bytes
-  type: "homework" | "answer"; // Attachment category
+  type: "homework" | "answer" | "my_homework"; // Attachment category
 }
 ```
 
@@ -313,7 +345,7 @@ interface DayData {
 Individual schedule entry (class/event).
 ```typescript
 interface ScheduleEntry {
-  id: string;                 // Entry identifier
+  id: string;                 // Internal numeric entry ID (string)
   course: CourseInfo;         // Course information
   timeSlot: TimeSlot;         // Time period
   dayOfWeek: number;          // Day of week

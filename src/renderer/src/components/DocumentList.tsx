@@ -269,10 +269,17 @@ const DocumentList: React.FC<DocumentListProps> = ({
     setDownloadingDoc(doc.id);
     try {
       const fileName = `${doc.name}.${doc.fileExtension}`;
-      const result = await window.electronAPI.downloadCourseDocument(
-        doc.resourceUrl,
-        fileName
-      );
+      const result = await window.electronAPI.downloadAddTask({
+        type: "document",
+        url: doc.resourceUrl,
+        fileName: fileName,
+        metadata: {
+          courseId: selectedCourse?.courseNumber,
+          courseName: selectedCourse?.name,
+          documentId: doc.id,
+        },
+        autoStart: true,
+      });
 
       if (!result.success) {
         alert(`Download failed: ${result.error}`);

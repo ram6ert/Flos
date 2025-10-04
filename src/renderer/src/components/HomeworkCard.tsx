@@ -602,18 +602,32 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({
       let result;
 
       if (attachment.type === "my_homework") {
-        // Use the new API for submitted homework files
-        result = await window.electronAPI.downloadSubmittedHomework(
-          attachment.url,
-          attachment.fileName,
-          attachment.id.toString()
-        );
+        // Submitted homework files
+        result = await window.electronAPI.downloadAddTask({
+          type: "submitted-homework",
+          url: attachment.url,
+          fileName: attachment.fileName,
+          metadata: {
+            attachmentId: attachment.id.toString(),
+            homeworkId: homework.id,
+            courseId: homework.courseId,
+          },
+          autoStart: true,
+        });
       } else {
-        // Use existing API for regular attachments
-        result = await window.electronAPI.downloadHomeworkAttachment(
-          attachment.id,
-          homework.id
-        );
+        // Regular homework attachments
+        const downloadUrl = `http://123.121.147.7:88/ve/back/coursePlatform/dataSynAction.shtml?method=downLoadPic&id=${attachment.id}&noteId=${homework.id}`;
+        result = await window.electronAPI.downloadAddTask({
+          type: "homework-attachment",
+          url: downloadUrl,
+          fileName: `attachment_${attachment.id}`, // Fallback filename, real filename extracted from server
+          metadata: {
+            homeworkId: homework.id,
+            courseId: homework.courseId,
+            attachmentId: attachment.id,
+          },
+          autoStart: true,
+        });
       }
 
       if (!result.success) {
