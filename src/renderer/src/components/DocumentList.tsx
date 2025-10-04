@@ -350,42 +350,40 @@ const DocumentList: React.FC<DocumentListProps> = ({
         return;
       }
 
-      // Add all selected documents to download center
+      // Add all selected documents to download center in parallel
+      const downloadPromises = selectedDocsList.map(async (doc) => {
+        const fileName = `${doc.name}.${doc.fileExtension}`;
+        const savePath = `${folderPath}/${fileName}`;
+
+        return window.electronAPI.downloadAddTask({
+          type: "document",
+          url: doc.resourceUrl,
+          fileName: fileName,
+          savePath: savePath,
+          metadata: {
+            courseId: selectedCourse?.courseNumber,
+            courseName: selectedCourse?.name,
+            documentId: doc.id,
+          },
+          autoStart: true,
+        });
+      });
+
+      const results = await Promise.allSettled(downloadPromises);
+
       let successCount = 0;
       let failCount = 0;
 
-      for (const doc of selectedDocsList) {
-        try {
-          const fileName = `${doc.name}.${doc.fileExtension}`;
-          const savePath = `${folderPath}/${fileName}`;
-
-          const result = await window.electronAPI.downloadAddTask({
-            type: "document",
-            url: doc.resourceUrl,
-            fileName: fileName,
-            savePath: savePath,
-            metadata: {
-              courseId: selectedCourse?.courseNumber,
-              courseName: selectedCourse?.name,
-              documentId: doc.id,
-            },
-            autoStart: true,
-          });
-
-          if (result.success) {
-            successCount++;
-          } else {
-            failCount++;
-            console.error(
-              `Failed to add download task for ${doc.name}:`,
-              result.error
-            );
-          }
-        } catch (error) {
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          successCount++;
+        } else {
           failCount++;
-          console.error(`Error adding download task for ${doc.name}:`, error);
+          const doc = selectedDocsList[index];
+          const error = result.status === 'fulfilled' ? result.value.error : result.reason;
+          console.error(`Failed to add download task for ${doc.name}:`, error);
         }
-      }
+      });
 
       // Clear selection after batch download
       setSelectedDocs(new Set());

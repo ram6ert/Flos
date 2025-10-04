@@ -71,7 +71,10 @@ class DownloadManager {
     Logger.info(`Download task added: ${taskId} - ${fileName}`);
 
     if (autoStart) {
-      await this.startTask(taskId);
+      // Start the task asynchronously without blocking
+      this.startTask(taskId).catch(error => {
+        Logger.error(`Failed to start download task ${taskId}`, error);
+      });
     }
 
     return taskId;
