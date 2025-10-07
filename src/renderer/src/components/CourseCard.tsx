@@ -55,8 +55,8 @@ const CourseCard: React.FC<CourseCardProps> = ({
       }
       try {
         const [docsResp, hwResp]: any = await Promise.all([
-          // Documents use courseNumber (code) - get from matching Course object
-          window.electronAPI.getCourseDocuments(course.courseNumber),
+          // Documents use courseCode (code) - get from matching Course object
+          window.electronAPI.getCourseDocuments(course.courseCode),
           // Homework uses course.id - use the selectedCourse id
           window.electronAPI.getHomework(course.id),
         ]);
@@ -93,12 +93,12 @@ const CourseCard: React.FC<CourseCardProps> = ({
       }
     };
     loadDetails();
-  }, [isSelected, course.id, course.courseNumber]);
+  }, [isSelected, course.id, course.courseCode]);
   return (
     <Card
       key={course.id}
       onClick={() => {
-        onCourseSelect(isSelected ? null : course.courseNumber);
+        onCourseSelect(isSelected ? null : course.courseCode);
       }}
       className={`course-card flex flex-col relative overflow-hidden min-h-[200px] ${
         isSelected
@@ -136,11 +136,11 @@ const CourseCard: React.FC<CourseCardProps> = ({
 
         <p
           className={`m-0 mb-2 text-sm ${isSelected ? "text-indigo-800" : "text-gray-700"}`}
-          title={course.courseNumber}
+          title={course.courseCode}
         >
-          <strong>{t("courseNumber")}:</strong>{" "}
+          <strong>{t("courseCode")}:</strong>{" "}
           <span className="truncate inline-block max-w-full">
-            {course.courseNumber}
+            {course.courseCode}
           </span>
         </p>
 
@@ -223,7 +223,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
                             className="w-full text-center min-w-0"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onCourseSelect(course.courseNumber);
+                              onCourseSelect(course.courseCode);
                               onNavigate && onNavigate("documents");
                             }}
                           >
@@ -294,7 +294,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
                             className="w-full text-center min-w-0"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onCourseSelect(course.courseNumber);
+                              onCourseSelect(course.courseCode);
                               onNavigate && onNavigate("homework");
                             }}
                           >

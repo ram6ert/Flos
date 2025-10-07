@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Course } from "../../../shared/types";
 import {
   CourseDocument,
+  DocumentDirectory,
   DocumentStreamChunk,
   DocumentStreamProgress,
   CourseDocumentType,
@@ -43,6 +44,16 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [selectedDocType, setSelectedDocType] = useState<
     CourseDocumentType | "all"
   >("all");
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  const [selectedDirs, setSelectedDirs] = useState<Set<string>>(new Set());
+  const [batchDownloading, setBatchDownloading] = useState(false);
+
+  // Directory navigation state
+  const [directories, setDirectories] = useState<DocumentDirectory[]>([]);
+  const [currentUpId, setCurrentUpId] = useState<string>("0");
+  const [pathStack, setPathStack] = useState<
+    Array<{ id: string; name: string }>
+  >([{ id: "0", name: "Root" }]);
 
   // Simple race condition protection - tracks current request
   const currentRequestIdRef = useRef<string | null>(null);
@@ -67,6 +78,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
         );
         return uniqueDocs;
       });
+
+      // Handle directories if present
+      if (chunk.directories && chunk.directories.length > 0) {
+        setDirectories((prev) => {
+          const newDirs = [...prev, ...chunk.directories];
+          // Remove duplicates based on directory ID
+          const uniqueDirs = newDirs.filter(
+            (dir, index, arr) => arr.findIndex((d) => d.id === dir.id) === index
+          );
+          return uniqueDirs;
+        });
+      }
     },
     [setDocuments]
   );
@@ -135,8 +158,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   const handleDocumentRefreshStart = useCallback(
     (_event: any, _payload: any) => {
-      // Clear current documents for refresh (loading state already set by fetchDocuments)
+      // Clear current documents and directories for refresh (loading state already set by fetchDocuments)
       setDocuments([]);
+      setDirectories([]);
     },
     [setDocuments]
   );
@@ -146,7 +170,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       if (!selectedCourse) return;
 
       // Generate unique request ID for this fetch and set it IMMEDIATELY
-      const requestId = `${selectedCourse.courseNumber}-${Date.now()}-${Math.random()}`;
+      const requestId = `${selectedCourse.courseCode}-${currentUpId}-${Date.now()}-${Math.random()}`;
 
       // Set the request ID BEFORE making any API calls
       currentRequestIdRef.current = requestId;
@@ -155,23 +179,20 @@ const DocumentList: React.FC<DocumentListProps> = ({
       // Set loading state BEFORE API call so events can start arriving
       setLoadingState({ state: LoadingState.LOADING });
       setDocuments(null); // Clear existing documents for streaming
+      setDirectories([]); // Clear existing directories for streaming
 
       try {
         if (forceRefresh) {
-          await window.electronAPI.refreshDocuments(
-            selectedCourse.courseNumber,
-            {
-              requestId: requestId,
-            }
-          );
+          await window.electronAPI.refreshDocuments(selectedCourse.courseCode, {
+            requestId: requestId,
+            upId: currentUpId,
+          });
         } else {
           // Start streaming for this specific course (will fetch all document types)
-          await window.electronAPI.streamDocuments(
-            selectedCourse.courseNumber,
-            {
-              requestId: requestId,
-            }
-          );
+          await window.electronAPI.streamDocuments(selectedCourse.courseCode, {
+            requestId: requestId,
+            upId: currentUpId,
+          });
         }
       } catch (error) {
         // Only handle error if this is still the current request
@@ -184,19 +205,34 @@ const DocumentList: React.FC<DocumentListProps> = ({
         }
       }
     },
-    [selectedCourse, setDocuments]
+    [selectedCourse, currentUpId, setDocuments]
   );
 
+  // Reset directory location when course changes
   useEffect(() => {
     if (selectedCourse) {
-      fetchDocuments(false); // Always fetch when course changes - fetchDocuments will handle request ID
+      // Reset to root when course changes
+      setCurrentUpId("0");
+      setPathStack([{ id: "0", name: "Root" }]);
+      setDirectories([]);
+      setSelectedDocs(new Set());
     } else {
-      // Cancel any ongoing request
+      // Cancel any ongoing request and reset state
       currentRequestIdRef.current = null;
       setDocuments(null);
+      setDirectories([]);
+      setCurrentUpId("0");
+      setPathStack([{ id: "0", name: "Root" }]);
       setLoadingState({ state: LoadingState.IDLE });
     }
-  }, [selectedCourse, fetchDocuments, setDocuments]);
+  }, [selectedCourse, setDocuments]);
+
+  // Fetch documents when course or directory changes
+  useEffect(() => {
+    if (selectedCourse) {
+      fetchDocuments(false);
+    }
+  }, [selectedCourse, currentUpId, fetchDocuments]);
 
   // Set up event listeners and cleanup on unmount
   useEffect(() => {
@@ -267,33 +303,19 @@ const DocumentList: React.FC<DocumentListProps> = ({
     setDownloadingDoc(doc.id);
     try {
       const fileName = `${doc.name}.${doc.fileExtension}`;
-      const result = await window.electronAPI.downloadCourseDocument(
-        doc.resourceUrl,
-        fileName
-      );
+      const result = await window.electronAPI.downloadAddTask({
+        type: "document",
+        url: doc.resourceUrl,
+        fileName: fileName,
+        metadata: {
+          courseId: selectedCourse?.courseCode,
+          courseName: selectedCourse?.name,
+          documentId: doc.id,
+        },
+        autoStart: true,
+      });
 
-      if (result.success) {
-        if (result.savedToFile) {
-          // Large file saved directly to disk
-          alert(`File downloaded successfully to: ${result.filePath}`);
-        } else if (result.data) {
-          // Small file - create download link
-          const blob = new Blob(
-            [Uint8Array.from(atob(result.data), (c) => c.charCodeAt(0))],
-            {
-              type: result.contentType,
-            }
-          );
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-        }
-      } else {
+      if (!result.success) {
         alert(`Download failed: ${result.error}`);
       }
     } catch (error) {
@@ -303,6 +325,313 @@ const DocumentList: React.FC<DocumentListProps> = ({
       setDownloadingDoc(null);
     }
   };
+
+  const toggleDocSelection = useCallback((docId: string) => {
+    setSelectedDocs((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(docId)) {
+        newSet.delete(docId);
+      } else {
+        newSet.add(docId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const toggleDirSelection = useCallback((dirId: string) => {
+    setSelectedDirs((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(dirId)) {
+        newSet.delete(dirId);
+      } else {
+        newSet.add(dirId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (!documents) return;
+
+    const filteredDocuments = documents.filter((doc) => {
+      const matchesSearch = doc.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesType =
+        selectedDocType === "all" || doc.documentType === selectedDocType;
+      return matchesSearch && matchesType;
+    });
+
+    const filteredDirectories = directories.filter((dir) =>
+      dir.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const totalSelected = selectedDocs.size + selectedDirs.size;
+    const totalFiltered = filteredDocuments.length + filteredDirectories.length;
+
+    if (totalSelected === totalFiltered && totalFiltered > 0) {
+      // Deselect all
+      setSelectedDocs(new Set());
+      setSelectedDirs(new Set());
+    } else {
+      // Select all filtered documents and directories
+      setSelectedDocs(new Set(filteredDocuments.map((doc) => doc.id)));
+      setSelectedDirs(new Set(filteredDirectories.map((dir) => dir.id)));
+    }
+  }, [
+    documents,
+    directories,
+    searchTerm,
+    selectedDocType,
+    selectedDocs.size,
+    selectedDirs.size,
+  ]);
+
+  // Recursively fetch all documents from a directory and its subdirectories
+  const fetchAllDocumentsFromDirectory = useCallback(
+    async (
+      dirId: string,
+      dirName: string,
+      basePath: string = ""
+    ): Promise<Array<{ doc: CourseDocument; relativePath: string }>> => {
+      if (!selectedCourse) return [];
+
+      const allDocs: Array<{ doc: CourseDocument; relativePath: string }> = [];
+
+      try {
+        // Fetch documents and subdirectories for this directory
+        const result = await window.electronAPI.getCourseDocuments(
+          selectedCourse.courseCode,
+          { upId: dirId }
+        );
+
+        if (result && result.data) {
+          const { documents: docs, directories: subdirs } = result.data;
+
+          // Add documents from this directory
+          if (docs && docs.length > 0) {
+            docs.forEach((doc) => {
+              allDocs.push({
+                doc,
+                relativePath: basePath,
+              });
+            });
+          }
+
+          // Recursively fetch from subdirectories
+          if (subdirs && subdirs.length > 0) {
+            for (const subdir of subdirs) {
+              const subdirPath = basePath ? `${basePath}/${subdir.name}` : subdir.name;
+              const subdirDocs = await fetchAllDocumentsFromDirectory(
+                subdir.id,
+                subdir.name,
+                subdirPath
+              );
+              allDocs.push(...subdirDocs);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to fetch documents from directory ${dirName}:`, error);
+      }
+
+      return allDocs;
+    },
+    [selectedCourse]
+  );
+
+  const handleBatchDownload = useCallback(async () => {
+    if (selectedDocs.size === 0 && selectedDirs.size === 0) {
+      alert(
+        t("selectDocumentsFirst") ||
+          "Please select documents or directories to download."
+      );
+      return;
+    }
+
+    setBatchDownloading(true);
+    try {
+      // Show folder selection dialog
+      const folderResult = await window.electronAPI.selectDownloadFolder();
+
+      if (
+        !folderResult.success ||
+        folderResult.canceled ||
+        !folderResult.folderPath
+      ) {
+        setBatchDownloading(false);
+        return;
+      }
+
+      const folderPath = folderResult.folderPath;
+      const downloadList: Array<{ doc: CourseDocument; relativePath: string }> =
+        [];
+
+      // Add selected documents (at current level)
+      const selectedDocsList = documents?.filter((doc) =>
+        selectedDocs.has(doc.id)
+      );
+      if (selectedDocsList && selectedDocsList.length > 0) {
+        selectedDocsList.forEach((doc) => {
+          downloadList.push({ doc, relativePath: "" });
+        });
+      }
+
+      // Fetch and add all documents from selected directories
+      const selectedDirsList = directories.filter((dir) =>
+        selectedDirs.has(dir.id)
+      );
+      if (selectedDirsList && selectedDirsList.length > 0) {
+        for (const dir of selectedDirsList) {
+          const dirDocs = await fetchAllDocumentsFromDirectory(
+            dir.id,
+            dir.name,
+            dir.name
+          );
+          downloadList.push(...dirDocs);
+        }
+      }
+
+      if (downloadList.length === 0) {
+        setBatchDownloading(false);
+        alert("No documents found to download.");
+        return;
+      }
+
+      // Add all documents to download center in parallel
+      const downloadPromises = downloadList.map(async ({ doc, relativePath }) => {
+        const fileName = `${doc.name}.${doc.fileExtension}`;
+        const savePath = relativePath
+          ? `${folderPath}/${relativePath}/${fileName}`
+          : `${folderPath}/${fileName}`;
+
+        return window.electronAPI.downloadAddTask({
+          type: "document",
+          url: doc.resourceUrl,
+          fileName: fileName,
+          savePath: savePath,
+          metadata: {
+            courseId: selectedCourse?.courseCode,
+            courseName: selectedCourse?.name,
+            documentId: doc.id,
+          },
+          autoStart: true,
+        });
+      });
+
+      const results = await Promise.allSettled(downloadPromises);
+
+      let successCount = 0;
+      let failCount = 0;
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled" && result.value.success) {
+          successCount++;
+        } else {
+          failCount++;
+          const { doc } = downloadList[index];
+          const error =
+            result.status === "fulfilled" ? result.value.error : result.reason;
+          console.error(`Failed to add download task for ${doc.name}:`, error);
+        }
+      });
+
+      // Clear selection after batch download
+      setSelectedDocs(new Set());
+      setSelectedDirs(new Set());
+
+      // Show result
+      if (failCount != 0) {
+        alert(
+          t("batchDownloadPartial") ||
+            `Added ${successCount} documents to download center. ${failCount} failed.`
+        );
+      }
+    } catch (error) {
+      console.error("Batch download error:", error);
+      alert(
+        t("batchDownloadFailed") || "Batch download failed. Please try again."
+      );
+    } finally {
+      setBatchDownloading(false);
+    }
+  }, [
+    selectedDocs,
+    selectedDirs,
+    documents,
+    directories,
+    selectedCourse,
+    fetchAllDocumentsFromDirectory,
+    t,
+  ]);
+
+  // Directory navigation functions
+  const handleEnterDirectory = useCallback(
+    (dir: DocumentDirectory, e?: React.MouseEvent) => {
+      // Don't navigate if clicking on checkbox
+      if (e && (e.target as HTMLElement).tagName === "INPUT") {
+        return;
+      }
+      setCurrentUpId(dir.id);
+      setPathStack((prev) => [...prev, { id: dir.id, name: dir.name }]);
+      setSelectedDocs(new Set()); // Clear selection when navigating
+      setSelectedDirs(new Set());
+    },
+    []
+  );
+
+  const handleNavigateToPath = useCallback((index: number) => {
+    setPathStack((prev) => {
+      const newPath = prev.slice(0, index + 1);
+      setCurrentUpId(newPath[newPath.length - 1].id);
+      return newPath;
+    });
+    setSelectedDocs(new Set()); // Clear selection when navigating
+    setSelectedDirs(new Set());
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when a course is selected and items exist
+      if (
+        !selectedCourse ||
+        (!documents?.length && !directories.length)
+      )
+        return;
+
+      // Cmd-A or Ctrl-A: Select all
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        toggleSelectAll();
+      }
+
+      // Cmd-S or Ctrl-S: Batch download (if items are selected)
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (
+          (selectedDocs.size > 0 || selectedDirs.size > 0) &&
+          !batchDownloading
+        ) {
+          handleBatchDownload();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    selectedCourse,
+    documents,
+    directories,
+    selectedDocs,
+    selectedDirs,
+    batchDownloading,
+    toggleSelectAll,
+    handleBatchDownload,
+  ]);
 
   const renderDocumentContent = () => {
     if (loadingState.state === LoadingState.ERROR) {
@@ -326,11 +655,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
       );
     }
 
-    if (documents && documents.length === 0) {
+    if (documents && documents.length === 0 && directories.length === 0) {
       return (
-        <p className="text-gray-600">No documents available for this course.</p>
+        <p className="text-gray-600">
+          No documents or directories available in this location.
+        </p>
       );
     }
+
+    // Filter directories
+    const filteredDirectories = directories.filter((dir) =>
+      dir.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const filteredDocuments = (documents || []).filter((doc) => {
       const matchesSearch = doc.name
@@ -343,22 +679,68 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
     if (
       filteredDocuments.length === 0 &&
+      filteredDirectories.length === 0 &&
       (searchTerm || selectedDocType !== "all")
     ) {
       return (
         <p className="text-gray-600">
-          No documents found matching your filters.
+          No documents or directories found matching your filters.
         </p>
       );
     }
 
     return (
       <div className="flex flex-col gap-3">
+        {/* Render directories first */}
+        {filteredDirectories
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((dir) => (
+            <Card key={`dir-${dir.id}`} padding="lg">
+              <div className="flex justify-between items-center w-full">
+                <div className="flex items-center mr-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedDirs.has(dir.id)}
+                    onChange={() => toggleDirSelection(dir.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
+                <div
+                  className="flex items-center flex-1 cursor-pointer hover:bg-gray-50 -my-4 py-4 -mr-4 pr-4 rounded-lg transition-colors"
+                  onClick={(e) => handleEnterDirectory(dir, e)}
+                >
+                  <span className="text-3xl mr-3">📁</span>
+                  <div className="flex-1">
+                    <h3 className="m-0 text-base text-gray-900 font-semibold">
+                      {dir.name}
+                    </h3>
+                    {dir.content && (
+                      <p className="m-0 mt-1 text-sm text-gray-600">
+                        {dir.content}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-gray-400 ml-4">→</span>
+                </div>
+              </div>
+            </Card>
+          ))}
+
+        {/* Render documents */}
         {filteredDocuments
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((doc) => (
             <Card key={doc.id} padding="lg">
               <div className="flex justify-between items-center w-full">
+                <div className="flex items-center mr-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedDocs.has(doc.id)}
+                    onChange={() => toggleDocSelection(doc.id)}
+                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
                 <div className="flex-1">
                   <div className="flex items-center mb-2">
                     <span className="text-2xl mr-3">
@@ -422,7 +804,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
       <PageHeader
         title={`${t("documents")}${
           selectedCourse
-            ? ` - ${selectedCourse.name} (${loadingState.state === LoadingState.LOADING ? "..." : documents?.length || 0})`
+            ? ` - ${selectedCourse.name} (${
+                loadingState.state === LoadingState.LOADING
+                  ? "..."
+                  : `${(documents?.length || 0) + directories.length} items`
+              })`
             : ""
         }`}
         actions={
@@ -445,10 +831,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
               }}
               className="px-2 py-1 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All courses</option>
+              <option value="">{t("selectCourse") || "Select a course"}</option>
               {(courses || []).map((course) => (
                 <option key={course.id} value={course.id}>
-                  {course.courseNumber} - {course.name}
+                  {course.courseCode} - {course.name}
                 </option>
               ))}
             </select>
@@ -474,10 +860,33 @@ const DocumentList: React.FC<DocumentListProps> = ({
             <strong>{selectedCourse.name}</strong>
             <div className="mt-2 text-sm">
               <strong>Teacher:</strong> {selectedCourse.teacherName} •{" "}
-              <strong>Course Code:</strong> {selectedCourse.courseNumber}
+              <strong>Course Code:</strong> {selectedCourse.courseCode}
             </div>
           </div>
         </InfoBanner>
+      )}
+
+      {/* Breadcrumb Navigation */}
+      {selectedCourse && pathStack.length > 0 && (
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          <span className="text-gray-500">📂</span>
+          {pathStack.map((path, index) => (
+            <React.Fragment key={path.id}>
+              {index > 0 && <span className="text-gray-400">/</span>}
+              <button
+                onClick={() => handleNavigateToPath(index)}
+                className={`${
+                  index === pathStack.length - 1
+                    ? "text-blue-600 font-semibold"
+                    : "text-gray-600 hover:text-blue-600"
+                } transition-colors`}
+                disabled={index === pathStack.length - 1}
+              >
+                {path.name}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
       )}
 
       {/* Loading Progress */}
@@ -525,27 +934,60 @@ const DocumentList: React.FC<DocumentListProps> = ({
           </div>
         )}
 
-      {selectedCourse && (documents?.length || 0) > 0 && (
-        <div className="mb-4 flex gap-3">
-          <Input
-            type="text"
-            placeholder="Search documents by name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1"
-          />
-          <select
-            value={selectedDocType}
-            onChange={(e) =>
-              setSelectedDocType(e.target.value as CourseDocumentType | "all")
-            }
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">{t("allDocumentTypes")}</option>
-            <option value="courseware">{t("electronicCourseware")}</option>
-            <option value="experiment_guide">{t("experimentGuide")}</option>
-          </select>
-        </div>
+      {selectedCourse &&
+        ((documents?.length || 0) > 0 || directories.length > 0) && (
+          <>
+            <div className="mb-4 flex gap-3">
+            <Input
+              type="text"
+              placeholder="Search documents by name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1"
+            />
+            <select
+              value={selectedDocType}
+              onChange={(e) =>
+                setSelectedDocType(e.target.value as CourseDocumentType | "all")
+              }
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">{t("allDocumentTypes")}</option>
+              <option value="courseware">{t("electronicCourseware")}</option>
+              <option value="experiment_guide">{t("experimentGuide")}</option>
+            </select>
+          </div>
+          <div className="mb-4 flex gap-3 items-center">
+            <Button onClick={toggleSelectAll} variant="secondary" size="sm">
+              {selectedDocs.size > 0 || selectedDirs.size > 0
+                ? t("clearSelection") || "Clear Selection"
+                : t("selectAll") || "Select All"}
+            </Button>
+            {(selectedDocs.size > 0 || selectedDirs.size > 0) && (
+              <span className="text-sm text-gray-600">
+                {selectedDocs.size + selectedDirs.size}{" "}
+                {t("selected") || "selected"}
+                {selectedDirs.size > 0 && (
+                  <span className="ml-2 text-gray-500">
+                    ({selectedDocs.size} files, {selectedDirs.size} folders)
+                  </span>
+                )}
+              </span>
+            )}
+            {(selectedDocs.size > 0 || selectedDirs.size > 0) && (
+              <Button
+                onClick={handleBatchDownload}
+                disabled={batchDownloading}
+                variant="primary"
+                size="sm"
+              >
+                {batchDownloading
+                  ? t("processing") || "Processing..."
+                  : t("batchDownload") || "Batch Download"}
+              </Button>
+            )}
+          </div>
+        </>
       )}
 
       {renderDocumentContent()}

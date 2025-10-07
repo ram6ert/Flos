@@ -1,74 +1,108 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import { UpdateInfo } from "./updater";
-import { LoginCredentials, LoginResponse } from "../shared/types";
+import {
+  LoginCredentials,
+  LoginResponse,
+  AddDownloadTaskParams,
+  DownloadTask,
+  DownloadType,
+  Course,
+  Homework,
+  HomeworkDetails,
+  CourseDocument,
+  DocumentDirectory,
+  CourseDocumentsResponse,
+  ScheduleData,
+} from "../shared/types";
 
+/**
+ * Session data returned from getCurrentSession
+ */
+export interface SessionData {
+  userId: string;
+  username: string;
+  sessionId: string;
+  jsessionId: string;
+  loginTime: string;
+  isValid: boolean;
+}
+
+/**
+ * Possible types of data stored in cache
+ */
+export type CacheData = Course[] | Homework[] | HomeworkDetails | CourseDocumentsResponse | ScheduleData;
+
+/**
+ * Update status data
+ */
+export interface UpdateStatusData {
+  status: "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";
+  message?: string;
+  progress?: number;
+}
+
+/**
+ * Update download progress data
+ */
+export interface UpdateDownloadData {
+  percent: number;
+  transferred: number;
+  total: number;
+  bytesPerSecond: number;
+}
+
+/**
+ * Electron API exposed to renderer process via contextBridge
+ *
+ * IMPORTANT: ID Parameter Conventions
+ * ====================================
+ * All ID parameters follow these conventions:
+ *
+ * - courseId, homeworkId, documentId, attachmentId, teacherId: Internal numeric IDs (string type, e.g., "12345")
+ * - courseCode, courseCode: Human-readable identifiers (string type, e.g., "M302005B")
+ *
+ * Always use numeric IDs for API calls, never use courseCode as courseId!
+ */
 export interface ElectronAPI {
   getCourses: (options?: {
     skipCache?: boolean;
-  }) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  }) => Promise<{ data: Course[]; fromCache: boolean; age: number }>;
   getHomework: (
     courseId?: string,
     options?: { skipCache?: boolean }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  ) => Promise<{ data: Homework[]; fromCache: boolean; age: number }>;
   getHomeworkDetails: (
     homeworkId: string,
     courseId: string,
     teacherId: string
-  ) => Promise<{ data: any; success: boolean }>;
+  ) => Promise<{ data: HomeworkDetails; success: boolean }>;
   getCourseDocuments: (
     courseId: string,
-    options?: { skipCache?: boolean }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+    options?: { skipCache?: boolean; upId?: string | number }
+  ) => Promise<{ data: CourseDocumentsResponse; fromCache: boolean; age: number }>;
   refreshCourses: () => Promise<{
-    data: any[];
+    data: Course[];
     fromCache: boolean;
     age: number;
   }>;
   refreshHomework: (
     courseId?: string,
     options?: { requestId?: string }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  ) => Promise<{ data: Homework[]; fromCache: boolean; age: number }>;
   refreshDocuments: (
     courseId?: string,
-    options?: { requestId?: string }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+    options?: { requestId?: string; upId?: string | number }
+  ) => Promise<{ data: CourseDocumentsResponse; fromCache: boolean; age: number }>;
   streamHomework: (
     courseId?: string,
     options?: { requestId?: string }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
+  ) => Promise<{ data: Homework[]; fromCache: boolean; age: number }>;
   streamDocuments: (
     courseId?: string,
-    options?: { forceRefresh?: boolean; requestId?: string }
-  ) => Promise<{ data: any[]; fromCache: boolean; age: number }>;
-  getSchedule: (options?: { skipCache?: boolean }) => Promise<any>;
-  refreshSchedule: () => Promise<any>;
-  downloadDocument: (documentUrl: string) => Promise<{ success: boolean }>;
-  downloadCourseDocument: (
-    documentUrl: string,
-    fileName: string
-  ) => Promise<{
-    success: boolean;
-    data?: string;
-    contentType?: string;
-    fileName?: string;
-    fileSize?: number;
-    savedToFile?: boolean;
-    filePath?: string;
-    error?: string;
-  }>;
-  downloadHomeworkAttachment: (
-    attachmentUrl: string,
-    fileName: string
-  ) => Promise<{
-    success: boolean;
-    data?: string;
-    contentType?: string;
-    fileName?: string;
-    fileSize?: number;
-    savedToFile?: boolean;
-    filePath?: string;
-    error?: string;
-  }>;
+    options?: { forceRefresh?: boolean; requestId?: string; upId?: string | number }
+  ) => Promise<{ data: CourseDocumentsResponse; fromCache: boolean; age: number }>;
+  getSchedule: (options?: { skipCache?: boolean }) => Promise<ScheduleData>;
+  refreshSchedule: () => Promise<ScheduleData>;
   fetchCourseImage: (imagePath: string) => Promise<string | null>;
   fetchCaptcha: () => Promise<{
     success: boolean;
@@ -78,7 +112,7 @@ export interface ElectronAPI {
   login: (credentials: LoginCredentials) => Promise<LoginResponse>;
   logout: () => Promise<void>;
   isLoggedIn: () => Promise<boolean>;
-  getCurrentSession: () => Promise<any>;
+  getCurrentSession: () => Promise<SessionData | null>;
   validateStoredSession: () => Promise<boolean>;
   storeCredentials: (credentials: {
     username: string;
@@ -92,14 +126,14 @@ export interface ElectronAPI {
   } | null>;
   clearStoredCredentials: () => Promise<void>;
   onCacheUpdate: (
-    callback: (event: any, payload: { key: string; data: any }) => void
+    callback: (event: IpcRendererEvent, payload: { key: string; data: CacheData }) => void
   ) => void;
   onSessionExpired: (callback: () => void) => void;
   onHomeworkStreamChunk: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       chunk: {
-        homework: any[];
+        homework: Homework[];
         courseId?: string;
         courseName?: string;
         fromCache: boolean;
@@ -109,7 +143,7 @@ export interface ElectronAPI {
   ) => void;
   onHomeworkStreamProgress: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       progress: {
         completed: number;
         total: number;
@@ -120,21 +154,22 @@ export interface ElectronAPI {
   ) => void;
   onHomeworkStreamComplete: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       payload: { courseId?: string; responseId?: string }
     ) => void
   ) => void;
   onHomeworkStreamError: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       error: { error: string; responseId?: string }
     ) => void
   ) => void;
   onDocumentStreamChunk: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       chunk: {
-        documents: any[];
+        documents: CourseDocument[];
+        directories?: DocumentDirectory[];
         courseId?: string;
         courseName?: string;
         fromCache: boolean;
@@ -144,7 +179,7 @@ export interface ElectronAPI {
   ) => void;
   onDocumentStreamProgress: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       progress: {
         completed: number;
         total: number;
@@ -155,25 +190,25 @@ export interface ElectronAPI {
   ) => void;
   onDocumentStreamComplete: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       payload: { courseId?: string; responseId?: string }
     ) => void
   ) => void;
   onDocumentStreamError: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       error: { error: string; responseId?: string }
     ) => void
   ) => void;
   onHomeworkRefreshStart: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       payload: { courseId?: string; responseId?: string }
     ) => void
   ) => void;
   onDocumentRefreshStart: (
     callback: (
-      event: any,
+      event: IpcRendererEvent,
       payload: { courseId?: string; responseId?: string }
     ) => void
   ) => void;
@@ -196,8 +231,8 @@ export interface ElectronAPI {
     error?: string;
   }>;
   showUpdateDialog: (updateInfo: UpdateInfo) => Promise<boolean>;
-  onUpdateStatus: (callback: (event: any, data: any) => void) => void;
-  onUpdateDownload: (callback: (event: any, data: any) => void) => void;
+  onUpdateStatus: (callback: (event: IpcRendererEvent, data: UpdateStatusData) => void) => void;
+  onUpdateDownload: (callback: (event: IpcRendererEvent, data: UpdateDownloadData) => void) => void;
   // homework submission
   submitHomework: (submission: {
     homeworkId: string;
@@ -228,16 +263,68 @@ export interface ElectronAPI {
     }>;
     success: boolean;
   }>;
-  downloadSubmittedHomework: (
-    url: string,
-    fileName: string,
-    id: string
-  ) => Promise<{
+  // unified download APIs
+  downloadAddTask: (params: AddDownloadTaskParams) => Promise<{
     success: boolean;
-    data?: string;
-    contentType?: string;
-    fileName?: string;
-    fileSize?: number;
+    taskId?: string;
+    error?: string;
+  }>;
+  downloadStartTask: (taskId: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  downloadCancelTask: (taskId: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  downloadRetryTask: (taskId: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  downloadGetTask: (taskId: string) => Promise<{
+    success: boolean;
+    task?: DownloadTask;
+    error?: string;
+  }>;
+  downloadGetAllTasks: () => Promise<{
+    success: boolean;
+    tasks?: DownloadTask[];
+    error?: string;
+  }>;
+  downloadGetTasksByType: (type: DownloadType) => Promise<{
+    success: boolean;
+    tasks?: DownloadTask[];
+    error?: string;
+  }>;
+  downloadRemoveTask: (taskId: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  downloadClearCompleted: () => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  onDownloadTaskUpdate: (
+    callback: (event: IpcRendererEvent, task: DownloadTask) => void
+  ) => void;
+  onDownloadProgress: (
+    callback: (
+      event: IpcRendererEvent,
+      progress: {
+        taskId: string;
+        status: string;
+        progress: number;
+        downloadedBytes: number;
+        totalBytes: number;
+        speed?: number;
+        timeRemaining?: number;
+      }
+    ) => void
+  ) => void;
+  selectDownloadFolder: () => Promise<{
+    success: boolean;
+    folderPath?: string;
+    canceled?: boolean;
     error?: string;
   }>;
 }
@@ -269,12 +356,6 @@ const electronAPI: ElectronAPI = {
   getSchedule: (options?: { skipCache?: boolean }) =>
     ipcRenderer.invoke("get-schedule", options),
   refreshSchedule: () => ipcRenderer.invoke("refresh-schedule"),
-  downloadDocument: (documentUrl: string) =>
-    ipcRenderer.invoke("download-document", documentUrl),
-  downloadCourseDocument: (documentUrl: string, fileName: string) =>
-    ipcRenderer.invoke("download-course-document", documentUrl, fileName),
-  downloadHomeworkAttachment: (attachmentUrl: string, fileName: string) =>
-    ipcRenderer.invoke("download-homework-attachment", attachmentUrl, fileName),
   fetchCourseImage: (imagePath: string) =>
     ipcRenderer.invoke("fetch-course-image", imagePath),
   fetchCaptcha: () => ipcRenderer.invoke("fetch-captcha"),
@@ -332,8 +413,28 @@ const electronAPI: ElectronAPI = {
     score: string
   ) =>
     ipcRenderer.invoke("get-homework-download-urls", upId, id, userId, score),
-  downloadSubmittedHomework: (url: string, fileName: string, id: string) =>
-    ipcRenderer.invoke("download-submitted-homework", url, fileName, id),
+  // unified download APIs
+  downloadAddTask: (params: AddDownloadTaskParams) =>
+    ipcRenderer.invoke("download-add-task", params),
+  downloadStartTask: (taskId: string) =>
+    ipcRenderer.invoke("download-start-task", taskId),
+  downloadCancelTask: (taskId: string) =>
+    ipcRenderer.invoke("download-cancel-task", taskId),
+  downloadRetryTask: (taskId: string) =>
+    ipcRenderer.invoke("download-retry-task", taskId),
+  downloadGetTask: (taskId: string) =>
+    ipcRenderer.invoke("download-get-task", taskId),
+  downloadGetAllTasks: () => ipcRenderer.invoke("download-get-all-tasks"),
+  downloadGetTasksByType: (type: DownloadType) =>
+    ipcRenderer.invoke("download-get-tasks-by-type", type),
+  downloadRemoveTask: (taskId: string) =>
+    ipcRenderer.invoke("download-remove-task", taskId),
+  downloadClearCompleted: () => ipcRenderer.invoke("download-clear-completed"),
+  onDownloadTaskUpdate: (callback) =>
+    ipcRenderer.on("download-task-update", callback),
+  onDownloadProgress: (callback) =>
+    ipcRenderer.on("download-progress", callback),
+  selectDownloadFolder: () => ipcRenderer.invoke("select-download-folder"),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

@@ -8,10 +8,13 @@ import {
 import { useState } from "react";
 
 const formatFileSize = (size: number) => {
-  if (size < 1) {
-    return `${(size * 1024).toFixed(0)} KB`;
+  if (size > 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  } else if (size > 1024) {
+    return `${(size / 1024).toFixed(2)} KB`;
+  } else {
+    return `${size} B`;
   }
-  return `${size.toFixed(2)} MB`;
 };
 
 interface HomeworkCardProps {
@@ -225,8 +228,8 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
   };
 
   const fetchHomeworkDetails = async (
-    homeworkId: number,
-    courseId: number,
+    homeworkId: string,
+    courseId: string,
     teacherId?: string
   ) => {
     try {
@@ -474,6 +477,7 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
                         ? details.attachments.map((attachment, index) => (
                             <AttachmentCard
                               attachment={attachment}
+                              homework={homework}
                               key={`${attachment.id}-${index}`}
                             />
                           ))
@@ -583,15 +587,14 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
 
 interface AttachmentCardProps {
   attachment: HomeworkAttachment;
+  homework: Homework;
 }
 
-const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
+const AttachmentCard: React.FC<AttachmentCardProps> = ({
+  attachment,
+  homework,
+}) => {
   const [downloading, setDownloading] = useState<boolean>(false);
-
-  const _getFileExtension = (url: string) => {
-    const match = url.match(/\.([^.]+)$/);
-    return match ? match[1] : t("unknown");
-  };
 
   const handleDownloadAttachment = async (attachment: HomeworkAttachment) => {
     setDownloading(true);
@@ -599,40 +602,35 @@ const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
       let result;
 
       if (attachment.type === "my_homework") {
-        // Use the new API for submitted homework files
-        result = await window.electronAPI.downloadSubmittedHomework(
-          attachment.url,
-          attachment.fileName,
-          attachment.id.toString()
-        );
+        // Submitted homework files
+        result = await window.electronAPI.downloadAddTask({
+          type: "submitted-homework",
+          url: attachment.url,
+          fileName: attachment.fileName,
+          metadata: {
+            attachmentId: attachment.id.toString(),
+            homeworkId: homework.id,
+            courseId: homework.courseId,
+          },
+          autoStart: true,
+        });
       } else {
-        // Use existing API for regular attachments
-        result = await window.electronAPI.downloadHomeworkAttachment(
-          attachment.url,
-          attachment.fileName
-        );
+        // Regular homework attachments
+        const downloadUrl = `http://123.121.147.7:88/ve/back/coursePlatform/dataSynAction.shtml?method=downLoadPic&id=${attachment.id}&noteId=${homework.id}`;
+        result = await window.electronAPI.downloadAddTask({
+          type: "homework-attachment",
+          url: downloadUrl,
+          fileName: `attachment_${attachment.id}`, // Fallback filename, real filename extracted from server
+          metadata: {
+            homeworkId: homework.id,
+            courseId: homework.courseId,
+            attachmentId: attachment.id,
+          },
+          autoStart: true,
+        });
       }
 
-      if (result.savedToFile) {
-        // Large file saved directly to disk
-        alert(`File downloaded successfully to: ${result.filePath}`);
-      } else if (result.data) {
-        // Small file - create download link
-        const blob = new Blob(
-          [Uint8Array.from(atob(result.data), (c) => c.charCodeAt(0))],
-          {
-            type: result.contentType,
-          }
-        );
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = attachment.fileName || `download_${attachment.id}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } else if (!result.success) {
+      if (!result.success) {
         alert(`Download failed: ${result.error || "Unknown error"}`);
       }
     } catch (error) {

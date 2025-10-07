@@ -9,6 +9,7 @@ import { setupHomeworkHandlers } from "./handlers/homework";
 import { setupDocumentHandlers } from "./handlers/document";
 import { setupScheduleHandlers } from "./handlers/schedule";
 import { setupUpdateHandlers } from "./handlers/update";
+import { setupDownloadHandlers } from "./handlers/download";
 import { autoCheckForUpdates } from "./updater";
 export { notifyRendererAboutUpdate } from "./handlers/update";
 import { Logger } from "./logger";
@@ -29,6 +30,7 @@ app.whenReady().then(() => {
   setupDocumentHandlers();
   setupScheduleHandlers();
   setupUpdateHandlers();
+  setupDownloadHandlers();
 
   // Auto update check after 5 second delay to avoid affecting app startup speed
   setTimeout(() => {

@@ -159,3 +159,24 @@ jobs:
           generate_release_notes: false
           draft: false
           prerelease: false
+      - name: Keep only the latest releases
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.BAKA_ACCESS_TOKEN }}
+          script: |
+            const releases = await github.rest.repos.listReleases({
+              owner: 'Baka-Course-Platform',
+              repo: 'Baka-Course-Platform'
+            });
+
+            const releasesToDelete = releases.data.slice(1);
+
+            for (const release of releasesToDelete) {
+              console.log(`Deleting release: ${release.name}`);
+              await github.rest.repos.deleteRelease({
+                owner: 'Baka-Course-Platform',
+                repo: 'Baka-Course-Platform',
+                release_id: release.id
+              });
+            }

@@ -283,8 +283,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
       .filter((hw) => {
         // Filter by selected course if provided
         if (selectedCourse) {
-          const selectedCourseIdAsNumber = Number(selectedCourse.id);
-          if (hw.courseId !== selectedCourseIdAsNumber) return false;
+          if (hw.courseId !== selectedCourse.id) return false;
         }
 
         const hwIsOverdue = isOverdue(hw);
@@ -463,7 +462,7 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
               <option value="">{t("allCourses")}</option>
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
-                  {course.courseNumber} - {course.name}
+                  {course.courseCode} - {course.name}
                 </option>
               ))}
             </select>

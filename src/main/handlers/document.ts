@@ -29,20 +29,21 @@ export function setupDocumentHandlers() {
         throw new Error("SESSION_EXPIRED");
       }
 
-      const { requestId } = options;
+      const { requestId, upId = 0 } = options;
       // Use the requestId passed from renderer, or generate one if not provided
       const responseId = requestId || generateResponseId();
 
       const cacheKey = courseId
-        ? `documents_${currentSession.username}_${courseId}`
-        : `all_documents_${currentSession.username}`;
+        ? `documents_${currentSession.username}_${courseId}_${upId}`
+        : `all_documents_${currentSession.username}_${upId}`;
 
       // Check cache first - if we have recent data, return it immediately
       const cachedData = cachedDocuments.get(cacheKey);
       if (cachedData) {
         // Only send if this is still the current request
         event.sender.send("document-stream-chunk", {
-          documents: cachedData,
+          documents: cachedData.documents || cachedData,
+          directories: cachedData.directories || [],
           courseId: courseId,
           courseName: "Cached Data",
           type: "cached",
@@ -59,21 +60,27 @@ export function setupDocumentHandlers() {
 
       // No cache, expired, or forced refresh - start streaming
       try {
-        const generator = fetchDocumentsStreaming(courseId, (progress) => {
-          event.sender.send("document-stream-progress", {
-            ...progress,
-            responseId,
-          });
-        });
+        const generator = fetchDocumentsStreaming(
+          courseId,
+          (progress) => {
+            event.sender.send("document-stream-progress", {
+              ...progress,
+              responseId,
+            });
+          },
+          upId
+        );
 
-        let finalData: CourseDocument[] = [];
+        let finalDocuments: CourseDocument[] = [];
+        let finalDirectories: any[] = [];
         for await (const chunk of generator) {
           event.sender.send("document-stream-chunk", {
             ...chunk,
             fromCache: false,
             responseId,
           });
-          finalData = finalData.concat(chunk.documents);
+          finalDocuments = finalDocuments.concat(chunk.documents);
+          finalDirectories = finalDirectories.concat(chunk.directories || []);
         }
 
         event.sender.send("document-stream-complete", {
@@ -81,8 +88,12 @@ export function setupDocumentHandlers() {
           responseId,
         });
 
+        const finalData = {
+          documents: finalDocuments,
+          directories: finalDirectories,
+        };
         cachedDocuments.set(cacheKey, finalData);
-        return { data: finalData || [], fromCache: false, age: 0 };
+        return { data: finalData, fromCache: false, age: 0 };
       } catch (error) {
         event.sender.send("document-stream-error", {
           error: error instanceof Error ? error.message : "Streaming failed",
@@ -102,33 +113,39 @@ export function setupDocumentHandlers() {
         throw new Error("SESSION_EXPIRED");
       }
 
-      const { requestId } = options;
+      const { requestId, upId = 0 } = options;
       const responseId = requestId || generateResponseId();
 
       const cacheKey = courseId
-        ? `documents_${currentSession.username}_${courseId}`
-        : "all_documents";
+        ? `documents_${currentSession.username}_${courseId}_${upId}`
+        : `all_documents_${upId}`;
 
       // Signal renderer to clear display and start streaming fresh data
       try {
         // Signal renderer to clear display
         event.sender.send("document-refresh-start", { courseId, responseId });
 
-        const generator = fetchDocumentsStreaming(courseId, (progress) => {
-          event.sender.send("document-stream-progress", {
-            ...progress,
-            responseId,
-          });
-        }); // false = allow caching of the fresh data
+        const generator = fetchDocumentsStreaming(
+          courseId,
+          (progress) => {
+            event.sender.send("document-stream-progress", {
+              ...progress,
+              responseId,
+            });
+          },
+          upId
+        ); // false = allow caching of the fresh data
 
-        let finalData: CourseDocument[] = [];
+        let finalDocuments: CourseDocument[] = [];
+        let finalDirectories: any[] = [];
         for await (const chunk of generator) {
           event.sender.send("document-stream-chunk", {
             ...chunk,
             fromCache: false,
             responseId,
           });
-          finalData = finalData.concat(chunk.documents);
+          finalDocuments = finalDocuments.concat(chunk.documents);
+          finalDirectories = finalDirectories.concat(chunk.directories || []);
         }
 
         event.sender.send("document-stream-complete", {
@@ -136,6 +153,10 @@ export function setupDocumentHandlers() {
           responseId,
         });
 
+        const finalData = {
+          documents: finalDocuments,
+          directories: finalDirectories,
+        };
         cachedDocuments.set(cacheKey, finalData);
         return { data: finalData, fromCache: false, age: 0 };
       } catch (error) {
@@ -192,13 +213,18 @@ export function setupDocumentHandlers() {
   // Fetch course documents
   ipcMain.handle(
     "get-course-documents",
-    async (event, courseCode: string, options?: { skipCache?: boolean }) => {
+    async (
+      event,
+      courseCode: string,
+      options?: { skipCache?: boolean; upId?: string | number }
+    ) => {
       if (!currentSession) {
         await handleSessionExpired();
         throw new Error("SESSION_EXPIRED");
       }
 
-      const cacheKey = `documents_${currentSession.username}_${courseCode}`;
+      const upId = options?.upId ?? 0;
+      const cacheKey = `documents_${currentSession.username}_${courseCode}_${upId}`;
       const cachedData = cachedDocuments.get(cacheKey);
 
       // Use cached data if available and not expired (unless skipCache is true)
@@ -208,12 +234,12 @@ export function setupDocumentHandlers() {
 
       return requestQueue.add(async () => {
         try {
-          const sanitizedDocuments = await fetchCourseDocuments(courseCode);
+          const result = await fetchCourseDocuments(courseCode, upId);
 
           // Update cache with sanitized data
-          cachedDocuments.set(cacheKey, sanitizedDocuments);
+          cachedDocuments.set(cacheKey, result);
 
-          return { data: sanitizedDocuments, fromCache: false, age: 0 };
+          return { data: result, fromCache: false, age: 0 };
         } catch (error) {
           console.error("Failed to fetch course documents:", error);
           throw error;
@@ -222,126 +248,5 @@ export function setupDocumentHandlers() {
     }
   );
 
-  // Download course document with size limit and streaming
-  ipcMain.handle(
-    "download-course-document",
-    async (event, documentUrl: string, fileName: string) => {
-      if (!currentSession) {
-        await handleSessionExpired();
-        throw new Error("SESSION_EXPIRED");
-      }
-
-      try {
-        const fullUrl = documentUrl.startsWith("/")
-          ? `${APP_CONFIG.BASE_URL}${documentUrl}`
-          : documentUrl;
-
-        console.log("Downloading document from URL:", fullUrl);
-
-        // First, check the file size with a HEAD request
-        const headResponse = await axios.head(fullUrl, {
-          headers: {
-            Cookie: captchaSession?.cookies.join("; ") || "",
-            ...APP_CONFIG.HEADERS,
-          },
-          timeout: 10000,
-        });
-
-        const contentLength = parseInt(
-          headResponse.headers["content-length"] || "0"
-        );
-        const maxFileSize = 50 * 1024 * 1024; // 50MB limit
-
-        if (contentLength > maxFileSize) {
-          return {
-            success: false,
-            error: `File too large: ${(contentLength / (1024 * 1024)).toFixed(
-              1
-            )}MB. Maximum allowed: ${maxFileSize / (1024 * 1024)}MB`,
-          };
-        }
-
-        // For small files (<= 10MB), download directly
-        if (contentLength <= 10 * 1024 * 1024) {
-          const response = await axios.get(fullUrl, {
-            responseType: "arraybuffer",
-            headers: {
-              Cookie: captchaSession?.cookies.join("; ") || "",
-              ...APP_CONFIG.HEADERS,
-            },
-            timeout: 60000,
-          });
-
-          // Convert to base64 for transfer to renderer
-          const buffer = Buffer.from(response.data);
-          const base64 = buffer.toString("base64");
-          const contentType =
-            response.headers["content-type"] || "application/octet-stream";
-
-          return {
-            success: true,
-            data: base64,
-            contentType,
-            fileName,
-            fileSize: contentLength,
-          };
-        } else {
-          // For larger files, use the Electron dialog to save directly to disk
-          const { dialog } = await import("electron");
-          const _path = await import("path");
-
-          const result = await dialog.showSaveDialog({
-            defaultPath: fileName,
-            filters: [{ name: "All Files", extensions: ["*"] }],
-          });
-
-          if (result.canceled || !result.filePath) {
-            return {
-              success: false,
-              error: "Download canceled by user",
-            };
-          }
-
-          // Stream download directly to file
-          const fs = await import("fs");
-          const response = await axios.get(fullUrl, {
-            responseType: "stream",
-            headers: {
-              Cookie: captchaSession?.cookies.join("; ") || "",
-              ...APP_CONFIG.HEADERS,
-            },
-            timeout: 120000, // 2 minute timeout for large files
-          });
-
-          const writer = fs.createWriteStream(result.filePath);
-          response.data.pipe(writer);
-
-          return new Promise((resolve) => {
-            writer.on("finish", () => {
-              resolve({
-                success: true,
-                savedToFile: true,
-                filePath: result.filePath,
-                fileName,
-                fileSize: contentLength,
-              });
-            });
-
-            writer.on("error", (error) => {
-              resolve({
-                success: false,
-                error: `Failed to save file: ${error.message}`,
-              });
-            });
-          });
-        }
-      } catch (error) {
-        console.error("Failed to download document:", error);
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : "Download failed",
-        };
-      }
-    }
-  );
 }
+

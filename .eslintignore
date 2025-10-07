@@ -1,0 +1,7 @@
+node_modules
+dist
+release
+out
+build
+*.min.js
+*.bundle.js

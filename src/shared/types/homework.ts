@@ -1,6 +1,6 @@
 export interface Homework {
-  id: number;
-  courseId: number;
+  id: string; // Internal numeric homework ID (string, e.g., "12345")
+  courseId: string; // Internal numeric course ID (string, e.g., "67890")
   courseName: string;
   title: string;
   content: string;
@@ -12,22 +12,22 @@ export interface Homework {
   submittedCount: number;
   totalStudents: number;
   type: "homework" | "report" | "experiment" | "quiz" | "assessment";
-  submissionId: string | null;
-  userId: string;
+  submissionId: string | null; // Internal numeric submission ID (string, if submitted)
+  userId: string; // Internal numeric user/student ID (string)
 }
 
 export interface HomeworkDetails {
-  id: number;
+  id: string; // Internal numeric homework ID (string)
   createdDate: string; // ISO string from main process
-  courseId: number;
-  courseSchedId: number;
+  courseId: string; // Internal numeric course ID (string)
+  courseSchedId: string; // Internal numeric schedule ID (string)
   content: string;
   title: string;
   dueDate: string; // ISO string from main process
   openDate: string; // ISO string from main process
   isFinalExam: boolean;
   maxScore: number;
-  moduleId: number;
+  moduleId: string; // Internal numeric module ID (string)
   isOpen: boolean;
   isAnswerPublished: boolean;
   status: string;
@@ -40,7 +40,7 @@ export interface HomeworkDetails {
   makeupTime: string | null; // ISO string from main process
   isRepeatAllowed: boolean;
   makeupFlag: string;
-  selectedIds: string | null;
+  selectedIds: string | null; // Comma-separated numeric student IDs
   isGroupAssignment: boolean;
   teacherWeight: number;
   studentWeight: number;
@@ -50,7 +50,7 @@ export interface HomeworkDetails {
 }
 
 export interface HomeworkAttachment {
-  id: number;
+  id: string; // Internal numeric attachment ID (string, e.g., "12345")
   url: string;
   fileName: string;
   convertUrl: string;

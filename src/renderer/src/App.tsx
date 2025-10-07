@@ -13,6 +13,7 @@ import Login from "./components/Login";
 import FlowScheduleTable from "./components/FlowScheduleTable";
 import UpdateNotification from "./components/UpdateNotification";
 import UpdateStatusNotification from "./components/UpdateStatusNotification";
+import DownloadCenter from "./components/DownloadCenter";
 import { Button, Loading } from "./components/common/StyledComponents";
 
 type ActiveView = "courses" | "homework" | "documents" | "flow-schedule";
@@ -265,7 +266,7 @@ const App: React.FC = () => {
   };
 
   const handleCourseSelect = (course: string | null) => {
-    const selected = courses.find((c) => c.courseNumber === course) || null;
+    const selected = courses.find((c) => c.courseCode === course) || null;
     setSelectedCourse_Documents(selected);
     setSelectedCourse_Homework(selected);
     setSelectedCourse_Schedule(selected);
@@ -461,6 +462,9 @@ const App: React.FC = () => {
           onClose={handleUpdateStatusClose}
         />
       )}
+
+      {/* download center */}
+      <DownloadCenter />
     </div>
   );
 };

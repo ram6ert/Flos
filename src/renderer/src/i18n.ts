@@ -12,7 +12,7 @@ const resources = {
       noCourses: "No courses available.",
 
       // Course Details
-      courseNumber: "Course Number",
+      courseCode: "Course Number",
       instructor: "Instructor",
       semester: "Semester",
 
@@ -207,6 +207,17 @@ const resources = {
       loadingDocuments: "Loading documents",
       currentlyFetching: "Currently fetching",
 
+      // Batch download
+      selectAll: "Select All",
+      clearSelection: "Clear Selection",
+      selected: "selected",
+      batchDownload: "Batch Download",
+      processing: "Processing...",
+      selectDocumentsFirst: "Please select documents to download.",
+      batchDownloadStarted: "Successfully added documents to download center.",
+      batchDownloadPartial: "Some documents failed to add to download center.",
+      batchDownloadFailed: "Batch download failed. Please try again.",
+
       // Homework Submission
       submitHomework: "Submit Homework",
       addFiles: "Add Files",
@@ -234,6 +245,7 @@ const resources = {
       unknown: "Unknown",
       unknownError: "Unknown error",
       allCourses: "All courses",
+      selectCourse: "Select a course",
       myHomework: "My Homework",
     },
   },
@@ -246,7 +258,7 @@ const resources = {
       noCourses: "暂无课程。",
 
       // Course Details
-      courseNumber: "课程号",
+      courseCode: "课程号",
       instructor: "授课教师",
       semester: "学期",
 
@@ -436,6 +448,17 @@ const resources = {
       loadingDocuments: "正在加载文档",
       currentlyFetching: "正在获取",
 
+      // Batch download
+      selectAll: "全选",
+      clearSelection: "清除选择",
+      selected: "已选择",
+      batchDownload: "批量下载",
+      processing: "处理中...",
+      selectDocumentsFirst: "请先选择要下载的文档。",
+      batchDownloadStarted: "成功将文档添加到下载中心。",
+      batchDownloadPartial: "部分文档添加到下载中心失败。",
+      batchDownloadFailed: "批量下载失败。请重试。",
+
       // Homework Submission
       submitHomework: "提交作业",
       addFiles: "添加文件",
@@ -462,6 +485,7 @@ const resources = {
       unknown: "未知",
       unknownError: "未知错误",
       allCourses: "所有课程",
+      selectCourse: "选择课程",
       myHomework: "我的作业",
     },
   },
