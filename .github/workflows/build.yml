@@ -43,7 +43,7 @@ jobs:
           path: |
             release/*.exe
             release/*.msi
-          retention-days: 30
+          retention-days: 3
 
       - name: Upload artifacts (macOS)
         if: matrix.os == 'macos-latest'
@@ -53,7 +53,7 @@ jobs:
           path: |
             release/*.dmg
             release/*.zip
-          retention-days: 30
+          retention-days: 3
 
       - name: Upload artifacts (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -64,7 +64,7 @@ jobs:
             release/*.AppImage
             release/*.deb
             release/*.rpm
-          retention-days: 30
+          retention-days: 3
 
   release:
     needs: build
