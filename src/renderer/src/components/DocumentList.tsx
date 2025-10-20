@@ -82,7 +82,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
       // Handle directories if present
       if (chunk.directories && chunk.directories.length > 0) {
         setDirectories((prev) => {
-          const newDirs = [...prev, ...chunk.directories];
+          const newDirs = [...prev, ...(chunk.directories || [])];
           // Remove duplicates based on directory ID
           const uniqueDirs = newDirs.filter(
             (dir, index, arr) => arr.findIndex((d) => d.id === dir.id) === index
@@ -421,7 +421,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
           // Recursively fetch from subdirectories
           if (subdirs && subdirs.length > 0) {
             for (const subdir of subdirs) {
-              const subdirPath = basePath ? `${basePath}/${subdir.name}` : subdir.name;
+              const subdirPath = basePath
+                ? `${basePath}/${subdir.name}`
+                : subdir.name;
               const subdirDocs = await fetchAllDocumentsFromDirectory(
                 subdir.id,
                 subdir.name,
@@ -432,7 +434,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
           }
         }
       } catch (error) {
-        console.error(`Failed to fetch documents from directory ${dirName}:`, error);
+        console.error(
+          `Failed to fetch documents from directory ${dirName}:`,
+          error
+        );
       }
 
       return allDocs;
@@ -499,25 +504,27 @@ const DocumentList: React.FC<DocumentListProps> = ({
       }
 
       // Add all documents to download center in parallel
-      const downloadPromises = downloadList.map(async ({ doc, relativePath }) => {
-        const fileName = `${doc.name}.${doc.fileExtension}`;
-        const savePath = relativePath
-          ? `${folderPath}/${relativePath}/${fileName}`
-          : `${folderPath}/${fileName}`;
+      const downloadPromises = downloadList.map(
+        async ({ doc, relativePath }) => {
+          const fileName = `${doc.name}.${doc.fileExtension}`;
+          const savePath = relativePath
+            ? `${folderPath}/${relativePath}/${fileName}`
+            : `${folderPath}/${fileName}`;
 
-        return window.electronAPI.downloadAddTask({
-          type: "document",
-          url: doc.resourceUrl,
-          fileName: fileName,
-          savePath: savePath,
-          metadata: {
-            courseId: selectedCourse?.courseCode,
-            courseName: selectedCourse?.name,
-            documentId: doc.id,
-          },
-          autoStart: true,
-        });
-      });
+          return window.electronAPI.downloadAddTask({
+            type: "document",
+            url: doc.resourceUrl,
+            fileName: fileName,
+            savePath: savePath,
+            metadata: {
+              courseId: selectedCourse?.courseCode,
+              courseName: selectedCourse?.name,
+              documentId: doc.id,
+            },
+            autoStart: true,
+          });
+        }
+      );
 
       const results = await Promise.allSettled(downloadPromises);
 
@@ -594,10 +601,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle shortcuts when a course is selected and items exist
-      if (
-        !selectedCourse ||
-        (!documents?.length && !directories.length)
-      )
+      if (!selectedCourse || (!documents?.length && !directories.length))
         return;
 
       // Cmd-A or Ctrl-A: Select all
@@ -938,57 +942,59 @@ const DocumentList: React.FC<DocumentListProps> = ({
         ((documents?.length || 0) > 0 || directories.length > 0) && (
           <>
             <div className="mb-4 flex gap-3">
-            <Input
-              type="text"
-              placeholder="Search documents by name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
-            />
-            <select
-              value={selectedDocType}
-              onChange={(e) =>
-                setSelectedDocType(e.target.value as CourseDocumentType | "all")
-              }
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">{t("allDocumentTypes")}</option>
-              <option value="courseware">{t("electronicCourseware")}</option>
-              <option value="experiment_guide">{t("experimentGuide")}</option>
-            </select>
-          </div>
-          <div className="mb-4 flex gap-3 items-center">
-            <Button onClick={toggleSelectAll} variant="secondary" size="sm">
-              {selectedDocs.size > 0 || selectedDirs.size > 0
-                ? t("clearSelection") || "Clear Selection"
-                : t("selectAll") || "Select All"}
-            </Button>
-            {(selectedDocs.size > 0 || selectedDirs.size > 0) && (
-              <span className="text-sm text-gray-600">
-                {selectedDocs.size + selectedDirs.size}{" "}
-                {t("selected") || "selected"}
-                {selectedDirs.size > 0 && (
-                  <span className="ml-2 text-gray-500">
-                    ({selectedDocs.size} files, {selectedDirs.size} folders)
-                  </span>
-                )}
-              </span>
-            )}
-            {(selectedDocs.size > 0 || selectedDirs.size > 0) && (
-              <Button
-                onClick={handleBatchDownload}
-                disabled={batchDownloading}
-                variant="primary"
-                size="sm"
+              <Input
+                type="text"
+                placeholder="Search documents by name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+              <select
+                value={selectedDocType}
+                onChange={(e) =>
+                  setSelectedDocType(
+                    e.target.value as CourseDocumentType | "all"
+                  )
+                }
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {batchDownloading
-                  ? t("processing") || "Processing..."
-                  : t("batchDownload") || "Batch Download"}
+                <option value="all">{t("allDocumentTypes")}</option>
+                <option value="courseware">{t("electronicCourseware")}</option>
+                <option value="experiment_guide">{t("experimentGuide")}</option>
+              </select>
+            </div>
+            <div className="mb-4 flex gap-3 items-center">
+              <Button onClick={toggleSelectAll} variant="secondary" size="sm">
+                {selectedDocs.size > 0 || selectedDirs.size > 0
+                  ? t("clearSelection") || "Clear Selection"
+                  : t("selectAll") || "Select All"}
               </Button>
-            )}
-          </div>
-        </>
-      )}
+              {(selectedDocs.size > 0 || selectedDirs.size > 0) && (
+                <span className="text-sm text-gray-600">
+                  {selectedDocs.size + selectedDirs.size}{" "}
+                  {t("selected") || "selected"}
+                  {selectedDirs.size > 0 && (
+                    <span className="ml-2 text-gray-500">
+                      ({selectedDocs.size} files, {selectedDirs.size} folders)
+                    </span>
+                  )}
+                </span>
+              )}
+              {(selectedDocs.size > 0 || selectedDirs.size > 0) && (
+                <Button
+                  onClick={handleBatchDownload}
+                  disabled={batchDownloading}
+                  variant="primary"
+                  size="sm"
+                >
+                  {batchDownloading
+                    ? t("processing") || "Processing..."
+                    : t("batchDownload") || "Batch Download"}
+                </Button>
+              )}
+            </div>
+          </>
+        )}
 
       {renderDocumentContent()}
     </Container>
