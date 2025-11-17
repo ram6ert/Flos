@@ -6,8 +6,6 @@ import {
   HomeworkDetails,
 } from "../../../shared/types";
 import { useState } from "react";
-import DOMPurify from "isomorphic-dompurify";
-import { API_CONFIG } from "../constants";
 
 const formatFileSize = (size: number) => {
   if (size > 1024 * 1024) {
@@ -115,47 +113,20 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
   const sanitizeContent = (content: string) => {
     if (!content) return "";
 
-    // Configure DOMPurify to allow safe HTML tags and filter images
-    const clean = DOMPurify.sanitize(content, {
-      ALLOWED_TAGS: [
-        "p",
-        "br",
-        "div",
-        "span",
-        "strong",
-        "b",
-        "em",
-        "i",
-        "u",
-        "ul",
-        "ol",
-        "li",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "img",
-      ],
-      ALLOWED_ATTR: ["src", "alt", "title", "class", "style"],
-      // Hook to filter images by URL
-      HOOKS: {
-        afterSanitizeAttributes: (node) => {
-          // Check if the node is an img element
-          if (node.tagName === "IMG") {
-            const src = node.getAttribute("src");
-            // Remove images that don't start with BASE_URL
-            if (src && !src.startsWith(API_CONFIG.BASE_URL)) {
-              node.remove();
-            }
-          }
-        },
-      },
-    });
+    let sanitized = content;
 
-    // Convert HTML to plain text with markdown-style formatting
-    let sanitized = clean;
+    // Remove dangerous elements first
+    sanitized = sanitized
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<link[^>]*>/gi, "")
+      .replace(/<meta[^>]*>/gi, "");
+
+    // Replace img tags with placeholder text
+    sanitized = sanitized.replace(
+      /<img[^>]*>/gi,
+      "**[Image removed for security]**"
+    );
 
     // Preserve formatting by converting common HTML tags to text equivalents
     sanitized = sanitized
@@ -180,12 +151,6 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
       .replace(/<\/ol>/gi, "\n")
       .replace(/<li[^>]*>/gi, "• ")
       .replace(/<\/li>/gi, "\n");
-
-    // Convert allowed images to markdown-style text
-    sanitized = sanitized.replace(
-      /<img[^>]*src="([^"]*)"[^>]*>/gi,
-      "\n**[Image: $1]**\n"
-    );
 
     // Remove any remaining HTML tags
     sanitized = sanitized.replace(/<[^>]*>/g, "");
