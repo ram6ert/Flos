@@ -6,6 +6,7 @@ import {
   HomeworkDetails,
 } from "../../../shared/types";
 import { useState } from "react";
+import DOMPurify from "isomorphic-dompurify";
 
 const formatFileSize = (size: number) => {
   if (size > 1024 * 1024) {
@@ -110,7 +111,8 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
     return "#dc3545"; // red for pending
   };
 
-  const sanitizeContent = (content: string) => {
+  // Sanitize content to plain text (for collapsed view)
+  const sanitizeContentToText = (content: string, maxLength: number = 200) => {
     if (!content) return "";
 
     let sanitized = content;
@@ -120,13 +122,13 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<link[^>]*>/gi, "")
-      .replace(/<meta[^>]*>/gi, "");
+      .replace(/<meta[^>]*>/gi, "")
+      .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, "")
+      .replace(/<object[^>]*>[\s\S]*?<\/object>/gi, "")
+      .replace(/<embed[^>]*>/gi, "");
 
-    // Replace img tags with placeholder text
-    sanitized = sanitized.replace(
-      /<img[^>]*>/gi,
-      "**[Image removed for security]**"
-    );
+    // Remove images for the summary view
+    sanitized = sanitized.replace(/<img[^>]*>/gi, "");
 
     // Preserve formatting by converting common HTML tags to text equivalents
     sanitized = sanitized
@@ -135,16 +137,16 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
       .replace(/<p[^>]*>/gi, "")
       .replace(/<\/div>/gi, "\n")
       .replace(/<div[^>]*>/gi, "")
-      .replace(/<h[1-6][^>]*>/gi, "\n**")
-      .replace(/<\/h[1-6]>/gi, "**\n")
-      .replace(/<strong[^>]*>/gi, "**")
-      .replace(/<\/strong>/gi, "**")
-      .replace(/<b[^>]*>/gi, "**")
-      .replace(/<\/b>/gi, "**")
-      .replace(/<em[^>]*>/gi, "*")
-      .replace(/<\/em>/gi, "*")
-      .replace(/<i[^>]*>/gi, "*")
-      .replace(/<\/i>/gi, "*")
+      .replace(/<h[1-6][^>]*>/gi, "\n")
+      .replace(/<\/h[1-6]>/gi, "\n")
+      .replace(/<strong[^>]*>/gi, "")
+      .replace(/<\/strong>/gi, "")
+      .replace(/<b[^>]*>/gi, "")
+      .replace(/<\/b>/gi, "")
+      .replace(/<em[^>]*>/gi, "")
+      .replace(/<\/em>/gi, "")
+      .replace(/<i[^>]*>/gi, "")
+      .replace(/<\/i>/gi, "")
       .replace(/<ul[^>]*>/gi, "\n")
       .replace(/<\/ul>/gi, "\n")
       .replace(/<ol[^>]*>/gi, "\n")
@@ -173,23 +175,63 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
       .replace(/[ \t]+/g, " ")
       .trim();
 
+    // Truncate to maxLength if needed
+    if (sanitized.length > maxLength) {
+      sanitized = sanitized.substring(0, maxLength).trim() + "...";
+    }
+
     return sanitized;
   };
 
-  const renderContentWithBold = (content: string) => {
-    // Split by **text** patterns and render bold text
-    // whitespace-pre-wrap CSS class handles newlines automatically
-    const parts = content.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        const boldText = part.slice(2, -2);
-        return (
-          <strong key={index} className="text-red-600">
-            {boldText}
-          </strong>
-        );
-      }
-      return part;
+  // Sanitize content preserving HTML and styles (for expanded details view)
+  const sanitizeContentWithHtml = (content: string) => {
+    if (!content) return "";
+
+    // Use DOMPurify to sanitize HTML while preserving safe elements like images
+    // Configure to allow images and common formatting tags
+    return DOMPurify.sanitize(content, {
+      ALLOWED_TAGS: [
+        "img",
+        "p",
+        "br",
+        "div",
+        "span",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "strong",
+        "b",
+        "em",
+        "i",
+        "u",
+        "ul",
+        "ol",
+        "li",
+        "a",
+        "blockquote",
+        "pre",
+        "code",
+        "table",
+        "thead",
+        "tbody",
+        "tr",
+        "th",
+        "td",
+      ],
+      ALLOWED_ATTR: [
+        "src",
+        "alt",
+        "width",
+        "height",
+        "href",
+        "title",
+        "class",
+        "style",
+      ],
+      ALLOW_DATA_ATTR: false,
     });
   };
 
@@ -286,7 +328,7 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
           // Add "My Homework" attachments to the existing attachments
           const myHomeworkAttachments = downloadUrlsResponse.data.map(
             (file) => ({
-              id: parseInt(file.id) || 0,
+              id: file.id || "",
               url: file.url,
               fileName: file.fileName,
               convertUrl: "",
@@ -306,7 +348,7 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
       }
     }
 
-    setDetails(homeworkDetails);
+    setDetails(homeworkDetails ?? null);
     setDetailsLoading(false);
   };
 
@@ -367,9 +409,9 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
         </div>
       </div>
 
-      {sanitizeContent(homework.content) && (
+      {sanitizeContentToText(homework.content) && (
         <div className="mb-3 text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
-          {renderContentWithBold(sanitizeContent(homework.content))}
+          {sanitizeContentToText(homework.content)}
         </div>
       )}
 
@@ -456,16 +498,20 @@ const HomeworkCard: React.FC<HomeworkCardProps> = ({
                 </div>
 
                 {/* Detailed Content */}
-                {details.content && sanitizeContent(details.content) && (
-                  <div className="mb-4">
-                    <h5 className="mb-2 text-gray-700">
-                      {t("fullDescription")}:
-                    </h5>
-                    <div className="p-3 bg-white rounded border border-gray-300 text-sm leading-6 whitespace-pre-wrap">
-                      {renderContentWithBold(sanitizeContent(details.content))}
+                {details.content &&
+                  sanitizeContentWithHtml(details.content) && (
+                    <div className="mb-4">
+                      <h5 className="mb-2 text-gray-700">
+                        {t("fullDescription")}:
+                      </h5>
+                      <div
+                        className="p-3 bg-white rounded border border-gray-300 text-sm leading-6"
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeContentWithHtml(details.content),
+                        }}
+                      />
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Attachments */}
                 {(details.attachments && details.attachments.length > 0) ||

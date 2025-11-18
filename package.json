@@ -17,7 +17,8 @@
     "build:all": "cross-env NODE_ENV=production yarn build && electron-builder --mac --win --linux",
     "preview": "vite preview",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
-    "prettier": "prettier --write . --ignore-path .gitignore"
+    "prettier": "prettier --write . --ignore-path .gitignore",
+    "clean": "rm -r dist release || true"
   },
   "keywords": [
     "electron",
@@ -65,6 +66,7 @@
     "cheerio": "1.0.0-rc.10",
     "crypto-js": "^4.1.1",
     "iconv-lite": "^0.7.0",
+    "isomorphic-dompurify": "^2.32.0",
     "node-cache": "^5.1.2"
   },
   "build": {

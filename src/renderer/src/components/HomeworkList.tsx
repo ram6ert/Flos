@@ -328,8 +328,8 @@ const HomeworkList: React.FC<HomeworkListProps> = ({
             if (isSubmittedA && !isSubmittedB) return 1;
             if (!isSubmittedA && isSubmittedB) return -1;
 
-            if (isOverdueA && !isOverdueB) return -1;
-            if (!isOverdueA && isOverdueB) return 1;
+            if (isOverdueA && !isOverdueB) return 1;
+            if (!isOverdueA && isOverdueB) return -1;
 
             comparison = Math.abs(timeA) - Math.abs(timeB);
             break;
