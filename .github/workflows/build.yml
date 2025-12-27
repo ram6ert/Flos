@@ -87,41 +87,41 @@ jobs:
       - name: List artifacts for debugging
         run: find artifacts -type f -name "*" | head -20
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: BAKA Course Platform v${{ steps.version.outputs.version }}
-          body: |
-            ## BAKA Course Platform v${{ steps.version.outputs.version }}
+      # - name: Create Release
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     tag_name: v${{ steps.version.outputs.version }}
+      #     name: BAKA Course Platform v${{ steps.version.outputs.version }}
+      #     body: |
+      #       ## BAKA Course Platform v${{ steps.version.outputs.version }}
 
-            ### Features
-            - 📚 Course management and viewing
-            - 📝 Homework tracking and submission
-            - 📄 Document access and download
-            - 📅 Weekly schedule view with GBK encoding support
+      #       ### Features
+      #       - 📚 Course management and viewing
+      #       - 📝 Homework tracking and submission
+      #       - 📄 Document access and download
+      #       - 📅 Weekly schedule view with GBK encoding support
 
-            ### Downloads
-            - **Windows**: `.exe` installer
-            - **macOS**: `.dmg` disk image and `.zip` archive
-            - **Linux**: `.AppImage` package
+      #       ### Downloads
+      #       - **Windows**: `.exe` installer
+      #       - **macOS**: `.dmg` disk image and `.zip` archive
+      #       - **Linux**: `.AppImage` package
 
-            ### Installation
-            1. Download the appropriate file for your operating system
-            2. Run the installer or extract the archive
-            3. Launch BAKA Course Platform
+      #       ### Installation
+      #       1. Download the appropriate file for your operating system
+      #       2. Run the installer or extract the archive
+      #       3. Launch BAKA Course Platform
 
-            ---
-            🤖 Built automatically with GitHub Actions
-          files: |
-            artifacts/smart-course-platform-windows/*
-            artifacts/smart-course-platform-macos/*
-            artifacts/smart-course-platform-linux/*
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #       ---
+      #       🤖 Built automatically with GitHub Actions
+      #     files: |
+      #       artifacts/smart-course-platform-windows/*
+      #       artifacts/smart-course-platform-macos/*
+      #       artifacts/smart-course-platform-linux/*
+      #     generate_release_notes: true
+      #     draft: false
+      #     prerelease: false
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Mirror release to public repository
         if: success()
