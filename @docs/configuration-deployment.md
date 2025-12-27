@@ -9,23 +9,25 @@ The Smart Course Platform uses modern tooling for development, building, and dep
 ### TypeScript Configuration
 
 #### Main TypeScript Config (`tsconfig.json`)
+
 Frontend and shared types configuration.
+
 ```json
 {
   "compilerOptions": {
-    "target": "ES2020",              // Modern JavaScript target
+    "target": "ES2020", // Modern JavaScript target
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",              // Latest module system
-    "moduleResolution": "bundler",   // Bundler-aware resolution
-    "jsx": "react-jsx",              // React JSX transform
-    "strict": true,                  // Strict type checking
-    "noUnusedLocals": true,          // Catch unused variables
-    "noUnusedParameters": true,      // Catch unused parameters
+    "module": "ESNext", // Latest module system
+    "moduleResolution": "bundler", // Bundler-aware resolution
+    "jsx": "react-jsx", // React JSX transform
+    "strict": true, // Strict type checking
+    "noUnusedLocals": true, // Catch unused variables
+    "noUnusedParameters": true, // Catch unused parameters
     "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true,            // Speed up builds
-    "isolatedModules": true,         // Vite compatibility
-    "noEmit": true,                  // Let Vite handle emit
-    "resolveJsonModule": true,       // JSON import support
+    "skipLibCheck": true, // Speed up builds
+    "isolatedModules": true, // Vite compatibility
+    "noEmit": true, // Let Vite handle emit
+    "resolveJsonModule": true, // JSON import support
     "allowImportingTsExtensions": true
   },
   "include": ["src/renderer", "src/shared"],
@@ -34,7 +36,9 @@ Frontend and shared types configuration.
 ```
 
 #### Node.js TypeScript Config (`tsconfig.node.json`)
+
 Build tools and Node.js scripts configuration.
+
 ```json
 {
   "compilerOptions": {
@@ -49,14 +53,16 @@ Build tools and Node.js scripts configuration.
 ```
 
 #### Main Process TypeScript Config (`tsconfig.main.json`)
+
 Electron main process configuration.
+
 ```json
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "CommonJS",            // Node.js compatibility
-    "target": "ES2020",              // Node.js 16+ support
-    "moduleResolution": "node",      // Node.js resolution
+    "module": "CommonJS", // Node.js compatibility
+    "target": "ES2020", // Node.js 16+ support
+    "moduleResolution": "node", // Node.js resolution
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
@@ -80,36 +86,37 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [
-    react(),                         // React JSX/TSX support
-    tailwindcss()                    // TailwindCSS integration
+    react(), // React JSX/TSX support
+    tailwindcss(), // TailwindCSS integration
   ],
   root: path.join(__dirname, "src/renderer"),
-  base: "./",                        // Relative paths for Electron
+  base: "./", // Relative paths for Electron
   build: {
     outDir: path.join(__dirname, "dist/renderer"),
-    emptyOutDir: true,               // Clean output directory
+    emptyOutDir: true, // Clean output directory
     sourcemap: process.env.NODE_ENV === "development",
     minify: process.env.NODE_ENV === "production" ? "esbuild" : false,
     rollupOptions: {
-      input: path.join(__dirname, "src/renderer/index.html")
-    }
+      input: path.join(__dirname, "src/renderer/index.html"),
+    },
   },
   server: {
-    port: 5173                       // Development server port
+    port: 5173, // Development server port
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src/renderer"),
-      "@shared": path.resolve(__dirname, "src/shared")
-    }
+      "@shared": path.resolve(__dirname, "src/shared"),
+    },
   },
   css: {
-    devSourcemap: process.env.NODE_ENV === "development"
-  }
+    devSourcemap: process.env.NODE_ENV === "development",
+  },
 });
 ```
 
 **Key Features:**
+
 - **React Plugin**: JSX/TSX processing with hot reload
 - **TailwindCSS**: Direct Vite integration
 - **Path Aliases**: Clean import paths
@@ -124,44 +131,45 @@ Utility-first CSS framework configuration.
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
-    "./src/renderer/src/**/*.{js,jsx,ts,tsx}"
+    "./src/renderer/src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {
       colors: {
         primary: {
-          50: "#eff6ff",             // Light blue
-          500: "#3b82f6",            // Primary blue
-          600: "#2563eb",            // Medium blue
-          700: "#1d4ed8"             // Dark blue
-        }
+          50: "#eff6ff", // Light blue
+          500: "#3b82f6", // Primary blue
+          600: "#2563eb", // Medium blue
+          700: "#1d4ed8", // Dark blue
+        },
       },
       spacing: {
-        18: "4.5rem",               // Custom spacing
-        22: "5.5rem"
+        18: "4.5rem", // Custom spacing
+        22: "5.5rem",
       },
       maxHeight: {
-        96: "24rem"                 // Extended max heights
+        96: "24rem", // Extended max heights
       },
       transitionDelay: {
-        150: "150ms"                // Custom transition timing
+        150: "150ms", // Custom transition timing
       },
       aspectRatio: {
-        video: "16 / 9"             // Video aspect ratio
+        video: "16 / 9", // Video aspect ratio
       },
       gridTemplateRows: {
-        0: "0fr",                   // Collapsed grid rows
-        1: "1fr"                    // Expanded grid rows
-      }
-    }
+        0: "0fr", // Collapsed grid rows
+        1: "1fr", // Expanded grid rows
+      },
+    },
   },
   plugins: [
-    require("@tailwindcss/forms")    // Enhanced form styling
-  ]
+    require("@tailwindcss/forms"), // Enhanced form styling
+  ],
 };
 ```
 
 **Design System:**
+
 - **Blue Color Palette**: Primary branding colors
 - **Extended Spacing**: Additional size utilities
 - **Custom Utilities**: Video ratios, grid templates
@@ -204,6 +212,7 @@ TypeScript and React linting rules.
 ```
 
 **Key Rules:**
+
 - **React Hooks**: Enforces React Hooks rules
 - **Unused Imports**: Automatic cleanup of unused imports
 - **TypeScript Integration**: TypeScript-aware linting
@@ -215,16 +224,17 @@ Code formatting standards.
 
 ```json
 {
-  "semi": true,                     // Semicolons required
-  "trailingComma": "es5",          // ES5 trailing commas
-  "singleQuote": false,            // Double quotes
-  "printWidth": 80,                // Line width limit
-  "tabWidth": 2,                   // 2-space indentation
-  "useTabs": false                 // Spaces over tabs
+  "semi": true, // Semicolons required
+  "trailingComma": "es5", // ES5 trailing commas
+  "singleQuote": false, // Double quotes
+  "printWidth": 80, // Line width limit
+  "tabWidth": 2, // 2-space indentation
+  "useTabs": false // Spaces over tabs
 }
 ```
 
 **Formatting Rules:**
+
 - **Consistent Semicolons**: Required for clarity
 - **Double Quotes**: Consistent string quoting
 - **80 Character Limit**: Readable line lengths
@@ -280,7 +290,7 @@ Multi-platform distribution configuration in `package.json`.
       "dist/**/*",
       "assets/**/*",
       "package.json",
-      "!**/*.map"                   // Exclude source maps
+      "!**/*.map" // Exclude source maps
     ],
     "publish": {
       "provider": "github",
@@ -292,7 +302,7 @@ Multi-platform distribution configuration in `package.json`.
     "mac": {
       "category": "public.app-category.education",
       "icon": "assets/icon.icns",
-      "identity": null,             // Disable code signing
+      "identity": null, // Disable code signing
       "gatekeeperAssess": false,
       "hardenedRuntime": false,
       "target": [
@@ -318,7 +328,7 @@ Multi-platform distribution configuration in `package.json`.
 
     // NSIS Installer Configuration
     "nsis": {
-      "oneClick": false,            // Allow custom install location
+      "oneClick": false, // Allow custom install location
       "allowToChangeInstallationDirectory": true
     }
   }
@@ -326,6 +336,7 @@ Multi-platform distribution configuration in `package.json`.
 ```
 
 **Platform Targets:**
+
 - **macOS**: DMG disk images and ZIP archives (ARM64)
 - **Windows**: NSIS installers and portable executables (x64, ia32)
 - **Linux**: AppImage packages (universal)
@@ -347,6 +358,7 @@ runs-on: ${{ matrix.os }}
 ```
 
 **Cross-platform Build Strategy:**
+
 - **Ubuntu**: Linux AppImage builds
 - **Windows**: NSIS installer and portable builds
 - **macOS**: DMG and ZIP builds (ARM64 optimized)
@@ -375,6 +387,7 @@ steps:
 ```
 
 **Key Features:**
+
 - **Node.js 18**: Modern JavaScript runtime
 - **Yarn Caching**: Faster dependency installation
 - **Frozen Lockfile**: Reproducible builds
@@ -420,7 +433,7 @@ Automated GitHub release creation and distribution.
 release:
   needs: build
   runs-on: ubuntu-latest
-  if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+  if: github.ref == 'refs/heads/release' && github.event_name == 'push'
 
   steps:
     - name: Get version from package.json
@@ -440,6 +453,7 @@ release:
 ```
 
 **Release Features:**
+
 - **Automatic Versioning**: From package.json version
 - **Multi-platform Assets**: All build artifacts included
 - **Release Notes**: Auto-generated from commits

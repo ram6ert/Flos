@@ -2,9 +2,9 @@ name: Test Build and Quality Checks
 
 on:
   push:
-    branches-ignore: [master]
+    branches-ignore: [release]
   pull_request:
-    branches: [master, dev]
+    branches: [release, dev]
 
 jobs:
   test-build:
