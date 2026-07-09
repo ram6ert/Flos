@@ -1,137 +1,137 @@
 {
-  "name": "smart-course-platform",
-  "version": "1.5.3",
-  "description": "An Electron app for convenient access to course information, homework, and documents",
-  "main": "dist/main/index.min.js",
-  "scripts": {
-    "dev": "concurrently \"yarn dev:vite\" \"yarn dev:electron\"",
-    "dev:vite": "vite",
-    "dev:electron": "cross-env NODE_ENV=development electron .",
-    "build": "cross-env NODE_ENV=production yarn build:vite && yarn build:electron",
-    "build:vite": "cross-env NODE_ENV=production vite build",
-    "build:electron": "esbuild src/main/index.ts --bundle --minify --platform=node --target=node16 --format=cjs --outfile=dist/main/index.min.js --external:electron --sourcemap && esbuild src/main/preload.ts --bundle --minify --target=chrome58 --outfile=dist/main/preload.js --external:electron --sourcemap",
-    "build:dist": "cross-env NODE_ENV=production yarn build && electron-builder",
-    "build:win": "cross-env NODE_ENV=production yarn build && electron-builder --win",
-    "build:mac": "cross-env NODE_ENV=production yarn build && electron-builder --mac",
-    "build:linux": "cross-env NODE_ENV=production yarn build && electron-builder --linux",
-    "build:all": "cross-env NODE_ENV=production yarn build && electron-builder --mac --win --linux",
-    "preview": "vite preview",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
-    "prettier": "prettier --write . --ignore-path .gitignore",
-    "clean": "rm -r dist release || true"
-  },
-  "keywords": [
-    "electron",
-    "react",
-    "typescript",
-    "vite",
-    "course",
-    "education"
-  ],
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "@tailwindcss/forms": "^0.5.10",
-    "@tailwindcss/vite": "^4.1.13",
-    "@types/cheerio": "^0.22.31",
-    "@types/crypto-js": "^4.1.1",
-    "@types/node": "^20.5.0",
-    "@types/react": "^18.2.20",
-    "@types/react-dom": "^18.2.7",
-    "@typescript-eslint/eslint-plugin": "^6.4.0",
-    "@typescript-eslint/parser": "^6.4.0",
-    "@vitejs/plugin-react": "^4.0.4",
-    "concurrently": "^8.2.0",
-    "cross-env": "^7.0.3",
-    "electron": "^25.6.0",
-    "electron-builder": "^24.6.3",
-    "esbuild": "^0.25.10",
-    "eslint": "^8.47.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.3",
-    "eslint-plugin-unused-imports": "^4.2.0",
-    "i18next": "^25.5.2",
-    "i18next-browser-languagedetector": "^8.2.0",
-    "prettier": "^3.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-i18next": "^15.7.3",
-    "tailwindcss": "^4.1.13",
-    "typescript": "^5.1.6",
-    "vite": "^4.4.8",
-    "wait-on": "^7.0.1"
-  },
-  "dependencies": {
-    "axios": "^1.5.0",
-    "cheerio": "1.0.0-rc.10",
-    "crypto-js": "^4.1.1",
-    "iconv-lite": "^0.7.0",
-    "isomorphic-dompurify": "^2.32.0",
-    "node-cache": "^5.1.2"
-  },
-  "build": {
-    "appId": "com.smartcourse.platform",
-    "productName": "BAKA Course Platform",
-    "directories": {
-      "output": "release"
+    "name": "smart-course-platform",
+    "version": "1.5.4",
+    "description": "An Electron app for convenient access to course information, homework, and documents",
+    "main": "dist/main/index.min.js",
+    "scripts": {
+        "dev": "concurrently \"yarn dev:vite\" \"yarn dev:electron\"",
+        "dev:vite": "vite",
+        "dev:electron": "cross-env NODE_ENV=development electron .",
+        "build": "cross-env NODE_ENV=production yarn build:vite && yarn build:electron",
+        "build:vite": "cross-env NODE_ENV=production vite build",
+        "build:electron": "esbuild src/main/index.ts --bundle --minify --platform=node --target=node16 --format=cjs --outfile=dist/main/index.min.js --external:electron --sourcemap && esbuild src/main/preload.ts --bundle --minify --target=chrome58 --outfile=dist/main/preload.js --external:electron --sourcemap",
+        "build:dist": "cross-env NODE_ENV=production yarn build && electron-builder",
+        "build:win": "cross-env NODE_ENV=production yarn build && electron-builder --win",
+        "build:mac": "cross-env NODE_ENV=production yarn build && electron-builder --mac",
+        "build:linux": "cross-env NODE_ENV=production yarn build && electron-builder --linux",
+        "build:all": "cross-env NODE_ENV=production yarn build && electron-builder --mac --win --linux",
+        "preview": "vite preview",
+        "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+        "prettier": "prettier --write . --ignore-path .gitignore",
+        "clean": "rm -r dist release || true"
     },
-    "files": [
-      "dist/**/*",
-      "assets/**/*",
-      "package.json",
-      "!**/*.map"
+    "keywords": [
+        "electron",
+        "react",
+        "typescript",
+        "vite",
+        "course",
+        "education"
     ],
-    "publish": {
-      "provider": "github",
-      "owner": "Baka-Course-Platform",
-      "repo": "Baka-Course-Platform"
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@tailwindcss/forms": "^0.5.10",
+        "@tailwindcss/vite": "^4.1.13",
+        "@types/cheerio": "^0.22.31",
+        "@types/crypto-js": "^4.1.1",
+        "@types/node": "^20.5.0",
+        "@types/react": "^18.2.20",
+        "@types/react-dom": "^18.2.7",
+        "@typescript-eslint/eslint-plugin": "^6.4.0",
+        "@typescript-eslint/parser": "^6.4.0",
+        "@vitejs/plugin-react": "^4.0.4",
+        "concurrently": "^8.2.0",
+        "cross-env": "^7.0.3",
+        "electron": "^25.6.0",
+        "electron-builder": "^24.6.3",
+        "esbuild": "^0.25.10",
+        "eslint": "^8.47.0",
+        "eslint-plugin-react-hooks": "^4.6.0",
+        "eslint-plugin-react-refresh": "^0.4.3",
+        "eslint-plugin-unused-imports": "^4.2.0",
+        "i18next": "^25.5.2",
+        "i18next-browser-languagedetector": "^8.2.0",
+        "prettier": "^3.0.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-i18next": "^15.7.3",
+        "tailwindcss": "^4.1.13",
+        "typescript": "^5.1.6",
+        "vite": "^4.4.8",
+        "wait-on": "^7.0.1"
     },
-    "mac": {
-      "category": "public.app-category.education",
-      "icon": "assets/icon.icns",
-      "identity": null,
-      "gatekeeperAssess": false,
-      "hardenedRuntime": false,
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64"
-          ]
+    "dependencies": {
+        "axios": "^1.5.0",
+        "cheerio": "1.0.0-rc.10",
+        "crypto-js": "^4.1.1",
+        "iconv-lite": "^0.7.0",
+        "isomorphic-dompurify": "^2.32.0",
+        "node-cache": "^5.1.2"
+    },
+    "build": {
+        "appId": "com.smartcourse.platform",
+        "productName": "BAKA Course Platform",
+        "directories": {
+            "output": "release"
         },
-        {
-          "target": "zip",
-          "arch": [
-            "arm64"
-          ]
-        }
-      ]
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
+        "files": [
+            "dist/**/*",
+            "assets/**/*",
+            "package.json",
+            "!**/*.map"
+        ],
+        "publish": {
+            "provider": "github",
+            "owner": "Baka-Course-Platform",
+            "repo": "Baka-Course-Platform"
         },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
+        "mac": {
+            "category": "public.app-category.education",
+            "icon": "assets/icon.icns",
+            "identity": null,
+            "gatekeeperAssess": false,
+            "hardenedRuntime": false,
+            "target": [
+                {
+                    "target": "dmg",
+                    "arch": [
+                        "arm64"
+                    ]
+                },
+                {
+                    "target": "zip",
+                    "arch": [
+                        "arm64"
+                    ]
+                }
+            ]
+        },
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64",
+                        "ia32"
+                    ]
+                },
+                {
+                    "target": "portable",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "assets/icon.ico"
+        },
+        "linux": {
+            "target": "AppImage",
+            "icon": "assets/icon.png"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true
         }
-      ],
-      "icon": "assets/icon.ico"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "assets/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
     }
-  }
 }
