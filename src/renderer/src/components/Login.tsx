@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import CryptoJS from "crypto-js";
+import { strEnc } from "../utils/strEnc";
 import {
   Button,
   Input,
@@ -66,7 +66,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       const saved = await window.electronAPI.getStoredCredentials();
       if (saved) {
         setUsername(saved.username || "");
-        setPassword(saved.password || ""); // This is already MD5 hashed
+        setPassword(saved.password || ""); // This is already hashed via strEnc
         setIsPasswordHashed(true); // Mark that this password is already hashed
         setRememberCredentials(true);
       }
@@ -76,7 +76,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   const hashPassword = (plainPassword: string): string => {
-    return CryptoJS.MD5(plainPassword).toString();
+    return strEnc(plainPassword);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

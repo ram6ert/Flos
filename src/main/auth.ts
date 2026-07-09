@@ -186,7 +186,7 @@ export const handleStoreCredentials = async (credentials: {
 }): Promise<boolean> => {
   try {
     const credentialsPath = getCredentialsPath();
-    // Password is already MD5 hashed by the renderer
+    // Password is already hashed (strEnc) by the renderer
     const data = {
       username: credentials.username,
       passwordHash: credentials.password, // Already hashed
