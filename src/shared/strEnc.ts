@@ -1,13 +1,13 @@
 /**
  * strEnc.ts — 可读版
  *
- * 这是对原 main.min.js 里 strEnc 的逐行还原重写，输出与原版完全一致。
- * 本质：一个魔改版 DES，用三个硬编码的单字符密钥 "1"、"2"、"3" 依次对
- * 输入字符串做三次 DES 加密（不是标准 3DES 的"加密-解密-加密"，而是三次都加密），
+ * 这是对原 main.min.js 里 strEnc 的可读版重写。
+ * 本质：一个魔改版 DES，依次使用 "JyD@2026"、"Ve5.4Sec"、"Log!nEnc"
+ * 三个密钥加密（不是标准 3DES 的"加密-解密-加密"，而是每个密钥分块都加密），
  * 每次处理 4 个字符（用字符的 16 位编码拼成 64 位分组，而不是标准 DES 的 8 字节分组），
  * 最终每个分组输出 16 位十六进制字符串，拼接后作为结果返回。
  *
- * ⚠️ 安全性提示：密钥硬编码在前端、且只有 3 个字符，任何人都能读到源码并解密，
+ * ⚠️ 安全性提示：密钥硬编码，任何人都能读到源码并解密，
  * 这套东西只能防"裸眼看到明文"，挡不住真正的攻击者，不要当作安全加密使用。
  */
 
@@ -231,10 +231,13 @@ function desEncryptBlock(plainBits64: number[], keyBits64: number[]): number[] {
 /**
  * strEnc 主函数
  * @param text - 待加密的原文
- * @param keys - 依次使用的密钥列表，默认为原版的 ["1","2","3"]
+ * @param keys - 依次使用的密钥列表，默认为原版的三个密钥
  * @returns 十六进制密文
  */
-export function strEnc(text: string, keys: string[] = ["1", "2", "3"]): string {
+export function strEnc(
+  text: string,
+  keys: string[] = ["JyD@2026", "Ve5.4Sec", "Log!nEnc"]
+): string {
   const keyBlocksList = keys
     .filter((k) => k != null && k !== "")
     .map((k) => keyStringToBlocks(k));

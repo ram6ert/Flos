@@ -5,6 +5,7 @@ import { app, BrowserWindow } from "electron";
 import * as iconv from "iconv-lite";
 import { API_CONFIG, courseAPI, courseVe } from "./constants";
 import { LoginCredentials, LoginResponse } from "../shared/types";
+import { strEnc } from "../shared/strEnc";
 import { Logger } from "./logger";
 
 // Session management - store credentials for re-authentication
@@ -94,7 +95,7 @@ export const handleLogin = async (
     formData.append("login", "main_2");
     formData.append("qxkt_type", "");
     formData.append("qxkt_url", "");
-    formData.append("username", credentials.username);
+    formData.append("username", strEnc(credentials.username));
     formData.append("password", credentials.password);
     formData.append("passcode", credentials.passcode);
 
